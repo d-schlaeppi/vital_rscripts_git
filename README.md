@@ -1,2 +1,2 @@
 # vital_rscripts_git
-All r scripts used to do the data analysis in R
+r scripts used for the data analysis of the vital project
