@@ -21,4 +21,5 @@ git pull
 git add *   (says that all the files shall be collected for updating/uploading)
 git commit (commit to the changes)
 in the terminal text editor explain your changes and then exit (control X), yes for safe, and Enter to confirm name
-git push
+git push https://github.com/d-schlaeppi/vital_rscripts_git.git
+
