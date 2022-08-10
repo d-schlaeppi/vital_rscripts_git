@@ -5,7 +5,6 @@
 # for more information on fort-myrmidon and fort-studio see: 
 # "https://formicidae-tracker.github.io/myrmidon/latest/index.html"
 
-
 rm(list=ls())
 gc()
 
