@@ -1,57 +1,68 @@
+# this script contains: 
+# 1. CLONE CAPSULES FROM MANUAL TO MANUAL FILES
+# 2. Extraction of in formation on AntPose and Capsules from manually oriented data
+
+# for more information on fort-myrmidon and fort-studio see: 
+# "https://formicidae-tracker.github.io/myrmidon/latest/index.html"
+
 
 rm(list=ls())
 gc()
 
-########################################################################
-########### CLONE CAPSULES FROM MANUAL TO MANUAL FILES #################
-# CREATE THE MANUALLY ORIENTED BASE FILES
-# Orient 1 large colony per tracking system used (5 total) by hand.
-# pick 1 out of this 5 and, in FortStudio, create a capsule definition for a medium sized ant and replicate the shape for all of the ants of the colony.
-# Copy this capsule for the remaining 4 colonies using Clone_capsule_manual_to_manual.R . The originals of these files have been stored as *.myrmidon.old
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 1. CLONE CAPSULES FROM MANUAL TO MANUAL FILES ####
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
 
-#"https://formicidae-tracker.github.io/myrmidon/latest/index.html"
+# Steps to take first:
+# Create manually oriented base files
+# Orient 1 lanrge colony per tracking system (food flow experiment Daniel - 3 tracking systems used for main tracking and 2 tracking systems used to record feeding sessions)
+# used tracking systems Daniel: Maintracking - trojan, prideaux, guillam ; feeding sessions - guillam, esterhase 
+# choose 1 of the manually oriented colonies to define a capsule definition in fort studio for a medium sized ant and replicate the shape for all of the ants of the colony
+# apply this capsule definition for the remaining manually oriented colonies using the script below. The originals of these files have been stored as *.myrmidon.old
 
-######load necessary libraries
+# manually oriented colonies: 
+#     guillam_c03
+#     prideaux_c02
+#     trojan_c27
+
+# question: do I also need the mean body size for the feeding tracking systems? guillam and esterhase?
+
+
+
+#### prerequisites ####
+
+### load necessary libraries
 library(FortMyrmidon) ####R bindings
 library(Rcpp)
 library(circular)
 library(R.utils)
 
-### directory of data and myrmidon files
-#dir_data <- '/media/cf19810/DISK4/ADRIANO/EXPERIMENT_DATA/'
-dir_data <- '/media/ll16598/Seagate Desktop Drive/'
+### set directory of data and myrmidon files
+dir_data <- '/media/gw20248/gismo_hd2/vital/fc2/'
 
+### myrmidon file (manually oriented) containing the capsule definition which was applied/cloned to all ants of the colony
+defined_capsule_file <- paste(dir_data,"vital_fc2_prideaux_c02_DS_AntsCreated_ManuallyOriented_CapsuleManuallyDefined.myrmidon",sep='')
 
-### tracking data folder name
-#track_data_name <- 'EG_NTM_s30_MODa.0000'
-
-### manually oriented myrmidon file name
-#defined_capsule_file <- paste(dir_data,"REP1/R1SP_27-02-21_Oriented.myrmidon",sep='') #polyakov
-defined_capsule_file <- paste(dir_data,"13P_IV31_110522_HDN/13P_IV31_110522_HDN_manual_orient.myrmidon",sep='') #prideaux
-
-
-### manually oriented myrmidon file name
-#no_capsule_file <- 'EG_NTM_s25_DEHb.myrmidon'
-
-# List of manually oriented files without capsules
+### List of remaining manually oriented files without capsules
 no_capsule_list <- list(
-  paste(dir_data,"3P_IV3_160222_ALL/3P_IV3_160222_ALL_manual_orient.myrmidon",sep=''), 
-  paste(dir_data,"6P_IV37_220322_POL/6P_IV37_220322_POL_manual_orient.myrmidon",sep=''), 
-  paste(dir_data,"8S_IV21_060422_WST/8S_IV21_060422_WST_manual_orient.myrmidon",sep=''), 
-  #  paste(dir_data,"13P_IV31_110522_HDN/13P_IV31_110522_HDN_manual_orient",sep=''), 
-  paste(dir_data,"14P_IV20_170522_LEA/14P_IV20_170522_LEA_manual_orient.myrmidon",sep='')) 
+  paste(dir_data,"vital_fc2_guillam_c03_DS_AntsCreated_ManuallyOriented.myrmidon",sep=''), 
+  paste(dir_data,"vital_fc2_trojan_c27_DS_AntsCreated_ManuallyOriented.myrmidon",sep=''),
+  paste(dir_data,"vital_fc2_prideaux_c02_DS_AntsCreated_ManuallyOriented.myrmidon",sep='')
+  )
 
 #create output folder
-output_name <- file.path(paste0('/media/ll16598/Seagate Desktop Drive/', "Mean_ant_length_colonies.txt")) # (saved INSIDE the Network_analysis folder)
+output_name <- file.path(paste0('/media/gw20248/gismo_hd2/vital/fc2/', "Mean_ant_length_colonies.txt")) 
 
 
-#################################################################################################################################################################################################################
-###########STEP 1 - use manually oriented data to extract important information about AntPose and Capsules
-###########          IN YOUR PARTICULAR SPECIES AND EXPERIMENTAL SETTINGS  
-###########IMPORTANT: FOR THIS TO WORK YOU NEED TO HAVE DEFINED THE SAME CAPSULES WITH THE SAME NAMES ACROSS ALL YOUR MANUALLY ORIENTED DATA FILES
-#################################################################################################################################################################################################################
-#data_list         <- list ("/home/eg15396/Documents/Data/NTM/NTM_s30_auto_orient.myrmidon") ###here list all the myrmidon files containing oriented data
-data_list         <- list (defined_capsule_file)
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 2. Extraction of in formation on AntPose and Capsules from manually oriented data ####
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+
+# prerequisites
+# all manually oriented data files need to have the same capsule definition assigned for the following to work
+
+data_list         <- list (defined_capsule_file) # here list all the myrmidon files containing oriented data
 oriented_metadata <- NULL
 capsule_list <- list()
 for (myrmidon_file in data_list){
@@ -62,7 +73,6 @@ for (myrmidon_file in data_list){
   for (ant in oriented_ants){
     ###extract ant length and capsules
     ant_length_px <- mean(fmQueryComputeMeasurementFor(oriented_data,antID=ant$ID)$length_px)
-    
     capsules      <- ant$capsules
     for (caps in 1:length(capsules)){
       capsule_name  <- capsule_names[[capsules[[caps]]$type]]
@@ -106,16 +116,22 @@ for (myrmidon_file in data_list){
   }
 }
 
-### Measures of mean ant length and offset between tag centre and ant centre will be heavily influenced by the queen #########
-### So we need to remove the queen from the computation
-### One way of doing so is to find and remove outliers in the ant length measure (provided there is enough variation between queen and worker size)
-interquartile_range <- quantile(oriented_metadata$length_px,probs=c(0.25,0.75), na.rm =TRUE)
 
+
+
+#### the queen ####
+# Measures of mean ant length and offset between tag centre and ant centre will be heavily influenced by the queen
+# The queen needs to be removed as an outlier to get a good measure of mean worker size
+# => find and remove outliers in the ant length measure (provided there is enough variation between queen and worker size)
+
+### defining outliers
+interquartile_range <- quantile(oriented_metadata$length_px,probs=c(0.25,0.75), na.rm =TRUE)
 outlier_bounds      <- c(interquartile_range[1]-1.5*(interquartile_range[2]-interquartile_range[1]),interquartile_range[2]+1.5*(interquartile_range[2]-interquartile_range[1]))
-###apply outlier exclusion to oriented_metadata...
+
+### apply outlier exclusion to oriented_metadata
 oriented_metadata <- oriented_metadata[which(oriented_metadata$length_px>=outlier_bounds[1]&oriented_metadata$length_px<=outlier_bounds[2]),]  
 
-###...and to capsule list
+### apply outlier exclusion to capsule list
 for (caps in 1:length(capsule_list)){
   capsule_list[[caps]] <-capsule_list[[caps]] [ as.character(interaction(capsule_list[[caps]] $experiment,capsule_list[[caps]] $antID))%in%as.character(interaction(oriented_metadata $experiment,oriented_metadata $antID)),]
 }
@@ -126,7 +142,7 @@ for (caps in 1:length(capsule_list)){
 
 ANT.LENGTH <- NULL
 
-### Write capsule data in each manually oriented file
+#### Write capsule data to each manually oriented file ####
 for (no_capsule_file in no_capsule_list) {
   # open tracking data which need new capsule
   tracking_data <- fmExperimentOpen(no_capsule_file) 
@@ -170,7 +186,7 @@ for (no_capsule_file in no_capsule_list) {
   
   
   #tracking_data$save(no_capsule_file) 
-  tracking_data$save(paste0(sub("\\..*", "", no_capsule_file),"_CapsuleDef3.myrmidon"))
+  tracking_data$save(paste0(sub("\\..*", "", no_capsule_file),"_CapsAutoDefined.myrmidon"))
   
   ## save
   if (file.exists(output_name)){
@@ -184,8 +200,9 @@ for (no_capsule_file in no_capsule_list) {
   rm(list=(c("tracking_data")))
   
 }
-### ant length for defined capsule file
-#capsule_file
+ 
+#### Extract ant length for defined capsule file ####
+
 for (defined_capsule_file in defined_capsule_file) {
   # open tracking data which need new capsule
   tracking_data <- fmExperimentOpen(no_capsule_file) 
@@ -199,12 +216,20 @@ for (ant in ants){
     length_px        = ant_length_px,
     stringsAsFactors = F))
 }
-###
-#create dataset with mean values x colony
+
+#### store mean values for each colony ####
+
+# create dataset with mean values x colony
+
 ant_length_colony1 <- data.frame(ant.length=mean(ANT.LENGTH$length_px,na.rm=T), colony=defined_capsule_file)
+
 #IMPORTANT:
 # WOULD BE BETTER TO DO THIS STEP AUTOMATICALLY BUT IT HAS BEEN DONE MANUALLY AT THE MOMENT:
 # SAVE THE FILES WITH A NEW NAME "NAME_TrackSystemName-base.myrmidon" 
 # THIS IS THE BASE INPUT FOR THE FOLLOWING STEP IN auto_orientation_loop.R
 
-##LASTLY!! Go to fort-studio to check things look all right
+#### LAST! ####
+
+# Go to fort-studio to check things look all right 
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ####
