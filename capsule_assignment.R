@@ -5,6 +5,8 @@
 # for more information on fort-myrmidon and fort-studio see: 
 # "https://formicidae-tracker.github.io/myrmidon/latest/index.html"
 
+?FortMyrmidon
+
 rm(list=ls())
 gc()
 
@@ -56,7 +58,7 @@ output_name <- file.path(paste0('/media/gw20248/gismo_hd2/vital/fc2/', "Mean_ant
 
 
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
-#### 2. Extraction of in formation on AntPose and Capsules from manually oriented data ####
+#### 2. Extraction of information on AntPose and Capsules from manually oriented data ####
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
 
 # prerequisites

@@ -27,6 +27,7 @@ library(FortMyrmidon) #R bindings
 # select the files you want to work with
 main_file_name <- "vital_fc2_prideaux_c02_DS_AntsCreated_ManuallyOriented_CapsAutoDefined.myrmidon"
 secondary_file_name <- "vital_fc2_esterhase_c02_feeding_DS_AntsCreated.myrmidon"
+no_ants <- "vital_fc2_esterhase_c02_feeding_DS_base.myrmidon"
 # working directory
 directory <- "~/Documents/data_copy_for_trials"
 setwd(directory)
@@ -36,6 +37,38 @@ setwd(directory)
 # tracking file you would like to create ants for: 
 main_tracking_data <- fmExperimentOpen(main_file_name)
 secondary_tracking_data <-  fmExperimentOpen(secondary_file_name)
+no_ant_data <-  fmExperimentOpen(no_ants)
+
+
+no_ant_data$ants
+no_ant_data$ants <- secondary_tracking_data$ants
+
+
+
+^### playing around with lists
+
+x <- list(1, "a", TRUE, 1+4i, list("a", 2))
+x  
+x[[5]][[2]] <- 3
+
+
+
+tracking_data$ants[[1]]$ID
+secondary_tracking_data$ants[[1]]$identifications[[1]]$tagValue
+secondary_tracking_data$ants[[1]]$identifications[[1]]$targetAntID <- 1000
+secondary_tracking_data$ants[[1]]$identifications[[1]]
+
+hello <- secondary_tracking_data$ants
+str(hello)
+hello[[1]]$identifications[[1]]$targetAntID <- 999
+
+
+
+
+
+
+
+
   
 # extract the tag statistics to know how many times each tag was detected:
 main_tag_statistics <- fmQueryComputeTagStatistics(main_tracking_data)
@@ -43,16 +76,6 @@ secondary_tag_statistics <- fmQueryComputeTagStatistics(secondary_tracking_data)
 
 
 
-
-
-
-tracking_data$ants[[1]]$ID
-tracking_data$ants[[1]]$identifications[[1]]$tagValue
-penis <- tracking_data$ants[[1]]$identifications[[1]]; penis$targetAntID <- c(2)
-penis$targetAntID 
-penis$targetAntID <- 2
-
-prj <- chart$projections[[1]]; prj$transformation <- matrix()
 
 
 
