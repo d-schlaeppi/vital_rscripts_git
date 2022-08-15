@@ -1,0 +1,43 @@
+getwd()
+setwd("H:\\DS-Bees\\R")
+data.peter <- read.table("peter.asian.beetle.txt", header=TRUE)
+
+edit(data.peter)
+
+apiary1 <- subset(data.peter, Apiary==1)
+apiary2 <- subset(data.peter, Apiary==2)
+
+apiary1
+apiary2
+
+
+mean(apiary1$Nr_of_adults)
+median(apiary1$Nr_of_adults)
+quantile(apiary1$Nr_of_adults)
+max(apiary1$Nr_of_adults)
+min(apiary1$Nr_of_adults)
+range <- max(apiary1$Nr_of_adults)-min(apiary1$Nr_of_adults)
+range
+## Plot using a qqplot
+qqnorm(apiary1$Nr_of_adults);qqline(apiary1$Nr_of_adults, col = 2)
+#Shapiro-Wilk normality test
+shapiro.test(apiary1$Nr_of_adults)
+
+mean(apiary2$Nr_of_adults)
+median(apiary2$Nr_of_adults)
+quantile(apiary2$Nr_of_adults)
+max(apiary2$Nr_of_adults)
+min(apiary2$Nr_of_adults)
+range <- max(apiary2$Nr_of_adults)-min(apiary2$Nr_of_adults)
+range
+## Plot using a qqplot
+qqnorm(apiary2$Nr_of_adults);qqline(apiary2$Nr_of_adults, col = 2)
+#Shapiro-Wilk normality test
+shapiro.test(apiary2$Nr_of_adults)
+
+
+
+
+
+
+#prozentzahl der Käfer auf den Waben

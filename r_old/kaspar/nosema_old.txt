@@ -1,0 +1,396 @@
+id	cps	pathogen	product	treat	number
+OHC1	123881.8831	nosema_old	honey	control	1
+OHC2	273026.7195	nosema_old	honey	control	2
+OHC3	123742.6569	nosema_old	honey	control	3
+OHC4	113448.6341	nosema_old	honey	control	4
+OHC5	64836.92157	nosema_old	honey	control	5
+OHH1	225827.2214	nosema_old	honey	high	1
+OHH2	311276.1865	nosema_old	honey	high	2
+OHH3	300549.6916	nosema_old	honey	high	3
+OHH4	308850.4186	nosema_old	honey	high	4
+OHH5	263973.3595	nosema_old	honey	high	5
+OHL1	140316.7577	nosema_old	honey	low	1
+OHL2	121326.9594	nosema_old	honey	low	2
+OHL3	107603.9988	nosema_old	honey	low	3
+OHL4	140984.6357	nosema_old	honey	low	4
+OHL5	124687.6771	nosema_old	honey	low	5
+OHM1	144444.4946	nosema_old	honey	medium	1
+OHM2	244183.1984	nosema_old	honey	medium	2
+OHM3	139441.8046	nosema_old	honey	medium	3
+OHM4	99580.21563	nosema_old	honey	medium	4
+OHM5	114892.2823	nosema_old	honey	medium	5
+OPC1	158742.6509	nosema_old	pollen	control	1
+OPC2	104623.1127	nosema_old	pollen	control	2
+OPC3	85683.88148	nosema_old	pollen	control	3
+OPC4	99700.26224	nosema_old	pollen	control	4
+OPC5	87175.35457	nosema_old	pollen	control	5
+OPH1	1509964604	nosema_old	pollen	high	1
+OPH2	609500209.2	nosema_old	pollen	high	2
+OPH3	739636464.4	nosema_old	pollen	high	3
+OPH4	1197235974	nosema_old	pollen	high	4
+OPH5	700282230.4	nosema_old	pollen	high	5
+OPL1	2094578195	nosema_old	pollen	low	1
+OPL2	541940131.9	nosema_old	pollen	low	2
+OPL3	1317243012	nosema_old	pollen	low	3
+OPL4	972634107.8	nosema_old	pollen	low	4
+OPL5	338715616.3	nosema_old	pollen	low	5
+OPM1	1414113137	nosema_old	pollen	medium	1
+OPM2	904353163.1	nosema_old	pollen	medium	2
+OPM3	784848952.5	nosema_old	pollen	medium	3
+OPM4	1008479052	nosema_old	pollen	medium	4
+OPM5	1279870874	nosema_old	pollen	medium	5
+OWC1	85532187.22	nosema_old	wax	control	1
+OWC2	68355.13997	nosema_old	wax	control	2
+OWC3	105942.8876	nosema_old	wax	control	3
+OWC4	128474.7632	nosema_old	wax	control	4
+OWC5	62153.91333	nosema_old	wax	control	5
+OWH1	768455802.4	nosema_old	wax	high	1
+OWH2	1357082342	nosema_old	wax	high	2
+OWH3	875750765.1	nosema_old	wax	high	3
+OWH4	1405132285	nosema_old	wax	high	4
+OWH5	689071110.5	nosema_old	wax	high	5
+OWL1	150955.5716	nosema_old	wax	low	1
+OWL2	38895.9635	nosema_old	wax	low	2
+OWL3	65927.31747	nosema_old	wax	low	3
+OWL4	100235.4208	nosema_old	wax	low	4
+OWL5	159831.3025	nosema_old	wax	low	5
+OWM1	151754.1799	nosema_old	wax	medium	1
+OWM2	289578.8662	nosema_old	wax	medium	2
+OWM3	146676.8725	nosema_old	wax	medium	3
+OWM4	84905.24958	nosema_old	wax	medium	4
+OWM5	188576.4358	nosema_old	wax	medium	5
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					

@@ -1,0 +1,69 @@
+id	treatment	Day_Eggs	Day_Larvae	Day_Pupae	Day_Adults	D_EggStage	D_LarvaeStage	D_PupaeStage
+C1	control	3	19	26	49	16	7	23
+C2	control	1	18	25	50	17	7	25
+C3	control	1	20	28	53	19	8	25
+C4	control	5	20	28	53	15	8	25
+C5	control	2	20	31	60	18	11	29
+C6	control	2	20	29	53	18	9	24
+C7	control	1	19	27	53	18	8	26
+C8	control	1	33	44	72	32	11	28
+C9	control	2	NA	NA	NA	NA	NA	NA
+C10	control	1	19	26	53	18	7	27
+C11	control	1	20	29	53	19	9	24
+C12	control	2	20	29	53	18	9	24
+C13	control	1	18	24	49	17	6	25
+C14	control	3	20	28	53	17	8	25
+C15	control	1	20	29	54	19	9	25
+C16	control	1	NA	NA	NA	NA	NA	NA
+C17	control	3	20	29	53	17	9	24
+C18	control	1	20	30	56	19	10	26
+C19	control	1	20	29	53	19	9	24
+C20	control	1	20	28	54	19	8	26
+L1	low	1	20	29	53	19	9	24
+L2	low	1	18	26	50	17	8	24
+L3	low	1	18	25	49	17	7	24
+L4	low	1	20	26	50	19	6	24
+L5	low	1	19	27	50	18	8	23
+L6	low	1	18	25	47	17	7	22
+L7	low	1	20	29	53	19	9	24
+L8	low	3	20	29	54	17	9	25
+L9	low	1	20	29	53	19	9	24
+L10	low	2	20	30	56	18	10	26
+L11	low	1	18	25	49	17	7	24
+L12	low	2	18	26	53	16	8	27
+L13	low	1	20	29	53	19	9	24
+L14	low	1	18	25	49	17	7	24
+L15	low	1	19	27	53	18	8	26
+L16	low	2	19	27	54	17	8	27
+L17	low	1	20	30	53	19	10	23
+L18	low	1	22	30	56	21	8	26
+L19	low	1	19	28	53	18	9	25
+L20	low	1	18	25	49	17	7	24
+H1	high	1	19	27	53	18	8	26
+H2	high	1	19	26	53	18	7	27
+H3	high	1	19	27	50	18	8	23
+H4	high	NA	NA	NA	NA	NA	NA	NA
+H5	high	1	19	28	50	18	9	22
+H6	high	2	18	28	49	16	10	21
+H7	high	3	22	31	58	19	9	27
+H8	high	1	20	30	54	19	10	24
+H9	high	1	20	29	53	19	9	24
+H10	high	2	19	27	53	17	8	26
+H11	high	NA	NA	NA	NA	NA	NA	NA
+H12	high	1	19	27	53	18	8	26
+H13	high	1	20	29	53	19	9	24
+H14	high	3	20	29	54	17	9	25
+H15	high	1	18	27	50	17	9	23
+H16	high	1	18	26	49	17	8	23
+H17	high	1	18	25	49	17	7	24
+H18	high	1	19	NA	NA	18	NA	NA
+H19	high	1	NA	NA	NA	NA	NA	NA
+H20	high	1	20	26	53	19	6	27
+								
+								
+								
+								
+								
+								
+								
+								

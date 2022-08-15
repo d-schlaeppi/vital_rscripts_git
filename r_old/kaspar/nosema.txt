@@ -1,0 +1,396 @@
+id	cps	pathogen	product	treat	number
+NHC1	168666.8917	nosema	honey	control	1
+NHC2	156395.5924	nosema	honey	control	2
+NHC3	175376.9332	nosema	honey	control	3
+NHC4	181485.0567	nosema	honey	control	4
+NHC5	139965.5096	nosema	honey	control	5
+NHH1	1235101428	nosema	honey	high	1
+NHH2	963985282.9	nosema	honey	high	2
+NHH3	1545209660	nosema	honey	high	3
+NHH4	984647600.2	nosema	honey	high	4
+NHH5	1202135997	nosema	honey	high	5
+NHL1	192518538.1	nosema	honey	low	1
+NHL2	364168126.2	nosema	honey	low	2
+NHL3	136567999.4	nosema	honey	low	3
+NHL4	144318629.8	nosema	honey	low	4
+NHL5	326631618.5	nosema	honey	low	5
+NHM1	646428216.3	nosema	honey	medium	1
+NHM2	567529106.8	nosema	honey	medium	2
+NHM3	313248599	nosema	honey	medium	3
+NHM4	559296155.2	nosema	honey	medium	4
+NHM5	839792728	nosema	honey	medium	5
+NPC1	136894.0814	nosema	pollen	control	1
+NPC2	144868.5088	nosema	pollen	control	2
+NPC3	93004.16873	nosema	pollen	control	3
+NPC4	138264.9777	nosema	pollen	control	4
+NPC5	119003.2583	nosema	pollen	control	5
+NPH1	1268835777	nosema	pollen	high	1
+NPH2	1191603800	nosema	pollen	high	2
+NPH3	1005346480	nosema	pollen	high	3
+NPH4	747036256.4	nosema	pollen	high	4
+NPH5	932937491.8	nosema	pollen	high	5
+NPL1	1201593476	nosema	pollen	low	1
+NPL2	1259034455	nosema	pollen	low	2
+NPL3	1467274923	nosema	pollen	low	3
+NPL4	1408129575	nosema	pollen	low	4
+NPL5	1286564272	nosema	pollen	low	5
+NPM1	900287535.7	nosema	pollen	medium	1
+NPM2	1492693465	nosema	pollen	medium	2
+NPM3	1678206088	nosema	pollen	medium	3
+NPM4	1405804146	nosema	pollen	medium	4
+NPM5	1507094145	nosema	pollen	medium	5
+NWC1	145201.1729	nosema	wax	control	1
+NWC2	122990.6777	nosema	wax	control	2
+NWC3	145516.7095	nosema	wax	control	3
+NWC4	119532.8104	nosema	wax	control	4
+NWC5	96059.33849	nosema	wax	control	5
+NWH1	1282458811	nosema	wax	high	1
+NWH2	907574713	nosema	wax	high	2
+NWH3	1269854396	nosema	wax	high	3
+NWH4	1098054691	nosema	wax	high	4
+NWH5	1448150710	nosema	wax	high	5
+NWL1	188168596.9	nosema	wax	low	1
+NWL2	102387076.4	nosema	wax	low	2
+NWL3	256103.8745	nosema	wax	low	3
+NWL4	214155634.6	nosema	wax	low	4
+NWL5	440158835.8	nosema	wax	low	5
+NWM1	1225325783	nosema	wax	medium	1
+NWM2	1044406278	nosema	wax	medium	2
+NWM3	1387208233	nosema	wax	medium	3
+NWM4	1244032249	nosema	wax	medium	4
+NWM5	1324424282	nosema	wax	medium	5
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					
+					

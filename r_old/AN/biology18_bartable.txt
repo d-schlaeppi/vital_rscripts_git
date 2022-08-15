@@ -1,0 +1,13 @@
+sample	treatment	virus	pos	neg_strand	N
+colonies	virus	DWV	50	0	18
+colonies	no_virus	DWV	0	0	2
+queens	virus	DWV	18.75	0	16
+queens	no_virus	DWV	0	0	1
+single_ants	NA	DWV	63.3	0	3
+bee_pupae	NA	DWV	100	100	10
+colonies	virus	ABPV	85	16.7	18
+colonies	no_virus	ABPV	0	0	2
+queens	virus	ABPV	87.5	50	16
+queens	no_virus	ABPV	100	100	1
+single_ants	NA	ABPV	100	0	3
+bee_pupae	NA	ABPV	100	100	10
