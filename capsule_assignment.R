@@ -121,6 +121,8 @@ for (myrmidon_file in data_list){
 
 
 
+
+
 #### the queen ####
 # Measures of mean ant length and offset between tag centre and ant centre will be heavily influenced by the queen
 # The queen needs to be removed as an outlier to get a good measure of mean worker size

@@ -6,11 +6,12 @@ rm(list=ls())
 
 #### Information ####
 
-# If ants are used in two separate tracking systems it is usefull (or even essential) to make sure that based on the tagID the same AntID's are created in both files
-# (e.g. tracking of a colony in one tracking system and then a few workers get samplet for treatment that is also tracked and then the workers get returned to their colony)
-# when creating antID autimatically based on tagID, antID are automatically created starting with 001. That means you will have e.g 200 in your main colony and you take a random sample of X workers from that
+# If ants are used in two separate tracking systems it is useful (or even essential) to make sure that based on the tagID the same AntID's are created in both files
+# (e.g. tracking of a colony in one tracking system and then a few workers get sampled for treatment that is also tracked and then the workers get returned to their colony)
+# when creating antID automatically based on tagID, antID are automatically created starting with 001. That means you will have e.g 200 in your main colony and you take a random sample of X workers from that
 # in the new tracking file you also need to assign antID ant they will be automatically created from 001-0XX --> antID will not automatically be matched with the original antID 
-# This script will overwrite the new false antID from the treatment tracking with the original antID from the main colony tracking. 
+# Because antID is read only and can not be overwritten we will create a new variable - meta_ID both for the main tracking and for the treatment tracking files
+# For anything following this step we will need to call meta_ID instead of ant_ID if we refer to ants to avoid any confusion
 
 # for more information on fort-myrmidon and fort-studio see: 
 # "https://formicidae-tracker.github.io/myrmidon/latest/index.html"
@@ -22,30 +23,119 @@ rm(list=ls())
 library(FortMyrmidon) #R bindings
 
 # set working directory
-# adjust the script the two files are not in the same folder
+directory <- "/home/gw20248/Documents/data_copy_for_trials/"
+setwd(directory) # adjust the script the two files are not in the same folder
 
 # select the files you want to work with
 main_file_name <- "vital_fc2_prideaux_c02_DS_AntsCreated_ManuallyOriented_CapsAutoDefined.myrmidon"
 secondary_file_name <- "vital_fc2_esterhase_c02_feeding_DS_AntsCreated.myrmidon"
 no_ants <- "vital_fc2_esterhase_c02_feeding_DS_base.myrmidon"
-# working directory
-directory <- "~/Documents/data_copy_for_trials"
-setwd(directory)
-
-
 
 # tracking file you would like to create ants for: 
 main_tracking_data <- fmExperimentOpen(main_file_name)
 secondary_tracking_data <-  fmExperimentOpen(secondary_file_name)
 no_ant_data <-  fmExperimentOpen(no_ants)
 
+# define a new key (metadata) that will contain the new ID
+
+for main and secondary 
+main_tracking_data$setMetaDataKey(key = "meta_ID", default_Value = 001)
+main_tracking_data$setMetaDataKey(key = "queen", default_Value = FALSE)
+main_tracking_data$setMetaDataKey(key = "name", default_Value = "NA")
+
+main_tracking_data$setMetaDataKey(key = "queen", default_Value = FALSE)
+
+then safe
+
+
+# define/get the starting time of the experiment
+# t <- fmTimeCreate(offset = 0) #SET TIME TO 1970 which is per definition way before the actual start of the experiment.
+t <- fmTimeCreate(offset = fmQueryGetDataInformations(main_tracking_data)$start)
+# other useful syntax for other things when dealing with tracking system time: 
+# from <- fmTimeCreate(offset=fmQueryGetDataInformations(tracking_data)$start) # experiment start time
+# to   <- fmTimeCreate(offset=fmQueryGetDataInformations(tracking_data)$start + 12*3600  ) # start time plus the duration in seconds
+
+# loop to create create/assign each ant of the main set ID and use the tag 
+
+
+
+main_tracking_data$ants[[1]]$getValue(key="name", time = t)
+main_tracking_data$ants[[2]]$getValue(key="name", time = t)
+
+main_tracking_data$ants[[1]]$setValue(key="name", time = t)
+
+??setValue
+main_tracking_data$ants[[1]]$setValue(key="name", value = "vilya", time = t)
+main_tracking_data$ants[[1]]$setValue(key="name", value = "vilya", time = )
+
+main_tracking_data$ants[[1]]$getValue(key="name", time = t)
+
+main_tracking_data$ants[[5]]$getValue(key="name", time = t)
+main_tracking_data$ants[[6]]$getValue(key="name", time = t)
+
+
+fmQueryGetDataInformations(main_tracking_data)$start
+
+
+main_tracking_data$
+
+
+
+
+
+
+
+
+
+
+
+
+# save meta data in new myrmidon file
+main_tracking_data$save(paste0(directory, substr(main_file_name, 1, nchar(main_file_name)-9), '_meta.myrmidon'))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+??setMetaDataKey
+
+
+
+
+
+??getValue()
+
+
+secondary_tracking_data$ants[[1]]$
+secondary_tracking_data$ants[[1]]$ID <- 189
+
+secondary_tracking_data$ants[[1]]$setValue(069, secondary_tag_statistics[1,"tagDecimalValue"],fmTimeSinceEver(),fmTimeForever())
+
+??setValue
 
 no_ant_data$ants
+str(no_ant_data$ants)
+attributes(no_ant_data)
+
 no_ant_data$ants <- secondary_tracking_data$ants
 
 
 
-^### playing around with lists
+
+
+
+
+### playing around with lists
 
 x <- list(1, "a", TRUE, 1+4i, list("a", 2))
 x  
@@ -55,7 +145,13 @@ x[[5]][[2]] <- 3
 
 tracking_data$ants[[1]]$ID
 secondary_tracking_data$ants[[1]]$identifications[[1]]$tagValue
-secondary_tracking_data$ants[[1]]$identifications[[1]]$targetAntID <- 1000
+
+secondary_tracking_data$ants[[1]]$identifications[[1]]$targetAntID <- 003
+secondary_tracking_data$ants[[1]]$identifications[[1]]$
+
+
+
+
 secondary_tracking_data$ants[[1]]$identifications[[1]]
 
 hello <- secondary_tracking_data$ants
@@ -63,6 +159,18 @@ str(hello)
 hello[[1]]$identifications[[1]]$targetAntID <- 999
 
 
+
+
+
+
+
+for ( i in 1:nrow(tag_statistics)) {  #####loop over each tag
+  if ( tag_statistics[i,"count"] >= 0.001*max(tag_statistics[,"count"],na.rm=T) ) { ### optional: here I decide to create an antID only if the tag detection rate was more than 1/1000 * the best tag detection rate. You can choose your own criterion
+    a <- tracking_data$createAnt(); ###this actually creates an antID, i.e. associates a decimal antID number to that particular tagID
+    identification <- tracking_data$addIdentification(a$ID,tag_statistics[i,"tagDecimalValue"],fmTimeSinceEver(),fmTimeForever())
+    print(identification)
+  }
+}
 
 
 
