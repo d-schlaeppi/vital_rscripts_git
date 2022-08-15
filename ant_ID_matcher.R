@@ -17,6 +17,17 @@ rm(list=ls())
 # "https://formicidae-tracker.github.io/myrmidon/latest/index.html"
 
 
+
+# define/get the starting time of the experiment
+# t <- fmTimeCreate(offset = 0) #SET TIME TO 1970 which is per definition way before the actual start of the experiment.
+# t <- fmTimeCreate(offset = fmQueryGetDataInformations(main_tracking_data)$start)
+# other useful syntax for other things when dealing with tracking system time: 
+# from <- fmTimeCreate(offset=fmQueryGetDataInformations(tracking_data)$start) # experiment start time
+# to   <- fmTimeCreate(offset=fmQueryGetDataInformations(tracking_data)$start + 12*3600  ) # start time plus the duration in seconds
+# loop to create create/assign each ant of the main set ID and use the tag 
+
+
+
 #### prerequisites ####
 
 # load libraries
@@ -26,169 +37,193 @@ library(FortMyrmidon) #R bindings
 directory <- "/home/gw20248/Documents/data_copy_for_trials/"
 setwd(directory) # adjust the script the two files are not in the same folder
 
-# select the files you want to work with
-main_file_name <- "vital_fc2_prideaux_c02_DS_AntsCreated_ManuallyOriented_CapsAutoDefined.myrmidon"
+# select the files you want to work with (both need to have ants already created)
+main_file_name <- "vital_fc2_prideaux_c02_DS_AntsCreated_ManuallyOriented_CapsAutoDefined.myrmidon" 
 secondary_file_name <- "vital_fc2_esterhase_c02_feeding_DS_AntsCreated.myrmidon"
-no_ants <- "vital_fc2_esterhase_c02_feeding_DS_base.myrmidon"
 
-# tracking file you would like to create ants for: 
-main_tracking_data <- fmExperimentOpen(main_file_name)
-secondary_tracking_data <-  fmExperimentOpen(secondary_file_name)
-no_ant_data <-  fmExperimentOpen(no_ants)
 
-# define a new key (metadata) that will contain the new ID
 
-for main and secondary 
-main_tracking_data$setMetaDataKey(key = "meta_ID", default_Value = 001)
-main_tracking_data$setMetaDataKey(key = "queen", default_Value = FALSE)
-main_tracking_data$setMetaDataKey(key = "name", default_Value = "NA")
+#### meta data creation ####
 
-main_tracking_data$setMetaDataKey(key = "queen", default_Value = FALSE)
+# define new key (metadata), including meta_ID that will be the one to be matched between the files
 
-then safe
+for (dataset_name in c(main_file_name, secondary_file_name)){
+  # get data
+  fort_data <- fmExperimentOpen(dataset_name)
+  # create key variable you want for your data sets (for now only the meta_ID is relevant)
+  fort_data$setMetaDataKey(key = "meta_ID", default_Value = 001)
+  fort_data$setMetaDataKey(key = "queen", default_Value = FALSE)
+  fort_data$setMetaDataKey(key = "name", default_Value = "NA")
+  fort_data$setMetaDataKey(key = "treated", default_Value = FALSE)
+  # define meta_ID so it corresponds to antID (no overriding yet)
+  for (i in 1:length(fort_data$ants)) {
+    fort_data$ants[[i]]$setValue(key="meta_ID", value = c(fort_data$ants[[i]]$identifications[[1]]$targetAntID), time = fmTimeCreate(offset = fmQueryGetDataInformations(fort_data)$start))
+  }
+  # save new version of myrmidon files
+  fort_data$save(paste0(directory, substr(dataset_name, 1, nchar(dataset_name)-9),'_meta.myrmidon'))
+  print("done")
+}
 
 
-# define/get the starting time of the experiment
-# t <- fmTimeCreate(offset = 0) #SET TIME TO 1970 which is per definition way before the actual start of the experiment.
-t <- fmTimeCreate(offset = fmQueryGetDataInformations(main_tracking_data)$start)
-# other useful syntax for other things when dealing with tracking system time: 
-# from <- fmTimeCreate(offset=fmQueryGetDataInformations(tracking_data)$start) # experiment start time
-# to   <- fmTimeCreate(offset=fmQueryGetDataInformations(tracking_data)$start + 12*3600  ) # start time plus the duration in seconds
 
-# loop to create create/assign each ant of the main set ID and use the tag 
+#### Matching ant meta_ID ####
+# load the newly created myrmidon files
+main_data <- fmExperimentOpen(paste0(substr(main_file_name, 1, nchar(main_file_name)-9),'_meta.myrmidon'))
+secondary_data <- fmExperimentOpen(paste0(substr(secondary_file_name, 1, nchar(secondary_file_name)-9),'_meta.myrmidon')) 
 
+# change metadata so that (i) the meta_ID of the ants in the treatment corresponds to the original antID based on tagValue and (ii) ants in the feeding tracking have metadata treated == TRUE
 
 
-main_tracking_data$ants[[1]]$getValue(key="name", time = t)
-main_tracking_data$ants[[2]]$getValue(key="name", time = t)
-
-main_tracking_data$ants[[1]]$setValue(key="name", time = t)
-
-??setValue
-main_tracking_data$ants[[1]]$setValue(key="name", value = "vilya", time = t)
-main_tracking_data$ants[[1]]$setValue(key="name", value = "vilya", time = )
-
-main_tracking_data$ants[[1]]$getValue(key="name", time = t)
-
-main_tracking_data$ants[[5]]$getValue(key="name", time = t)
-main_tracking_data$ants[[6]]$getValue(key="name", time = t)
-
-
-fmQueryGetDataInformations(main_tracking_data)$start
-
-
-main_tracking_data$
-
-
-
-
-
-
-
-
-
-
-
-
-# save meta data in new myrmidon file
-main_tracking_data$save(paste0(directory, substr(main_file_name, 1, nchar(main_file_name)-9), '_meta.myrmidon'))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-??setMetaDataKey
-
-
-
-
-
-??getValue()
-
-
-secondary_tracking_data$ants[[1]]$
-secondary_tracking_data$ants[[1]]$ID <- 189
-
-secondary_tracking_data$ants[[1]]$setValue(069, secondary_tag_statistics[1,"tagDecimalValue"],fmTimeSinceEver(),fmTimeForever())
-
-??setValue
-
-no_ant_data$ants
-str(no_ant_data$ants)
-attributes(no_ant_data)
-
-no_ant_data$ants <- secondary_tracking_data$ants
-
-
-
-
-
-
-
-### playing around with lists
-
-x <- list(1, "a", TRUE, 1+4i, list("a", 2))
-x  
-x[[5]][[2]] <- 3
-
-
-
-tracking_data$ants[[1]]$ID
-secondary_tracking_data$ants[[1]]$identifications[[1]]$tagValue
-
-secondary_tracking_data$ants[[1]]$identifications[[1]]$targetAntID <- 003
-secondary_tracking_data$ants[[1]]$identifications[[1]]$
-
-
-
-
-secondary_tracking_data$ants[[1]]$identifications[[1]]
-
-hello <- secondary_tracking_data$ants
-str(hello)
-hello[[1]]$identifications[[1]]$targetAntID <- 999
-
-
-
-
-
-
-
-for ( i in 1:nrow(tag_statistics)) {  #####loop over each tag
-  if ( tag_statistics[i,"count"] >= 0.001*max(tag_statistics[,"count"],na.rm=T) ) { ### optional: here I decide to create an antID only if the tag detection rate was more than 1/1000 * the best tag detection rate. You can choose your own criterion
-    a <- tracking_data$createAnt(); ###this actually creates an antID, i.e. associates a decimal antID number to that particular tagID
-    identification <- tracking_data$addIdentification(a$ID,tag_statistics[i,"tagDecimalValue"],fmTimeSinceEver(),fmTimeForever())
-    print(identification)
+for (a in main_data$ants){
+  for (b in secondary_data$ants){
+    if (a$identifications[[1]]$tagValue == b$identifications[[1]]$tagValue){
+      b$setValue("meta_ID", 
+                 value = as.numeric(main_data$ants[[a$getValue("meta_ID", time = fmTimeCreate(offset = fmQueryGetDataInformations(main_data)$start))]]$getValue(key="meta_ID", time = fmTimeCreate(offset = fmQueryGetDataInformations(main_data)$start))), 
+                 time = fmTimeCreate(offset = fmQueryGetDataInformations(main_data)$start))}
   }
 }
 
 
 
+for (a in main_data$ants){
+  for (b in secondary_data$ants){
+    if (a$identifications[[1]]$tagValue == b$identifications[[1]]$tagValue){
+      b$setValue("meta_ID", 
+                 value = 69, 
+                 time = fmTimeCreate(offset = fmQueryGetDataInformations(main_data)$start))}
+  }
+}
 
 
+
+secondary_data$ants
+secondary_data$ants[[1]]$getValue(key="meta_ID", time = fmTimeCreate(offset = fmQueryGetDataInformations(fort_data)$start))
+
+# save new version of the secondary myrmidon file
+secondary_data$save(paste0(directory, substr(secondary_file_name, 1, nchar(secondary_file_name)-9),'_metaIDmatched.myrmidon'))
+
+
+
+### ### ### ### ###
+secondary_data$ants[[2]]$getValue(key="meta_ID", time = fmTimeCreate(offset = fmQueryGetDataInformations(fort_data)$start))
+
+
+
+
+
+
+
+
+
+for (a in main_data$ants) {
+  print(a)
+  print(a$getValue("meta_ID", time = fmTimeCreate(offset = fmQueryGetDataInformations(fort_data)$start)))
+  }
+
+print(a$getValue("meta_ID", t))
+
+
+
+secondary_data$ants[[1]]$getValue(key="meta_ID", time = fmTimeCreate(offset = fmQueryGetDataInformations(fort_data)$start))
+main_data$ants[[1]]$getValue(key="meta_ID", time = fmTimeCreate(offset = fmQueryGetDataInformations(fort_data)$start))
+
+secondary_data$ants[[1]]$setValue(key="meta_ID", value = 69, time = fmTimeCreate(offset = fmQueryGetDataInformations(fort_data)$start))
+secondary_data$ants[[2]]$getValue(key="meta_ID", time = fmTimeCreate(offset = fmQueryGetDataInformations(fort_data)$start))
+
+main_data$ants[[2]]$getValue(key="meta_ID", time = fmTimeCreate(offset = fmQueryGetDataInformations(fort_data)$start))
+main_data$ants[[21]]$getValue(key="meta_ID", time = fmTimeCreate(offset = fmQueryGetDataInformations(fort_data)$start))
+
+
+
+for (a in main_data$ants){
+  for (b in secondary_data$ants){
+    if (a$identifications[[1]]$tagValue == b$identifications[[1]]$tagValue){
+      b$setValue("meta_ID", value = 69, time = fmTimeCreate(offset = fmQueryGetDataInformations(fort_data)$start))}
+  }
+}
+
+as.numeric(main_data$ants[[1]]$getValue(key="meta_ID", time = fmTimeCreate(offset = fmQueryGetDataInformations(fort_data)$start))
+
+
+
+for(i in 1:length(secondary_data$ants)) {
+  secondary_data$ants[[i]]$setValue(key = "meta_ID", value = as.numeric(i), time = fmTimeCreate(offset = fmQueryGetDataInformations(fort_data)$start))
+}
+
+
+for(i in 1: length(sec))
+
+
+main_data
+main_data$ants[[1]]$identifications[[1]]$tagValue
+
+  $identifications[[1]]$tagValue
 
   
-# extract the tag statistics to know how many times each tag was detected:
-main_tag_statistics <- fmQueryComputeTagStatistics(main_tracking_data)
-secondary_tag_statistics <- fmQueryComputeTagStatistics(secondary_tracking_data)
+  
+t <- fmTimeCreate(offset = fmQueryGetDataInformations(fort_data)$start)
+??setValue
+class(i)
+str(i)
+
+
+secondary_data$ants[[2]]$getValue(key="meta_ID", time = fmTimeCreate(offset = fmQueryGetDataInformations(fort_data)$start))
+
+secondary_data$ants[[2]]$setValue(key="meta_ID", value = 69, time = fmTimeCreate(offset = fmQueryGetDataInformations(fort_data)$start))
+
+secondary_data$ants[[2]]$getValue(key="meta_ID", time = fmTimeCreate(offset = fmQueryGetDataInformations(fort_data)$start))
 
 
 
 
 
+secondary_data$ants[[1]]$setValue(key="meta_ID", value = 69, time = fmTimeCreate(offset = fmQueryGetDataInformations(fort_data)$start))
 
-# define name of output file
-output_name <- file.path(paste0('/media/gw20248/gismo_hd2/vital/fc2/', "Mean_ant_length_colonies.txt")) 
+secondary_data$ants[[1]]$getValue(key="meta_ID", time = fmTimeCreate(offset = fmQueryGetDataInformations(fort_data)$start))
+
+
+for (a in main_data$ants){
+  for (b in secondary_data$ants){
+    if (a$identifications[[1]]$tagValue == b$identifications[[1]]$tagValue){
+      a$setValue("meta_ID", value = 69, time = fmTimeCreate(offset = fmQueryGetDataInformations(fort_data)$start))}
+    }
+}
+
+
+
+for (i in 1:length(main_data$ants)) {
+  ants <- main_data$ants
+  if ants$identifications
+  
+  if (a$identifications[[1]]$tagValue == b$identifications[[1]]$tagValue){
+    a$setValue("SIBB",TRUE, t)}}
+  fort_data$ants[[i]]$setValue(key="meta_ID", value = c(fort_data$ants[[i]]$identifications[[1]]$targetAntID), time = fmTimeCreate(offset = fmQueryGetDataInformations(fort_data)$start))
+  
+  # save new version of the myrmidon file
+  fort_data$save(paste0(directory, substr(secondary_file_name, 1, nchar(secondary_file_name)-9),'_metaIDmatched.myrmidon'))
+  print("done")
+  }
+
+
+
+main_data$ants[[1]]$getValue(key="meta_ID", time = fmTimeCreate(offset = fmQueryGetDataInformations(fort_data)$start))
+secondary_data$ants[[2]]$getValue(key="meta_ID", time = fmTimeCreate(offset = fmQueryGetDataInformations(fort_data)$start))
+
+
+### ### ### ###
+
+secondary_data$ants[[i]]$setValue(key="meta_ID", value = c(fort_data$ants[[i]]$identifications[[1]]$targetAntID), time = fmTimeCreate(offset = fmQueryGetDataInformations(fort_data)$start))
+
+main_data$ants[[1]]$identifications[[1]]$tagValue
+secondary_data$ants[[1]]$identifications[[1]]$tagValue
+
+print(main_data$ants[[1]]$identifications)
+
+
+main_data$ants[[2]]$identifications[[1]]$tagValue
+main_data$ants[[3]]$identifications[[1]]$tagValue
+
+
 
 
 
