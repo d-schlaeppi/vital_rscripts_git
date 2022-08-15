@@ -43,13 +43,18 @@ secondary_file_name <- "vital_fc2_esterhase_c02_feeding_DS_AntsCreated.myrmidon"
 
 
 
+
 #### meta data creation ####
 
 # define new key (metadata), including meta_ID that will be the one to be matched between the files
 
+# adjust loop so that the fort the secondary_file_name dataset the time of experiment start is matched with the time of the main tracking (we want start of experiment and not start of tracking
+
 for (dataset_name in c(main_file_name, secondary_file_name)){
   # get data
   fort_data <- fmExperimentOpen(dataset_name)
+  # time_data <- fmExperimentOpen(main_file_name) # if the line below does not work run it in two steps
+  start_experiment <- fmTimeCreate(offset = fmQueryGetDataInformations(fmExperimentOpen(main_file_name))$start)
   # create key variable you want for your data sets (for now only the meta_ID is relevant)
   fort_data$setMetaDataKey(key = "meta_ID", default_Value = 001)
   fort_data$setMetaDataKey(key = "queen", default_Value = FALSE)
@@ -57,7 +62,7 @@ for (dataset_name in c(main_file_name, secondary_file_name)){
   fort_data$setMetaDataKey(key = "treated", default_Value = FALSE)
   # define meta_ID so it corresponds to antID (no overriding yet)
   for (i in 1:length(fort_data$ants)) {
-    fort_data$ants[[i]]$setValue(key="meta_ID", value = c(fort_data$ants[[i]]$identifications[[1]]$targetAntID), time = fmTimeCreate(offset = fmQueryGetDataInformations(fort_data)$start))
+    fort_data$ants[[i]]$setValue(key="meta_ID", value = c(fort_data$ants[[i]]$identifications[[1]]$targetAntID), time = start_experiment)
   }
   # save new version of myrmidon files
   fort_data$save(paste0(directory, substr(dataset_name, 1, nchar(dataset_name)-9),'_meta.myrmidon'))
@@ -65,15 +70,43 @@ for (dataset_name in c(main_file_name, secondary_file_name)){
 }
 
 
+#### Matching ant meta_ID in the secondary data (feeding tracking ####
+# update filenames
+main_file_name <- paste0(substr(main_file_name, 1, nchar(main_file_name)-9),'_meta.myrmidon')
+secondary_file_name <- paste0(substr(secondary_file_name, 1, nchar(secondary_file_name)-9),'_meta.myrmidon')
 
-#### Matching ant meta_ID ####
 # load the newly created myrmidon files
-main_data <- fmExperimentOpen(paste0(substr(main_file_name, 1, nchar(main_file_name)-9),'_meta.myrmidon'))
-secondary_data <- fmExperimentOpen(paste0(substr(secondary_file_name, 1, nchar(secondary_file_name)-9),'_meta.myrmidon')) 
+#main_data <- fmExperimentOpen(paste0(substr(main_file_name, 1, nchar(main_file_name)-9),'_meta.myrmidon'))
+#secondary_data <- fmExperimentOpen(paste0(substr(secondary_file_name, 1, nchar(secondary_file_name)-9),'_meta.myrmidon')) 
 
 # change metadata so that (i) the meta_ID of the ants in the treatment corresponds to the original antID based on tagValue and (ii) ants in the feeding tracking have metadata treated == TRUE
 
+# recreate the loop so it matches the structure from the previous loop for variable creation 
+# before running any further code check the last created file if there are two different antID variables assigned at different time points (start of main tracking and start of secondary tracking!
 
+for(dataset_name in c(secondary_file_name)) {
+     fort_data <- fmExperimentOpen(dataset_name)
+     source_data <- fmExperimentOpen(main_file_name)
+     start_experiment <- fmTimeCreate(offset=fmQueryGetDataInformations(source_data)$start))
+     for (a in source_data$ants){
+          for (b in fort_data$ants){
+               if (a$identifications[[1]]$tagValue == b$identifications[[1]]$tagValue) {
+                   b$setValue("meta_ID",
+                               value = as.numeric(source_data$ants[[a$getValue("meta_ID", time = t)]]$getValue(key="meta_ID", time = start_experiment)), 
+                               time = start_experiment}
+          }
+     }
+     secondary_data$save(paste0(directory, substr(secondary_file_name, 1, nchar(secondary_file_name)-9),'_metaIDmatched.myrmidon'))
+}
+
+                              
+# last step, combine the two loops to one. so that we do not first create a pseudo meta_ID for the secondary file!
+# next steps: include meta data treatment and think about making the previous steps as a loop for all tracking file simultaneously so I do not need to do it by hand
+# either by (i) adjusting the file names or by (ii) running a special paste thing that creates a list with all the pairs of myrmidon files (main and treatment tracking)
+# idea - create a list with all the trackings recucing the names to ColonyXX_main and ColonyXX_treatment
+                              
+                              
+                              
 for (a in main_data$ants){
   for (b in secondary_data$ants){
     if (a$identifications[[1]]$tagValue == b$identifications[[1]]$tagValue){
@@ -115,12 +148,7 @@ secondary_data$ants[[2]]$getValue(key="meta_ID", time = fmTimeCreate(offset = fm
 
 
 
-for (a in main_data$ants) {
-  print(a)
-  print(a$getValue("meta_ID", time = fmTimeCreate(offset = fmQueryGetDataInformations(fort_data)$start)))
-  }
 
-print(a$getValue("meta_ID", t))
 
 
 
@@ -146,25 +174,11 @@ as.numeric(main_data$ants[[1]]$getValue(key="meta_ID", time = fmTimeCreate(offse
 
 
 
-for(i in 1:length(secondary_data$ants)) {
-  secondary_data$ants[[i]]$setValue(key = "meta_ID", value = as.numeric(i), time = fmTimeCreate(offset = fmQueryGetDataInformations(fort_data)$start))
-}
 
 
-for(i in 1: length(sec))
-
-
-main_data
-main_data$ants[[1]]$identifications[[1]]$tagValue
-
-  $identifications[[1]]$tagValue
 
   
-  
-t <- fmTimeCreate(offset = fmQueryGetDataInformations(fort_data)$start)
-??setValue
-class(i)
-str(i)
+
 
 
 secondary_data$ants[[2]]$getValue(key="meta_ID", time = fmTimeCreate(offset = fmQueryGetDataInformations(fort_data)$start))
@@ -177,9 +191,6 @@ secondary_data$ants[[2]]$getValue(key="meta_ID", time = fmTimeCreate(offset = fm
 
 
 
-secondary_data$ants[[1]]$setValue(key="meta_ID", value = 69, time = fmTimeCreate(offset = fmQueryGetDataInformations(fort_data)$start))
-
-secondary_data$ants[[1]]$getValue(key="meta_ID", time = fmTimeCreate(offset = fmQueryGetDataInformations(fort_data)$start))
 
 
 for (a in main_data$ants){
@@ -206,8 +217,6 @@ for (i in 1:length(main_data$ants)) {
 
 
 
-main_data$ants[[1]]$getValue(key="meta_ID", time = fmTimeCreate(offset = fmQueryGetDataInformations(fort_data)$start))
-secondary_data$ants[[2]]$getValue(key="meta_ID", time = fmTimeCreate(offset = fmQueryGetDataInformations(fort_data)$start))
 
 
 ### ### ### ###
@@ -227,6 +236,9 @@ main_data$ants[[3]]$identifications[[1]]$tagValue
 
 
 
+           
+#### Stuff from Luks script ####           
+           
 
 ##this changes metadata if tag IDs match for SI ants 02/08/22
 for (a in Metadata_exp$ants){   ####LOOP OVER ANTS
