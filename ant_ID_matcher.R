@@ -15,6 +15,8 @@ rm(list=ls())
 
 # for more information on fort-myrmidon and fort-studio see: 
 # "https://formicidae-tracker.github.io/myrmidon/latest/index.html"
+# 
+# useful to know: Space = tracking system; Zones = defined areas in the experimental nest, Shapes = Capsules overlaid on tags to define ant shapes
 
 
 # define/get the starting time of the experiment
@@ -41,7 +43,7 @@ main_file_name <- "vital_fc2_prideaux_c02_DS_AntsCreated_ManuallyOriented_CapsAu
 secondary_file_name <- "vital_fc2_esterhase_c02_feeding_DS_AntsCreated.myrmidon" # treatment tracking file 
 
 
-#### loop ####
+#### loop to create meta_IDs and other meta Vairables ####
 
 for (dataset_name in c(main_file_name, secondary_file_name)){
   # get data
