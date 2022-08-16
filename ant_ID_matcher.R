@@ -48,12 +48,9 @@ secondary_file_name <- "vital_fc2_esterhase_c02_feeding_DS_AntsCreated.myrmidon"
 
 # define new key (metadata), including meta_ID that will be the one to be matched between the files
 
-# adjust loop so that the fort the secondary_file_name dataset the time of experiment start is matched with the time of the main tracking (we want start of experiment and not start of tracking
-
 for (dataset_name in c(main_file_name, secondary_file_name)){
   # get data
   fort_data <- fmExperimentOpen(dataset_name)
-  # time_data <- fmExperimentOpen(main_file_name) # if the line below does not work run it in two steps
   start_experiment <- fmTimeCreate(offset = fmQueryGetDataInformations(fmExperimentOpen(main_file_name))$start)
   # create key variable you want for your data sets (for now only the meta_ID is relevant)
   fort_data$setMetaDataKey(key = "meta_ID", default_Value = 001)
@@ -84,356 +81,84 @@ secondary_file_name <- paste0(substr(secondary_file_name, 1, nchar(secondary_fil
 # recreate the loop so it matches the structure from the previous loop for variable creation 
 # before running any further code check the last created file if there are two different antID variables assigned at different time points (start of main tracking and start of secondary tracking!
 
-for(dataset_name in c(secondary_file_name)) {
-     fort_data <- fmExperimentOpen(dataset_name)
-     source_data <- fmExperimentOpen(main_file_name)
-     start_experiment <- fmTimeCreate(offset=fmQueryGetDataInformations(source_data)$start))
-     for (a in source_data$ants){
-          for (b in fort_data$ants){
-               if (a$identifications[[1]]$tagValue == b$identifications[[1]]$tagValue) {
-                   b$setValue("meta_ID",
-                               value = as.numeric(source_data$ants[[a$getValue("meta_ID", time = t)]]$getValue(key="meta_ID", time = start_experiment)), 
-                               time = start_experiment}
-          }
-     }
-     secondary_data$save(paste0(directory, substr(secondary_file_name, 1, nchar(secondary_file_name)-9),'_metaIDmatched.myrmidon'))
-}
+for(dataset_name in c(main_file_name, secondary_file_name)) {
+  if (dataset_name == main_file_name) {print("no change required")} else {
+    fort_data <- fmExperimentOpen(dataset_name)
+    source_data <- fmExperimentOpen(main_file_name)
+    start_experiment <- fmTimeCreate(offset=fmQueryGetDataInformations(source_data)$start)
+    for (a in source_data$ants) {
+      for (b in fort_data$ants) {
+        if (a$identifications[[1]]$tagValue == b$identifications[[1]]$tagValue) {
+          b$setValue("meta_ID",
+                     value = as.numeric(source_data$ants[[a$getValue("meta_ID", time = start_experiment)]]$getValue(key="meta_ID", time = start_experiment)), 
+                     time = start_experiment)
+          } #if2
+        }#for3
+      }#for2
+    }#else1
+  fort_data$save(paste0(directory, substr(dataset_name, 1, nchar(dataset_name)-9),'_metaIDmatched.myrmidon'))
+  print("done")
+}#for1
+
+    
 
                               
 # last step, combine the two loops to one. so that we do not first create a pseudo meta_ID for the secondary file!
 # next steps: include meta data treatment and think about making the previous steps as a loop for all tracking file simultaneously so I do not need to do it by hand
 # either by (i) adjusting the file names or by (ii) running a special paste thing that creates a list with all the pairs of myrmidon files (main and treatment tracking)
 # idea - create a list with all the trackings recucing the names to ColonyXX_main and ColonyXX_treatment
-                              
-                              
-                              
-for (a in main_data$ants){
-  for (b in secondary_data$ants){
-    if (a$identifications[[1]]$tagValue == b$identifications[[1]]$tagValue){
-      b$setValue("meta_ID", 
-                 value = as.numeric(main_data$ants[[a$getValue("meta_ID", time = fmTimeCreate(offset = fmQueryGetDataInformations(main_data)$start))]]$getValue(key="meta_ID", time = fmTimeCreate(offset = fmQueryGetDataInformations(main_data)$start))), 
-                 time = fmTimeCreate(offset = fmQueryGetDataInformations(main_data)$start))}
-  }
-}
 
 
-
-for (a in main_data$ants){
-  for (b in secondary_data$ants){
-    if (a$identifications[[1]]$tagValue == b$identifications[[1]]$tagValue){
-      b$setValue("meta_ID", 
-                 value = 69, 
-                 time = fmTimeCreate(offset = fmQueryGetDataInformations(main_data)$start))}
-  }
-}
+### combine the two loops to a single loop ###
+ # include a line to define the queen. 
 
 
-
-secondary_data$ants
-secondary_data$ants[[1]]$getValue(key="meta_ID", time = fmTimeCreate(offset = fmQueryGetDataInformations(fort_data)$start))
-
-# save new version of the secondary myrmidon file
-secondary_data$save(paste0(directory, substr(secondary_file_name, 1, nchar(secondary_file_name)-9),'_metaIDmatched.myrmidon'))
-
-
-
-### ### ### ### ###
-secondary_data$ants[[2]]$getValue(key="meta_ID", time = fmTimeCreate(offset = fmQueryGetDataInformations(fort_data)$start))
+main_file_name <- "vital_fc2_prideaux_c02_DS_AntsCreated_ManuallyOriented_CapsAutoDefined.myrmidon" 
+secondary_file_name <- "vital_fc2_esterhase_c02_feeding_DS_AntsCreated.myrmidon"
 
 
 
 
 
-
-
-
-
-
-
-
-
-secondary_data$ants[[1]]$getValue(key="meta_ID", time = fmTimeCreate(offset = fmQueryGetDataInformations(fort_data)$start))
-main_data$ants[[1]]$getValue(key="meta_ID", time = fmTimeCreate(offset = fmQueryGetDataInformations(fort_data)$start))
-
-secondary_data$ants[[1]]$setValue(key="meta_ID", value = 69, time = fmTimeCreate(offset = fmQueryGetDataInformations(fort_data)$start))
-secondary_data$ants[[2]]$getValue(key="meta_ID", time = fmTimeCreate(offset = fmQueryGetDataInformations(fort_data)$start))
-
-main_data$ants[[2]]$getValue(key="meta_ID", time = fmTimeCreate(offset = fmQueryGetDataInformations(fort_data)$start))
-main_data$ants[[21]]$getValue(key="meta_ID", time = fmTimeCreate(offset = fmQueryGetDataInformations(fort_data)$start))
-
-
-
-for (a in main_data$ants){
-  for (b in secondary_data$ants){
-    if (a$identifications[[1]]$tagValue == b$identifications[[1]]$tagValue){
-      b$setValue("meta_ID", value = 69, time = fmTimeCreate(offset = fmQueryGetDataInformations(fort_data)$start))}
-  }
-}
-
-as.numeric(main_data$ants[[1]]$getValue(key="meta_ID", time = fmTimeCreate(offset = fmQueryGetDataInformations(fort_data)$start))
-
-
-
-
-
-
-  
-
-
-
-secondary_data$ants[[2]]$getValue(key="meta_ID", time = fmTimeCreate(offset = fmQueryGetDataInformations(fort_data)$start))
-
-secondary_data$ants[[2]]$setValue(key="meta_ID", value = 69, time = fmTimeCreate(offset = fmQueryGetDataInformations(fort_data)$start))
-
-secondary_data$ants[[2]]$getValue(key="meta_ID", time = fmTimeCreate(offset = fmQueryGetDataInformations(fort_data)$start))
-
-
-
-
-
-
-
-for (a in main_data$ants){
-  for (b in secondary_data$ants){
-    if (a$identifications[[1]]$tagValue == b$identifications[[1]]$tagValue){
-      a$setValue("meta_ID", value = 69, time = fmTimeCreate(offset = fmQueryGetDataInformations(fort_data)$start))}
+for (dataset_name in c(main_file_name, secondary_file_name)){
+  # get data
+  fort_data <- fmExperimentOpen(dataset_name)
+  start_experiment <- fmTimeCreate(offset = fmQueryGetDataInformations(fmExperimentOpen(main_file_name))$start)
+  # create key variable you want for your data sets (for now only the meta_ID is relevant)
+  fort_data$setMetaDataKey(key = "meta_ID", default_Value = 001)
+  fort_data$setMetaDataKey(key = "queen", default_Value = FALSE)
+  fort_data$setMetaDataKey(key = "name", default_Value = "NA")
+  fort_data$setMetaDataKey(key = "treated", default_Value = FALSE)
+  # for the main file: define meta_ID so it corresponds to antID (no overriding yet)
+  if (dataset_name == main_file_name) {
+    for (i in 1:length(fort_data$ants)) {
+      fort_data$ants[[i]]$setValue(key="meta_ID", value = c(fort_data$ants[[i]]$identifications[[1]]$targetAntID), time = start_experiment)
     }
-}
-
-
-
-for (i in 1:length(main_data$ants)) {
-  ants <- main_data$ants
-  if ants$identifications
-  
-  if (a$identifications[[1]]$tagValue == b$identifications[[1]]$tagValue){
-    a$setValue("SIBB",TRUE, t)}}
-  fort_data$ants[[i]]$setValue(key="meta_ID", value = c(fort_data$ants[[i]]$identifications[[1]]$targetAntID), time = fmTimeCreate(offset = fmQueryGetDataInformations(fort_data)$start))
-  
-  # save new version of the myrmidon file
-  fort_data$save(paste0(directory, substr(secondary_file_name, 1, nchar(secondary_file_name)-9),'_metaIDmatched.myrmidon'))
-  print("done")
+    ants <- fort_data$ants
+    for (i in ants) {
+      if (i$identifications[[1]]$tagValue==0) {
+        i$setValue("queen", TRUE, time = start_experiment)}
+    } 
+  } else { 
+    source_data <- fmExperimentOpen(paste0(substr(main_file_name,1, nchar(main_file_name)-9),'_metaID.myrmidon'))
+    for (a in source_data$ants) {
+      for (b in fort_data$ants) {
+        if (a$identifications[[1]]$tagValue == b$identifications[[1]]$tagValue) {
+          b$setValue("meta_ID",
+                     value = as.numeric(source_data$ants[[a$getValue(key="meta_ID", time=start_experiment)]]$getValue(key="meta_ID", time = start_experiment)), 
+                     time = start_experiment)
+        }
+      }
+    }
   }
-
-
-
-
-
-### ### ### ###
-
-secondary_data$ants[[i]]$setValue(key="meta_ID", value = c(fort_data$ants[[i]]$identifications[[1]]$targetAntID), time = fmTimeCreate(offset = fmQueryGetDataInformations(fort_data)$start))
-
-main_data$ants[[1]]$identifications[[1]]$tagValue
-secondary_data$ants[[1]]$identifications[[1]]$tagValue
-
-print(main_data$ants[[1]]$identifications)
-
-
-main_data$ants[[2]]$identifications[[1]]$tagValue
-main_data$ants[[3]]$identifications[[1]]$tagValue
-
-
-
-
-
-           
-#### Stuff from Luks script ####           
-           
-
-##this changes metadata if tag IDs match for SI ants 02/08/22
-for (a in Metadata_exp$ants){   ####LOOP OVER ANTS
-  ###get corresponding ant from metadata
-  # e <- a$createAnt()
-  for (b in SIBB$ants){
-    if (a$identifications[[1]]$tagValue == b$identifications[[1]]$tagValue){
-      a$setValue("SIBB",TRUE, t)}}
-  for (k in SIKVL$ants){
-    if (a$identifications[[1]]$tagValue == k$identifications[[1]]$tagValue){
-      a$setValue("SIKVL",TRUE, t)}}
-  for (s in SISHAM$ants){
-    if (a$identifications[[1]]$tagValue == s$identifications[[1]]$tagValue){
-      a$setValue("SISH",TRUE, t)}}
+  # save new version of myrmidon files
+  fort_data$save(paste0(directory, substr(dataset_name, 1, nchar(dataset_name)-9),'_metaID.myrmidon'))
 }
 
 
 
-#for ( i in 1:nrow(number of tags)) { # for each ant in the secondary file
-#  find the same tag id in main file, copy the antID assigned to that main-tag-id copy it and overwrite the previous one 
 
-for (i in 1:nrow(secondary_tag_statistics)) 
-
-
-for ( i in 1:nrow(tag_statistics)) {  #####loop over each tag
-  if ( tag_statistics[i,"count"] >= 0.001*max(tag_statistics[,"count"],na.rm=T) ) { ### optional: here I decide to create an antID only if the tag detection rate was more than 1/1000 * the best tag detection rate. You can choose your own criterion
-    a <- tracking_data$createAnt(); ###this actually creates an antID, i.e. associates a decimal antID number to that particular tagID
-    identification <- tracking_data$addIdentification(a$ID,tag_statistics[i,"tagDecimalValue"],fmTimeSinceEver(),fmTimeForever())
-    print(identification)
-  }
-}
-
-
-str(tag_statistics)
-names(tag_statistics)
-tracking_data$ant
-
-ants
-
-#### stuff from Luke ####
-library(FortMyrmidon) ####R bindings
-library(Rcpp)
-library(circular)
-library(R.utils)
-
-dir_data <- "/media/ll16598/Seagate Desktop Drive/"
-dir_SI <- "/home/ll16598/Documents/SICC_METADATA/SI_ID/13P/"
-dir_chall <- "/home/ll16598/Documents/SICC_METADATA/Pathogen_ID/"
-
-myrmidon_file1 <- paste(dir_data,"13P_IV31_110522_HDN/13P_IV31_110522_HDN_manual_orient_test.myrmidon",sep='')
-Metadata_exp <- fmExperimentOpen(myrmidon_file1)
-
-#FORPATHOGEN CHALLENGED COLONIES
-CHALL_KVL_ <- paste(dir_chall, ".myrmidon",sep='') #Sham SI IDs
-CHALL_KVL <- fmExperimentOpen(CHALL_KVL_)
-CHALL_BB_ <- paste(dir_chall, ".myrmidon",sep='') #Sham SI IDs
-CHALL_BB <- fmExperimentOpen(CHALL_BB_)
-
-#PATHOGEN CHALLENGED IDS
-BB_tag_statistics <- fmQueryComputeTagStatistics(CHALL_BB) #do for myrmidon file also
-BB_IDs <- BB_tag_statistics$tagDecimalValue
-for ( i in 1:nrow(BB_tag_statistics)) {  #####loop over each tag
-  #if ( tag_statistics[i,"count"] >= 0.001*max(tag_statistics[,"count"],na.rm=T) ) { ### optional: here I decide to create an antID only if the tag detection rate was more than 1/1000 * the best tag detection rate. You can choose your own criterion
-  a <- BB$createAnt(); ###this actually creates an antID, i.e. associates a decimal antID number to that particular tagID
-  identification <- CHALL_BB$addIdentification(a$ID,BB_tag_statistics[i,"tagDecimalValue"],fmTimeSinceEver(),fmTimeForever())
-  print(identification)
-}
-BB_CHALL_ants <- CHALL_BB$ants #BEAUVERIA IDS
-
-KVL_tag_statistics <- fmQueryComputeTagStatistics(KVL_CHALL) #do for myrmidon file also
-KVL_IDs <- KVL_tag_statistics$tagDecimalValue
-for ( i in 1:nrow(KVL_tag_statistics)) {  #####loop over each tag
-  #if ( tag_statistics[i,"count"] >= 0.001*max(tag_statistics[,"count"],na.rm=T) ) { ### optional: here I decide to create an antID only if the tag detection rate was more than 1/1000 * the best tag detection rate. You can choose your own criterion
-  a <- KVL_CHALL$createAnt(); ###this actually creates an antID, i.e. associates a decimal antID number to that particular tagID
-  identification <- KVL_CHALL$addIdentification(a$ID,KVL_tag_statistics[i,"tagDecimalValue"],fmTimeSinceEver(),fmTimeForever())
-  print(identification)
-}
-KVL_CHALL_ants <- KVL_CHALL$ants
-
-#FOR BEAD CHALLENGED COLONIES
-BLUE_ <- paste(dir_chall, ".myrmidon",sep='') #Sham SI IDs
-BLUE <- fmExperimentOpen(BLUE_)
-YELLOW_ <- paste(dir_chall, ".myrmidon",sep='') #Sham SI IDs
-YELLOW <- fmExperimentOpen(YELLOW_)
-
-#BEAD CHALLENGE IDS
-BLUE_tag_statistics <- fmQueryComputeTagStatistics(BLUE) #do for myrmidon file also
-BLUE_IDs <- BLUE_tag_statistics$tagDecimalValue
-for ( i in 1:nrow(BLUE_tag_statistics)) {  #####loop over each tag
-  #if ( tag_statistics[i,"count"] >= 0.001*max(tag_statistics[,"count"],na.rm=T) ) { ### optional: here I decide to create an antID only if the tag detection rate was more than 1/1000 * the best tag detection rate. You can choose your own criterion
-  a <- BLUE$createAnt(); ###this actually creates an antID, i.e. associates a decimal antID number to that particular tagID
-  identification <- BLUE$addIdentification(a$ID,BLUE_tag_statistics[i,"tagDecimalValue"],fmTimeSinceEver(),fmTimeForever())
-  print(identification)
-}
-BLUE_ants <- BLUE$ants #BLUE ANT IDS
-
-YELLOW_tag_statistics <- fmQueryComputeTagStatistics(YELLOW) #do for myrmidon file also
-YELLOW_IDs <- YELLOW_tag_statistics$tagDecimalValue
-for ( i in 1:nrow(YELLOW_tag_statistics)) {  #####loop over each tag
-  #if ( tag_statistics[i,"count"] >= 0.001*max(tag_statistics[,"count"],na.rm=T) ) { ### optional: here I decide to create an antID only if the tag detection rate was more than 1/1000 * the best tag detection rate. You can choose your own criterion
-  a <- YELLOW$createAnt(); ###this actually creates an antID, i.e. associates a decimal antID number to that particular tagID
-  identification <- YELLOW$addIdentification(a$ID,YELLOW_tag_statistics[i,"tagDecimalValue"],fmTimeSinceEver(),fmTimeForever())
-  print(identification)
-}
-YELLOW_ants <- YELLOW$ants
-
-#READ SI FILES
-SIBB_ <- paste(dir_SI, "13P_SIBB.myrmidon",sep='') #Beauveria SI IDs
-SIBB <- fmExperimentOpen(SIBB_)
-SIKVL_ <- paste(dir_SI, "13P_SIKVL.myrmidon",sep='') #Metarhizium SI IDs
-SIKVL <- fmExperimentOpen(SIKVL_)
-SISH_ <- paste(dir_SI, "13P_SISH.myrmidon",sep='') #Sham SI IDs
-SISH <- fmExperimentOpen(SISH_)
-
-
-
-#CREATE SIBB ANTS
-SIBB_tag_statistics <- fmQueryComputeTagStatistics(SIBB) #do for myrmidon file also
-SIBB_IDs <- SIBB_tag_statistics$tagDecimalValue
-for ( i in 1:nrow(SIBB_tag_statistics)) {  #####loop over each tag
-  #if ( tag_statistics[i,"count"] >= 0.001*max(tag_statistics[,"count"],na.rm=T) ) { ### optional: here I decide to create an antID only if the tag detection rate was more than 1/1000 * the best tag detection rate. You can choose your own criterion
-  a <- SIBB$createAnt(); ###this actually creates an antID, i.e. associates a decimal antID number to that particular tagID
-  identification <- SIBB$addIdentification(a$ID,SIBB_tag_statistics[i,"tagDecimalValue"],fmTimeSinceEver(),fmTimeForever())
-  print(identification)
-}
-SIBB_ants <- SIBB$ants
-
-#CREATE SIKVL ANTS
-SIKVL_tag_statistics <- fmQueryComputeTagStatistics(SIKVL) #do for myrmidon file also
-SIKVL_IDs <- SIKVL_tag_statistics$tagDecimalValue
-for ( i in 1:nrow(SIKVL_tag_statistics)) {  #####loop over each tag
-  #if ( tag_statistics[i,"count"] >= 0.001*max(tag_statistics[,"count"],na.rm=T) ) { ### optional: here I decide to create an antID only if the tag detection rate was more than 1/1000 * the best tag detection rate. You can choose your own criterion
-  a <- SIKVL$createAnt(); ###this actually creates an antID, i.e. associates a decimal antID number to that particular tagID
-  identification <- SIKVL$addIdentification(a$ID,SIKVL_tag_statistics[i,"tagDecimalValue"],fmTimeSinceEver(),fmTimeForever())
-  print(identification)
-}
-SIKVL_ants <- SIKVL$ants
-
-#CREATE SISH ANTS
-SISH_tag_statistics <- fmQueryComputeTagStatistics(SISH) #do for myrmidon file also
-SISH_IDs <- SISH_tag_statistics$tagDecimalValue
-for ( i in 1:nrow(SISH_tag_statistics)) {  #####loop over each tag
-  #if ( tag_statistics[i,"count"] >= 0.001*max(tag_statistics[,"count"],na.rm=T) ) { ### optional: here I decide to create an antID only if the tag detection rate was more than 1/1000 * the best tag detection rate. You can choose your own criterion
-  a <- SISH$createAnt(); ###this actually creates an antID, i.e. associates a decimal antID number to that particular tagID
-  identification <- SISH$addIdentification(a$ID,SISH_tag_statistics[i,"tagDecimalValue"],fmTimeSinceEver(),fmTimeForever())
-  print(identification)
-}
-SISH_ants <- SISH$ants
-
-#CREATE ANTS FOR MAIN EXP FILE
-Metadata_ants <- Metadata_exp$ants
-t <- fmTimeCreate(offset = 0)#SET TIME TO 1970
-
-##this changes metadata if tag IDs match for SI ants 02/08/22
-for (a in Metadata_exp$ants){   ####LOOP OVER ANTS
-  ###get corresponding ant from metadata
-  # e <- a$createAnt()
-  for (b in SIBB$ants){
-    if (a$identifications[[1]]$tagValue == b$identifications[[1]]$tagValue){
-      a$setValue("SIBB",TRUE, t)}}
-  for (k in SIKVL$ants){
-    if (a$identifications[[1]]$tagValue == k$identifications[[1]]$tagValue){
-      a$setValue("SIKVL",TRUE, t)}}
-  for (s in SISHAM$ants){
-    if (a$identifications[[1]]$tagValue == s$identifications[[1]]$tagValue){
-      a$setValue("SISH",TRUE, t)}}
-}
-# changes metadata for challenge ants
-for (a in Metadata_exp$ants){   ####LOOP OVER ANTS
-  ###get corresponding ant from metadata
-  # e <- a$createAnt()
-  for (B in BB_CHALL$ants){
-    if (a$identifications[[1]]$tagValue == B$identifications[[1]]$tagValue){
-      a$setValue("BB_CHALL",TRUE, t)}}
-  for (K in KVL_CHALL$ants){
-    if (a$identifications[[1]]$tagValue == K$identifications[[1]]$tagValue){
-      a$setValue("KVL_CHALL",TRUE, t)}}
-}
-#CONTROL BEAD ANT METADATA
-for (a in Metadata_exp$ants){   ####LOOP OVER ANTS
-  ###get corresponding ant from metadata
-  # e <- a$createAnt()
-  for (N in BLUE$ants){
-    if (a$identifications[[1]]$tagValue == N$identifications[[1]]$tagValue){
-      a$setValue("BLUE",TRUE, t)}}
-  for (Y in YELLOW$ants){
-    if (a$identifications[[1]]$tagValue == Y$identifications[[1]]$tagValue){
-      a$setValue("YELLOW",TRUE, t)}}
-}
-
-Metadata_exp$save(paste0(sub("\\..*", "", myrmidon_file1),"_withMetaData.myrmidon")) 
-
-
-
-
+### next step copy and info on size and capsules
 
 
 
