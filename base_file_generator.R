@@ -66,14 +66,42 @@ print(substr(tracking_data_file, nchar(tracking_data_file)-1, nchar(tracking_dat
 substr(tracking_data_file, nchar(tracking_data_file)-(nchar(tracking_data_file)), nchar(tracking_data_file))
 substr(tracking_data_file, nchar(tracking_data_file)-0, nchar(tracking_data_file))
 
-
-
 print(tracking_data_file)
 nchar(tracking_data_file)
 
 ?substr
 
-substr(dataset_name, 1, nchar(dataset_name)-9),'_metaID.myrmidon')
-
-
+paste(substr(dataset_name, 1, nchar(dataset_name)-9),'_metaID.myrmidon')
 print(tracking_data_file)
+
+
+
+
+
+
+
+
+# create blank myrmidon file
+
+tracking_data <- fmExperimentCreate(paste(dir_data,auto_orient_file,sep='')) # no file created yet
+tracking_data$save(paste(dir_data,auto_orient_file,sep='')) # file now exists
+
+# create space
+
+s <- tracking_data$createSpace(tracking_systems[[rep%%4 + 1]])
+printf("Space '%s' has ID: %d\n",s$name,s$ID)
+
+# outputs: Space 'nest' has ID: 1
+tracking_data$save(paste(dir_data,auto_orient_file,sep='')) # file now exists
+
+# add tracking data directory
+tddURI <- tracking_data$addTrackingDataDirectory(s$ID,paste(dir_data,tracking_data_file,sep=''))
+tracking_data$save(paste(dir_data,auto_orient_file,sep='')) # file now exists
+
+# create ants
+
+
+
+
+
+

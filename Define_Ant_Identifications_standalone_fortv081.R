@@ -41,14 +41,15 @@ library(R.utils)        #### contains printf()
 
 ### directory and file you will use 
 # file_name <- 'vital_fc2_esterhase_c01_feeding_DS_base.myrmidon'  #insert your base file name here. NOTE: Files names are supposed to end with base.myrmidon for the paste functions to work
-# file_name <- 'vital_fc2_esterhase_c02_feeding_DS_base.myrmidon'
-file_name <- 'vital_fc2_guillam_c12_feeding_DS_base.myrmidon'
+file_name <- 'vital_fc2_esterhase_c02_feeding_DS_base.myrmidon'
+#file_name <- 'vital_fc2_guillam_c12_feeding_DS_base.myrmidon'
 
 
 
 # notes for tomorrow: files to do for manual orientation: 1x esterhase feeding, 1 oder 2x guillam feeding, 2tes mal guillam after feeding 
-directory <- '/media/gw20248/gismo_hd2/vital/fc2/' # insert your directory here
-
+# directory <- '/media/gw20248/gismo_hd2/vital/fc2/' # insert your directory here
+directory <- "/home/gw20248/Documents/data_copy_for_trials/"
+setwd(directory)
 
 
 
@@ -56,7 +57,6 @@ directory <- '/media/gw20248/gismo_hd2/vital/fc2/' # insert your directory here
 
 #### code to run without further modification ####
 
-setwd(directory)
 ### tracking file you would like to create ants for: 
 tracking_data <- fmExperimentOpen(file_name)
 

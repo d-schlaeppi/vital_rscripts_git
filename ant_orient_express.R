@@ -3,6 +3,7 @@ gc()
 
 ########################################################################
 ################# ORIENT ALL FILES (AntsCreated) #######################
+
 # Once DataPrep1_Clone-capsule-manual-to-manual_v082.R is run, check in fort-studio that capsules are present and normal and that Queen infos are overwritten (tag size, manual orientation, manual capsules).
 # In auto_orientation_loop.R, load these 5 oriented and capsule provided files and orient all of the other files
 
