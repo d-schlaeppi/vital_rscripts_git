@@ -24,6 +24,17 @@ library(FortMyrmidon) #R bindings
 directory <- "/home/gw20248/Documents/data_copy_for_trials/"
 setwd(directory)
 
+
+
+# once we have the post-processed date rewrite the script below to do all colonies in one go: 
+
+for (i in 1:nrow(data_collection)) {
+  main_file_name  <- paste0("colony_nr and rest of the main file name", "with colony nr set as i")
+  secondary_file_name <- paste0("colony_nr and rest of the corresponding feeding file name", "with colony nr set as i")
+  #then include here the code below 
+}
+  
+
 # select the two related files you want to work with (both need to have ants already created) 
 main_file_name <- "vital_fc2_prideaux_c02_DS_AntsCreated_ManuallyOriented_CapsAutoDefined_metaID.myrmidon" # main tracking file
 #secondary_file_name <- "vital_fc2_esterhase_c02_feeding_DS_AntsCreated_metaID.myrmidon" # treatment tracking file
