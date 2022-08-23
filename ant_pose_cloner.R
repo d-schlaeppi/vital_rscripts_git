@@ -187,6 +187,10 @@ for (destination_file in destination_files) {
 
 
 
+#### ant orientation cloner ####
+
+for each ant in the feeding file 
+check for the corresponding ant in the source file and assign its values to this ant. 
 
 
 
@@ -200,56 +204,6 @@ for (destination_file in destination_files) {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-# extract tag size in pixel and milimeter? 
-
-data <- fmExperimentOpen(main_file_name)
-ants <- data$ants
-
-data$defaultTagSize
-
-ants[[1]]$
-
-ant_length_pixel <- 
-ant_length_mm
-
-TS: 1
-mean(fmQueryComputeMeasurementFor(data, antID = 2)$length_px)
-mean(fmQueryComputeMeasurementFor(data, antID = 2)$length_mm)
-data$defaultTagSize
-
-TS: 2
-data$defaultTagSize
-
-
-
-
-
-
-for (defined_capsule_file in data_list) {
-  # open tracking data which need new capsule
-  tracking_data <- fmExperimentOpen(destination_file) 
-  ants <- tracking_data$ants
-}
-for (ant in ants){
-  ###extract ant length and capsules
-  ant_length_px <- mean(fmQueryComputeMeasurementFor(tracking_data,antID=ant$ID)$length_px)
-  
-  ANT.LENGTH <- rbind(ANT.LENGTH,data.frame(
-    length_px        = ant_length_px,
-    stringsAsFactors = F))
-}
 
 
 

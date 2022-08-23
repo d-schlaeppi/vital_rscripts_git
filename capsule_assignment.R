@@ -5,8 +5,6 @@
 # for more information on fort-myrmidon and fort-studio see: 
 # "https://formicidae-tracker.github.io/myrmidon/latest/index.html"
 
-?FortMyrmidon
-
 rm(list=ls())
 gc()
 
@@ -39,7 +37,9 @@ library(circular)
 library(R.utils)
 
 ### set directory of data and myrmidon files
-dir_data <- '/media/gw20248/gismo_hd2/vital/fc2/'
+# dir_data <- '/media/gw20248/gismo_hd2/vital/fc2/'
+dir_data <- "/home/gw20248/Documents/data_copy_for_trials/"
+
 
 ### myrmidon file (manually oriented) containing the capsule definition which was applied/cloned to all ants of the colony
 defined_capsule_file <- paste(dir_data,"vital_fc2_prideaux_c02_DS_AntsCreated_ManuallyOriented_CapsuleManuallyDefined.myrmidon",sep='')
@@ -49,11 +49,14 @@ no_capsule_list <- list(
   paste(dir_data,"vital_fc2_guillam_c03_DS_AntsCreated_ManuallyOriented.myrmidon",sep=''), 
   paste(dir_data,"vital_fc2_trojan_c27_DS_AntsCreated_ManuallyOriented.myrmidon",sep=''),
   paste(dir_data,"vital_fc2_prideaux_c02_DS_AntsCreated_ManuallyOriented.myrmidon",sep=''), 
-  paste(dir_data,"vital_fc2_esterhase_c02_feeding_DS_AntsCreated_ManuallyOriented.myrmidon",sep='')
+  paste(dir_data,"vital_fc2_esterhase_c02_feeding_DS_AntsCreated_ManuallyOriented.myrmidon",sep=''),
+  paste(dir_data,"vital_fc2_guillam_c12_feeding_DS_AntsCreated_ManuallyOriented.myrmidon",sep=''),
+  paste(dir_data,"vital_fc2_guillam_c27_feeding_DS_AntsCreated_ManuallyOriented.myrmidon",sep='')
   )
 
 # define name of output file
-output_name <- file.path(paste0('/media/gw20248/gismo_hd2/vital/fc2/', "Mean_ant_length_colonies.txt")) 
+#output_name <- file.path(paste0('/media/gw20248/gismo_hd2/vital/fc2/', "Mean_ant_length_colonies.txt")) 
+output_name <- file.path(paste0(dir_data,"Mean_ant_length_colonies.txt")) 
 
 
 
@@ -209,7 +212,7 @@ for (no_capsule_file in no_capsule_list) {
 
 for (defined_capsule_file in defined_capsule_file) {
   # open tracking data which need new capsule
-  tracking_data <- fmExperimentOpen(no_capsule_file) 
+  tracking_data <- fmExperimentOpen(defined_capsule_file) 
   ants <- tracking_data$ants
 }
 for (ant in ants){
