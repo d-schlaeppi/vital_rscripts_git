@@ -1,3 +1,6 @@
+# CHECK THIS SCRIPT FOR MISTAKES BEFORE USE
+
+
 # this script contains: 
 # 1. CLONE CAPSULES FROM MANUAL TO MANUAL FILES
 # 2. Extraction of in formation on AntPose and Capsules from manually oriented data
@@ -39,6 +42,7 @@ library(R.utils)
 ### set directory of data and myrmidon files
 # dir_data <- '/media/gw20248/gismo_hd2/vital/fc2/'
 dir_data <- "/home/gw20248/Documents/data_copy_for_trials/"
+setwd(dir_data)
 
 
 ### myrmidon file (manually oriented) containing the capsule definition which was applied/cloned to all ants of the colony
@@ -147,10 +151,11 @@ for (caps in 1:length(capsule_list)){
   capsule_list[[caps]] <- colMeans(capsule_list[[caps]][,which(grepl("ratio",names(capsule_list[[caps]])))])
 }
 
-ANT.LENGTH <- NULL
+
 
 #### Write capsule data to each manually oriented file ####
 for (no_capsule_file in no_capsule_list) {
+  ANT.LENGTH <- NULL
   # open tracking data which need new capsule
   tracking_data <- fmExperimentOpen(no_capsule_file) 
   ants <- tracking_data$ants
@@ -207,6 +212,10 @@ for (no_capsule_file in no_capsule_list) {
   rm(list=(c("tracking_data")))
   
 }
+
+
+
+
  
 #### Extract ant length for defined capsule file ####
 
@@ -240,3 +249,16 @@ ant_length_colony1 <- data.frame(ant.length=mean(ANT.LENGTH$length_px,na.rm=T), 
 # Go to fort-studio to check things look all right 
 
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ####
+
+
+
+
+
+
+
+
+
+
+
+
+

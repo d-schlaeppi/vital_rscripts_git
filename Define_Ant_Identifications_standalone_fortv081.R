@@ -46,14 +46,10 @@ file_name <- 'vital_fc2_guillam_c12_feeding_DS_base.myrmidon'
 file_name <- 'vital_fc2_guillam_c27_feeding_DS_base.myrmidon'
 
 
-
-
 # notes for tomorrow: files to do for manual orientation: 1x esterhase feeding, 1 oder 2x guillam feeding, 2tes mal guillam after feeding 
 # directory <- '/media/gw20248/gismo_hd2/vital/fc2/' # insert your directory here
 directory <- "/home/gw20248/Documents/data_copy_for_trials/"
 setwd(directory)
-
-
 
 
 
@@ -76,13 +72,13 @@ for ( i in 1:nrow(tag_statistics)) {  #####loop over each tag
 
 ### create ants with a stronger cut off to reduce the chances of false positives if too many false ants are created 
 #tag_statistics[,"count"] #check for the count numbers to see what range should be included (in this case the cutoff is reduced from 0.001 to 0,01)
-for ( i in 1:nrow(tag_statistics)) {  #####loop over each tag
-  if ( tag_statistics[i,"count"] >= 0.01*max(tag_statistics[,"count"],na.rm=T) ) { ### optional: here I decide to create an antID only if the tag detection rate was more than 1/1000 * the best tag detection rate. You can choose your own criterion
-    a <- tracking_data$createAnt(); ###this actually creates an antID, i.e. associates a decimal antID number to that particular tagID
-    identification <- tracking_data$addIdentification(a$ID,tag_statistics[i,"tagDecimalValue"],fmTimeSinceEver(),fmTimeForever())
-    print(identification)
-  }
- }
+#for ( i in 1:nrow(tag_statistics)) {  #####loop over each tag
+#  if ( tag_statistics[i,"count"] >= 0.01*max(tag_statistics[,"count"],na.rm=T) ) { ### optional: here I decide to create an antID only if the tag detection rate was more than 1/1000 * the best tag detection rate. You can choose your own criterion
+#    a <- tracking_data$createAnt(); ###this actually creates an antID, i.e. associates a decimal antID number to that particular tagID
+#    identification <- tracking_data$addIdentification(a$ID,tag_statistics[i,"tagDecimalValue"],fmTimeSinceEver(),fmTimeForever())
+#    print(identification)
+#  }
+# }
 
 
 ### Check: print identifications
