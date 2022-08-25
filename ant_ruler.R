@@ -1,5 +1,5 @@
 # this script contains: 
-# 1. ANT-RULER to measure mean ant size in pixel and mm 
+# 1. ANT-RULER to measure mean ant (workers) size in pixel and mm 
 
 rm(list=ls())
 gc()
@@ -10,7 +10,7 @@ gc()
 
 #### INFORMATION ####
 
-# create a list with all the tracking files for which a measurement is needed and run the loop to create a text file containing mean size in pixel and mm
+# create a list with all the tracking files for which a measurement is needed and run the loop to create a text file containing mean worker size in pixel and mm
 # for more information on fort-myrmidon and fort-studio see: 
 # https://formicidae-tracker.github.io/myrmidon/latest/index.html
 

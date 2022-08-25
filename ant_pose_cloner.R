@@ -180,13 +180,6 @@ for (destination_file in destination_files) {
 
 
 
-
-
-
-
-
-
-
 #### ant orientation cloner ####
 
 for each ant in the feeding file 
