@@ -205,7 +205,7 @@ for (element in files) {
 
 # !!! Manually copy the file base_source.myrmidon into the directory containing the tracking files !!!
 
-rm(list=ls())
+
 # set working directory to the new directory containing the tracking data
 directory <- '/media/gw20248/gismo_hd2/vital/fc2/' 
 setwd(directory)
@@ -217,9 +217,12 @@ data_list <- list.files(path=directory, pattern=NULL, all.files=FALSE, full.name
 # exclusion of any myrmidon or text files 
 data_list <- grep(data_list, pattern = '.myrmidon', invert = TRUE, value = TRUE) 
 data_list <- grep(data_list, pattern = '.txt', invert = TRUE, value = TRUE)
+data_list <- grep(data_list, pattern = 'climate', invert = TRUE, value = TRUE)
+data_list <- grep(data_list, pattern = 'Data_Read_Me', invert = TRUE, value = TRUE)
 data_list
 
 # first an empty .myrmidon file is created manually as a source file using fort studio: base_source.myrmidon this is then used to create the rest of the files... 
+
 
 tracking_type <- c("main", "feeding")
 for (i in 1:nrow(data_collection)) {
@@ -257,11 +260,21 @@ for (i in 1:nrow(data_collection)) {
 }
 
 
-#### 3.1.1 Extrastep manually assign to each of the base files the corresponding data in fort ####
+
+
+
+
+
+
+
+
+#### 3.1.1 Extra step manually assign to each of the base files the corresponding data in fort ####
  # needs to be done because addTrackingDataDirectory() does not work? otherwise this could all be done automatically and ant creation could go in the same loop
 
 
 #### Create ant for all myrmidon files (main = m and feeding = f) ####
+
+
 
 types <- c("m", "f")
 for (i in 1:nrow(data_collection)) {
@@ -275,7 +288,7 @@ for (i in 1:nrow(data_collection)) {
       print(identification)
     }
   }
-  tracking_data$save(paste0(directory, substr(paste0(data_collection[i,"colony_nr"], "_", type, "_base.myrmidon"), 1, nchar(paste0(data_collection[i,"colony_nr"], "_",type, "_base.myrmidon"))-13), 'AntsCreated.myrmidon'))
+  data$save(paste0(directory, substr(paste0(data_collection[i,"colony_nr"], "_", type, "_base.myrmidon"), 1, nchar(paste0(data_collection[i,"colony_nr"], "_",type, "_base.myrmidon"))-13), 'AntsCreated.myrmidon'))
   } #types
 }#colonies
 
