@@ -28,18 +28,18 @@ list.dirs.depth.n <- function(p, n) {
   }
 }
 
-###source C++ movement direction program
-sourceCpp("/media/cf19810/DISK4/EXP1_base_analysis/determine_angle_automatically/Get_Movement_Angle.cpp")
-#sourceCpp("/media/eg15396/DISK4/EXP1_base_analysis/determine_angle_automatically/Get_Movement_Angle.cpp")
 
 ### directory of data and myrmidon files
-dir_data <- '/media/cf19810/DISK4/ADRIANO/EXPERIMENT_DATA'
-#dir_data <- "/media/eg15396/DISK4/ADRIANO/EXPERIMENT_DATA"
+dir_data <- "/media/gw20248/gismo_hd2/vital/fc2/"
+
+### source C++ movement direction program
+# copy the file from sharepoint into your directory mentioned above
+sourceCpp(paste0(dir_data,"Get_Movement_Angle.cpp"))
 
 
 
-#### ACCESS FILES
-#list subdirectories in parent folder EXPERIMENT_DATA
+### ACCESS FILES
+# list subdirectories in parent folder EXPERIMENT_DATA
 files_list <- list.dirs.depth.n(dir_data, n = 1)
 
 #select REP folders
@@ -351,5 +351,5 @@ cat("LOOP ENDED!! \n Go to fort-studio to check things look all right
 \n AND OVERWRITE INFO FOR QUEEN!!! (tag size, manual orientation, manual capsules)
 ")
 
-##LASTLY!! Go to fort-studio to check things look all right
+## LASTLY!! Go to fort-studio to check things look all right
 ### AND TO OVERWRITE INFO FOR QUEEN!!! (tag size, manual orientation, manual capsules)

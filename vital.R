@@ -37,7 +37,8 @@
 # Step 3: Use the extrapolated data for all the colonies do all the necessary post processing
 
 # Step 3.1: Create all base myrmidon files
-# Step 3.2: Generate all ants 
+# Step 3.2: Generate all ants
+# Step 3.3: Automatically create the metadata variables needed
 # Step 3.3: Automatically orient all ants in all extrapolated data using the ant_orient express
 # Step 3.4: Generate capsules for all ant
 # Step 3.4: For each tracking file do the necessary post processing
@@ -206,7 +207,7 @@ for (element in files) {
 # !!! Manually copy the file base_source.myrmidon into the directory containing the tracking files !!!
 
 
-# set working directory to the new directory containing the tracking data
+# set working directory to the new directory containing the extrapolated tracking data
 directory <- '/media/gw20248/gismo_hd2/vital/fc2/' 
 setwd(directory)
 
@@ -263,18 +264,11 @@ for (i in 1:nrow(data_collection)) {
 
 
 
-
-
-
-
-
 #### 3.1.1 Extra step manually assign to each of the base files the corresponding data in fort ####
  # needs to be done because addTrackingDataDirectory() does not work? otherwise this could all be done automatically and ant creation could go in the same loop
 
 
-#### Create ant for all myrmidon files (main = m and feeding = f) ####
-
-
+#### 3.2 Create ant for all myrmidon files (main = m and feeding = f) ####
 
 types <- c("m", "f")
 for (i in 1:nrow(data_collection)) {
@@ -296,24 +290,117 @@ for (i in 1:nrow(data_collection)) {
 # Check on a few colonies if the ant creation has worked? 
 
 
-### Check: print identifications
-data <- fmExperimentOpen("c28_f_AntsCreated.myrmidon") # enter the name of a file you would like to check
-ants <- data$ants
-for (a in ants) {
-  printf("Ant %s is identified by:\n", fmFormatAntID(a$ID))
-  for (i in a$identifications){
-    printf(" * %s\n", capture.output(i))
+
+
+# now that we have all the ant identifications right and marked the times at which the tags were replaced and reoriented we can run the automated orientation script. 
+
+#### 3.3 Creat all the metadata keys ####
+
+for (i in 1:nrow(data_collection)) {
+    fort_data <- fmExperimentOpen(paste0(data_collection[i,"colony_nr"], "_m_AntsCreated.myrmidon"))
+    fort_data$setMetaDataKey(key = "meta_ID",     default_Value = 001)  # create the key variables you want as metadata in your data sets 
+    fort_data$setMetaDataKey(key = "IsQueen",     default_Value = FALSE)
+    fort_data$setMetaDataKey(key = "IsTreated",   default_Value = FALSE)
+    fort_data$setMetaDataKey(key = "IsAlive",     default_Value = TRUE)
+    fort_data$setMetaDataKey(key = "treatment",   default_Value = "NA") # treated ants will get control or virus
+    fort_data$setMetaDataKey(key = "glass_beads", default_Value = "NA") # treated ants will get yellow or blue
+    fort_data$setMetaDataKey(ley = "comment",     default_Value = "NA")
+    tracking_data$spaces[[1]]$createZone(name = "nest") # create zones to be defined manually in the fort files 
+    tracking_data$spaces[[1]]$createZone(name = "arena")
+    tracking_data$spaces[[1]]$createZone(name = "water_left")
+    tracking_data$spaces[[1]]$createZone(name = "sugar_right")
+    for (y in 1:length(fort_data$ants)) {
+      fort_data$ants[[y]]$setValue(key="meta_ID", value = c(fort_data$ants[[y]]$identifications[[1]]$targetAntID), time = fmTimeSinceEver())
+    }
+    treatment_data <- fmExperimentOpen(paste0(data_collection[i,"colony_nr"], "_f_AntsCreated.myrmidon"))     # create vector of the treated ants
+    treated_ants <- treatment_data$ants
+    tag_value_vector <- NULL
+    tag_values <- NULL
+    for (z in treated_ants) {
+      tag_values <- z$identifications[[1]]$tagValue
+      tag_value_vector <- rbind(tag_value_vector, data.frame(tag_values))
+    }
+    ants <- fort_data$ants  # for each ant adjust the meta data if it is the queen or a treated worker
+    for (x in ants) {
+      if (x$identifications[[1]]$tagValue==0) {
+        x$setValue("IsQueen", TRUE, time = fmTimeSinceEver())}
+      if(is.element(x$identifications[[1]]$tagValue, as.matrix(tag_value_vector))) {
+        x$setValue(key="IsTreated", value = TRUE, time = fmTimeSinceEver())}
+    }
+    fort_data$save(paste0(directory, substr(paste0(data_collection[i,"colony_nr"], "_m_base.myrmidon"), 1, nchar(paste0(data_collection[i,"colony_nr"], "_m_base.myrmidon"))-13), 'meta_keyed.myrmidon'))
+}
+print("done")
+
+
+
+
+
+
+
+
+
+
+##### this is the old version of the above loop... 
+
+# from other scriptr: 
+for (dataset_name in c(main_file_name, secondary_file_name)){
+  # get data
+  fort_data <- fmExperimentOpen(dataset_name)
+  # create the key variables you want as metadata in your data sets 
+  fort_data$setMetaDataKey(key = "meta_ID", default_Value = 001)
+  fort_data$setMetaDataKey(key = "IsQueen", default_Value = FALSE)
+  fort_data$setMetaDataKey(key = "IsTreated", default_Value = FALSE)
+  fort_data$setMetaDataKey(key = "IsAlive", default_Value = TRUE)
+  fort_data$setMetaDataKey(key = "treatment", default_Value = "untreated") # treated ants will get control or virus
+  fort_data$setMetaDataKey(key = "glass_beads", default_Value = "none") # treated ants will get yellow or blue
+  # for the main file: define meta_ID so it corresponds to antID (no overriding yet) and set tagID OOO as the queen
+  if (dataset_name == main_file_name) {
+    for (i in 1:length(fort_data$ants)) {
+      fort_data$ants[[i]]$setValue(key="meta_ID", value = c(fort_data$ants[[i]]$identifications[[1]]$targetAntID), time = fmTimeSinceEver())
+    }
+    # create vector of the treated ants
+    treatment_data <- fmExperimentOpen(secondary_file_name)
+    treated_ants <- treatment_data$ants
+    tag_value_vector <- NULL
+    tag_values <- NULL
+    for (i in treated_ants) {
+      tag_values <- i$identifications[[1]]$tagValue
+      tag_value_vector <- rbind(tag_value_vector, data.frame(tag_values))
+    }
+    # for each ant adjust the meta data if it is the queen or a treated worker
+    ants <- fort_data$ants
+    for (i in ants) {
+      if (i$identifications[[1]]$tagValue==0) {
+        i$setValue("queen", TRUE, time = fmTimeSinceEver())}
+      if(is.element(i$identifications[[1]]$tagValue, as.matrix(tag_value_vector))) {
+        i$setValue(key="treated", value = TRUE, time = fmTimeSinceEver())}
+    }
+    # for the treatment data: define meta_ID so the id matches with the id generated for the main tracking file  
+  } else {
+    source_data <- fmExperimentOpen(paste0(substr(main_file_name,1, nchar(main_file_name)-9),'_metaID.myrmidon'))
+    for (a in source_data$ants) {
+      for (b in fort_data$ants) {
+        if (a$identifications[[1]]$tagValue == b$identifications[[1]]$tagValue) {
+          b$setValue("meta_ID",
+                     value = as.numeric(source_data$ants[[a$getValue(key="meta_ID", time=fmTimeSinceEver())]]$getValue(key="meta_ID", time = fmTimeSinceEver())), 
+                     time = fmTimeSinceEver())
+        }
+      }
+    }
   }
+  # save new version of myrmidon files
+  fort_data$save(paste0(directory, substr(dataset_name, 1, nchar(dataset_name)-9),'_metaID.myrmidon'))
 }
 
+#### Adjust replaced or re-glued tags ####
+# For the tags that got lost and replaced (see experiment notes) 
+# Open the file 
+# check time at which the first tag was lost 
+# mark
 
+# same for tags that goet reoriented 
 
-# if the code above runs, include the ant orientation code and the capsule code for a quick post processing, 
-# then apply the ant pose cloner to synchronize feeding and main tracking files.
-# (check if there is indeed no scaling required to make the capsule cloning work)
-# then, run the ant orient_express!
-
-# Information that might be included earlier: 
+# Information that might be included or needed: 
   
   # Steps to take first:
   # Create manually oriented base files
@@ -323,3 +410,7 @@ for (a in ants) {
   # apply this capsule definition for the remaining manually oriented colonies using the script below. The originals of these files have been stored as *.myrmidon.old
   
 
+# if the code above runs, include the ant orientation code and the capsule code for a quick post processing, 
+# then apply the ant pose cloner to synchronize feeding and main tracking files.
+# (check if there is indeed no scaling required to make the capsule cloning work)
+# then, run the ant orient_express!
