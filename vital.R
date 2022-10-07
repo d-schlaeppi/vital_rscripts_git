@@ -71,6 +71,7 @@ library(FortMyrmidon) # R bindings
 library(R.utils)      # printf()
 library(Rcpp)         # contains sourceCpp (used for ant orientation)
 library(circular)     # used for ant orientation
+library(data.table)   # used to save files fwrite(list(myVector), file = "myFile.csv") 
 
 
 
@@ -364,6 +365,7 @@ sourceCpp(paste0(directory,"Get_Movement_Angle.cpp"))
 # list a source myrmidon file containing the manually oriented data with capsules
 #source_data_list <- list("/home/gw20248/Documents/data_copy_for_trials/vital_fc2_trojan_c27_DS_AntsCreated_ManuallyOriented_CapsAutoDefined.myrmidon") #,
 #                         "/home/gw20248/Documents/data_copy_for_trials/vital_fc2_prideaux_c02_DS_AntsCreated_ManuallyOriented_CapsAutoDefined.myrmidon")
+
 source_data_list <- list(paste0(directory,"vital_fc2_prideaux_c02_DS_AntsCreated_ManuallyOriented_CapsAutoDefined.myrmidon"))
 
 # get the information on the caps from the source file
@@ -442,6 +444,7 @@ for (caps in 1:length(capsule_list)){ # Finally, get information on each capsule
 files <- list.files(directory)
 files <- files[grep("tags_corrected.myrmidon",files)]
 
+not_oriented <- NULL
 for (file in files) {
   tracking_data <- fmExperimentOpen(paste0(directory, file))
   for (caps in 1:length(capsule_list)){ #add the caps from the source file above
@@ -452,7 +455,7 @@ for (file in files) {
   # short tracking using all data -> using start and end time from the experiment metadata
   #from <- fmTimeCreate(offset=fmQueryGetDataInformations(tracking_data)$start) # experiment start time # from <- fmTimeSinceEver()
   #to   <- fmTimeCreate(offset=fmQueryGetDataInformations(tracking_data)$end  ) # experiment end time   # to   <- fmTimeForever()
-  from <- fmTimeCreate(offset=fmQueryGetDataInformations(tracking_data)$end - 12*3600) # longer tracking data - computation takes very long -> only use a subset of the data e.g. last 12 hours
+  from <- fmTimeCreate(offset=fmQueryGetDataInformations(tracking_data)$end -12*3600) # longer tracking data - computation takes very long -> only use a subset of the data e.g. last 12 hours
   to   <- fmTimeCreate(offset=fmQueryGetDataInformations(tracking_data)$end)
   max_gap <- fmHour(24*365)  # use a  large value to make sure you get only one trajectory per ant (larger than the time difference between from to defined above)
   positions <- fmQueryComputeAntTrajectories(tracking_data, start = from, end = to, maximumGap = max_gap, computeZones = TRUE)
@@ -462,6 +465,11 @@ for (file in files) {
   max_time_gap <- 0.5 # define a max temporal gap for which you are happy to calculate a movement angle; e.g. 0.5 s
   min_dist_moved <- 30 # define a minimum distance moved, as you don't want to use noise or small shifts in position in this calculation; e.g. 30 pix (to think about)
   for (i in 1:length(ants)){
+    if(length(tracking_data$ants[[i]]$identifications) == 0) {
+      print(paste(file, i, "no ant", sep = " -> "))
+      not_oriented <- append(not_oriented, paste(file, i, "no ant", sep = " -> "))
+      next
+    }
     if (tracking_data$ants[[i]]$identifications[[1]]$tagValue==0) {next} # skip the queen
     if (is.element(i,positions$trajectories_summary$antID)) {
       # to be fool proof, and be sure you extract the trajectory corresponding the correct ant, make sure you make use of the antID_str column!
@@ -484,81 +492,15 @@ for (file in files) {
         ants[[i]]$addCapsule(caps, fmCapsuleCreate(c1 = c(capsule_coords["c1_x"],capsule_coords["c1_y"]), c2 = c(capsule_coords["c2_x"],capsule_coords["c2_y"]), r1 = capsule_coords["r1"], r2 = capsule_coords["r2"] ) )
       }
     } else {
-      print(i)
-      print("False")
+      print(paste(file, i, "FALSE", "exit before selected period", sep = " -> "))
+      not_oriented <- append(not_oriented, paste(file, i, "FALSE", "exit before selected period", sep = " -> "))
     }
   }
   tracking_data$save(paste0(directory, substr(file, 1, nchar(file)-23),'oriented.myrmidon'))
+  not_oriented <- append(not_oriented, paste("time", Sys.time() ,sep = " : "))
 }
+fwrite(list(not_oriented), file = paste(Sys.Date(), "",format(Sys.time(), "%H-%M-%S"), "not_oriented.txt", sep = "_"))
 
-positions <- fmQueryComputeAntTrajectories(tracking_data, start = from, end = to, maximumGap = max_gap, computeZones = TRUE)
-ants[[49]]$identifications[[1]]$end
-?FortMyrmidon
-?fmQueryComputeAntTrajectories
-
-
-tracking_data$ants[[1]]
-tracking_data <- fmExperimentOpen(paste0(directory, files[1]))
-positions <- fmQueryComputeAntTrajectories(tracking_data$ants[[1]], start = from, end = to, maximumGap = max_gap, fmMatcherAntID(ant[[i]]$ID), computeZones = TRUE, )
-
-fmMatcherAntID(001)
-ants[[49]]$ID
-
-
-################################################3
-# redo the loop above with different times for each ant
-
-files <- list.files(directory)
-files <- files[grep("tags_corrected.myrmidon",files)]
-
-for (file in files) {
-  tracking_data <- fmExperimentOpen(paste0(directory, file))
-  for (caps in 1:length(capsule_list)){ #add the caps from the source file above
-    tracking_data$createAntShapeType(names(capsule_list)[caps])
-  }
-  ants <- tracking_data$ants
-  max_gap <- fmHour(24*365)
-  for (i in 1:length(ants)){
-    if (tracking_data$ants[[i]]$identifications[[1]]$tagValue==0) {next} # skip the queen
-    tag_statistics <- fmQueryComputeTagStatistics(tracking_data)
-    from <- fmTimeCreate(tag_statistics$lastSeen[i] -12*3600)
-    to   <- fmTimeCreate(tag_statistics$lastSeen[i])
-    positions <- fmQueryComputeAntTrajectories(tracking_data, start = from, end = to, maximumGap = max_gap, fmMatcherAntID(ant[[i]]$ID), computeZones = TRUE)
-    positions$trajectories_summary$antID_str <- paste("ant_",positions$trajectories_summary$antID,sep="")
-    names(positions$trajectories)       <- positions$trajectories_summary$antID_str
-    max_time_gap <- 0.5 
-    min_dist_moved <- 30
-    if (is.element(i,positions$trajectories_summary$antID)) {
-      # to be fool proof, and be sure you extract the trajectory corresponding the correct ant, make sure you make use of the antID_str column!
-      traj <- positions$trajectories [[   positions$trajectories_summary[which(positions$trajectories_summary$antID==ants[[i]]$ID),"antID_str"]    ]]
-      traj <- cbind(traj,add_angles(traj,max_time_gap,min_dist_moved))   # feed traj to c++ program
-      AntAngle <- as.numeric(- mean(circular(na.omit(traj$Tag_minus_Movement_Angle),units="radians",zero=0)))   #  get mean deviation angle between body and tag - the ant angle is equal to minus the Tag minus Movement angle output by C++ program
-      x_tag_coord <- mean_x_ant_coord*cos(AntAngle) - mean_y_ant_coord*sin(AntAngle)  # now use trigonometry to calculate the pose, using AntAngle
-      y_tag_coord <- mean_x_ant_coord*sin(AntAngle) + mean_y_ant_coord*cos(AntAngle)
-      for (id in ants[[i]]$identifications){  # write this into ant metadata
-        id$setUserDefinedAntPose(c(x_tag_coord,y_tag_coord), AntAngle)
-      }
-      # also add this to trajectories_summary
-      positions$trajectories_summary[which(positions$trajectories_summary$antID==ants[[i]]$ID),"ant_angle"] <- AntAngle
-      positions$trajectories_summary[which(positions$trajectories_summary$antID==ants[[i]]$ID),"x_tag_coord"] <- x_tag_coord
-      positions$trajectories_summary[which(positions$trajectories_summary$antID==ants[[i]]$ID),"y_tag_coord"] <- y_tag_coord
-      # finally, for each ant, add capsules using mean_ant_length and capsule_list
-      for (caps in 1:length(capsule_list)){
-        capsule_ratios <- capsule_list[[caps]]; names(capsule_ratios) <- gsub("_ratio","",names(capsule_ratios))
-        capsule_coords <- mean_worker_length_px*capsule_ratios
-        ants[[i]]$addCapsule(caps, fmCapsuleCreate(c1 = c(capsule_coords["c1_x"],capsule_coords["c1_y"]), c2 = c(capsule_coords["c2_x"],capsule_coords["c2_y"]), r1 = capsule_coords["r1"], r2 = capsule_coords["r2"] ) )
-      }
-    } else {
-      print(i)
-      print("False")
-    }
-  }
-  tracking_data$save(paste0(directory, substr(file, 1, nchar(file)-23),'oriented.myrmidon'))
-}
-
-ants[[i]]
-  
-  
 
 
 
