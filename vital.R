@@ -39,9 +39,9 @@
 # Step 3.1: Create all base myrmidon files
 # Step 3.2: Generate all ants
 # Step 3.3: Automatically create the metadata variables needed
-# Step 3.3: Automatically orient all ants in all extrapolated data using the ant_orient express
-# Step 3.4: Generate capsules for all ant
-# Step 3.4: For each tracking file do the necessary post processing
+# Step 3.4: Adjust replaced or re-glued tags and do required manual post processing
+# Step 3.5: Automatically orient all ants in all extrapolated data using the ant_orient express (Includes capsule generation)
+# Step 3.6: Post processing of queen meta data (Manual)
 
 # Step 4: Data analysis 
 
@@ -69,6 +69,10 @@ rm(list=ls())
 # load libraries
 library(FortMyrmidon) # R bindings
 library(R.utils)      # printf()
+library(Rcpp)         # contains sourceCpp (used for ant orientation)
+library(circular)     # used for ant orientation
+
+
 
 ### read in table that contains a collection of information on the experiments and each colony, and create a data frame containing all the useful things for the myrmidon files
 setwd("/home/gw20248/Documents/vital_rscripts_git/")
@@ -104,6 +108,11 @@ for(i in 1:nrow(dat)) {
 directory <- "/home/gw20248/Documents/data_copy_for_trials/"
 # directory <- '/media/gw20248/gismo_hd3/vital/fc2/' 
 setwd(directory)
+
+# use the below directory if you are already at the later steps
+# set working directory to the new directory containing the extrapolated tracking data
+# directory <- '/media/gw20248/gismo_hd2/vital/fc2/' 
+# setwd(directory)
 
 
 #### Step 1 ####
@@ -210,7 +219,7 @@ for (element in files) {
 # set working directory to the new directory containing the extrapolated tracking data
 directory <- '/media/gw20248/gismo_hd2/vital/fc2/' 
 setwd(directory)
-
+^
 
 # get a list of all folders in the directory and compile them as a list containing only folders with the tracking data
 list.files(path=directory, pattern=NULL, all.files=FALSE, full.name=FALSE)
@@ -265,6 +274,7 @@ for (i in 1:nrow(data_collection)) {
 
 
 #### 3.1.1 Extra step manually assign to each of the base files the corresponding data in fort ####
+
  # needs to be done because addTrackingDataDirectory() does not work? otherwise this could all be done automatically and ant creation could go in the same loop
 
 
@@ -305,10 +315,10 @@ for (i in 1:nrow(data_collection)) {
     fort_data$setMetaDataKey(key = "treatment",   default_Value = "NA") # treated ants will get control or virus
     fort_data$setMetaDataKey(key = "glass_beads", default_Value = "NA") # treated ants will get yellow or blue
     fort_data$setMetaDataKey(ley = "comment",     default_Value = "NA")
-    tracking_data$spaces[[1]]$createZone(name = "nest") # create zones to be defined manually in the fort files 
-    tracking_data$spaces[[1]]$createZone(name = "arena")
-    tracking_data$spaces[[1]]$createZone(name = "water_left")
-    tracking_data$spaces[[1]]$createZone(name = "sugar_right")
+    fort_data$spaces[[1]]$createZone(name = "nest") # create zones to be defined manually in the fort files 
+    fort_data$spaces[[1]]$createZone(name = "arena")
+    fort_data$spaces[[1]]$createZone(name = "water_left")
+    fort_data$spaces[[1]]$createZone(name = "sugar_right")
     for (y in 1:length(fort_data$ants)) {
       fort_data$ants[[y]]$setValue(key="meta_ID", value = c(fort_data$ants[[y]]$identifications[[1]]$targetAntID), time = fmTimeSinceEver())
     }
@@ -329,77 +339,239 @@ for (i in 1:nrow(data_collection)) {
     }
     fort_data$save(paste0(directory, substr(paste0(data_collection[i,"colony_nr"], "_m_base.myrmidon"), 1, nchar(paste0(data_collection[i,"colony_nr"], "_m_base.myrmidon"))-13), 'meta_keyed.myrmidon'))
 }
-print("done")
 
 
 
 
+#### 3.4 Adjust replaced or re-glued tags and other post processing steps ####
+# For the tags that got lost and replaced or reglued with a new orientation (see experiment notes which ants had this)
+# Manually adjust the myrmidon file according to adrianos post processing guide
+# https://uob.sharepoint.com/:w:/r/teams/grp-AntsEpidemiologyLab/_layouts/15/Doc.aspx?sourcedoc=%7B2562631B-A6E5-4289-907F-89502F6C27E6%7D&file=pre-processing_Adriano_June2022.docx&action=default&mobileredirect=true&cid=5b8c1184-40b2-4f60-8bd7-e5801d42d6f5
+# And do the rest of the manual post processing and meta data creation... e.g. Dead workers, Zones 
 
+#### Ant Orient Express ####
+#### Ant Orient Express Part 1 ####
+# get capsule information from a source file for which capsules were manually defined
 
+# source C++ movement direction program
+# https://uob.sharepoint.com/teams/grp-AntsEpidemiologyLab/Shared%20Documents/Forms/AllItems.aspx?id=%2Fteams%2Fgrp%2DAntsEpidemiologyLab%2FShared%20Documents%2FLinux%5Fand%5FR%5Fguides%2FR%5FScripts%2FAutomated%5FAnt%5FOrientation%5FNathalie&viewid=cbc49cd2%2D692a%2D42a7%2D9f4e%2D29be55b2f252
+# copy the file from sharepoint into your directory and access it using the following code
+sourceCpp(paste0(directory,"Get_Movement_Angle.cpp"))
 
+# personal notes: 
+# so far only main colonies included
 
+# list a source myrmidon file containing the manually oriented data with capsules
+#source_data_list <- list("/home/gw20248/Documents/data_copy_for_trials/vital_fc2_trojan_c27_DS_AntsCreated_ManuallyOriented_CapsAutoDefined.myrmidon") #,
+#                         "/home/gw20248/Documents/data_copy_for_trials/vital_fc2_prideaux_c02_DS_AntsCreated_ManuallyOriented_CapsAutoDefined.myrmidon")
+source_data_list <- list(paste0(directory,"vital_fc2_prideaux_c02_DS_AntsCreated_ManuallyOriented_CapsAutoDefined.myrmidon"))
 
-
-##### this is the old version of the above loop... 
-
-# from other scriptr: 
-for (dataset_name in c(main_file_name, secondary_file_name)){
-  # get data
-  fort_data <- fmExperimentOpen(dataset_name)
-  # create the key variables you want as metadata in your data sets 
-  fort_data$setMetaDataKey(key = "meta_ID", default_Value = 001)
-  fort_data$setMetaDataKey(key = "IsQueen", default_Value = FALSE)
-  fort_data$setMetaDataKey(key = "IsTreated", default_Value = FALSE)
-  fort_data$setMetaDataKey(key = "IsAlive", default_Value = TRUE)
-  fort_data$setMetaDataKey(key = "treatment", default_Value = "untreated") # treated ants will get control or virus
-  fort_data$setMetaDataKey(key = "glass_beads", default_Value = "none") # treated ants will get yellow or blue
-  # for the main file: define meta_ID so it corresponds to antID (no overriding yet) and set tagID OOO as the queen
-  if (dataset_name == main_file_name) {
-    for (i in 1:length(fort_data$ants)) {
-      fort_data$ants[[i]]$setValue(key="meta_ID", value = c(fort_data$ants[[i]]$identifications[[1]]$targetAntID), time = fmTimeSinceEver())
-    }
-    # create vector of the treated ants
-    treatment_data <- fmExperimentOpen(secondary_file_name)
-    treated_ants <- treatment_data$ants
-    tag_value_vector <- NULL
-    tag_values <- NULL
-    for (i in treated_ants) {
-      tag_values <- i$identifications[[1]]$tagValue
-      tag_value_vector <- rbind(tag_value_vector, data.frame(tag_values))
-    }
-    # for each ant adjust the meta data if it is the queen or a treated worker
-    ants <- fort_data$ants
-    for (i in ants) {
-      if (i$identifications[[1]]$tagValue==0) {
-        i$setValue("queen", TRUE, time = fmTimeSinceEver())}
-      if(is.element(i$identifications[[1]]$tagValue, as.matrix(tag_value_vector))) {
-        i$setValue(key="treated", value = TRUE, time = fmTimeSinceEver())}
-    }
-    # for the treatment data: define meta_ID so the id matches with the id generated for the main tracking file  
-  } else {
-    source_data <- fmExperimentOpen(paste0(substr(main_file_name,1, nchar(main_file_name)-9),'_metaID.myrmidon'))
-    for (a in source_data$ants) {
-      for (b in fort_data$ants) {
-        if (a$identifications[[1]]$tagValue == b$identifications[[1]]$tagValue) {
-          b$setValue("meta_ID",
-                     value = as.numeric(source_data$ants[[a$getValue(key="meta_ID", time=fmTimeSinceEver())]]$getValue(key="meta_ID", time = fmTimeSinceEver())), 
-                     time = fmTimeSinceEver())
+# get the information on the caps from the source file
+oriented_metadata <- NULL
+capsule_list <- list()
+for (myrmidon_file in source_data_list){
+  experiment_name <- unlist(strsplit(myrmidon_file,split="/"))[length(unlist(strsplit(myrmidon_file,split="/")))]
+  oriented_data <- fmExperimentOpen(myrmidon_file)
+  oriented_ants <- oriented_data$ants
+  capsule_names <- oriented_data$antShapeTypeNames
+  for (ant in oriented_ants){
+    # extract ant length and capsules
+    ant_length_px <- mean(fmQueryComputeMeasurementFor(oriented_data,antID=ant$ID)$length_px)
+    capsules      <- ant$capsules
+    for (caps in 1:length(capsules)){
+      capsule_name  <- capsule_names[[capsules[[caps]]$type]]
+      capsule_coord <- capsules[[caps]]$capsule
+      capsule_info <- data.frame(experiment = experiment_name,
+                                 antID      = ant$ID,
+                                 c1_ratio_x = capsule_coord$c1[1]/ant_length_px,
+                                 c1_ratio_y = capsule_coord$c1[2]/ant_length_px,
+                                 c2_ratio_x = capsule_coord$c2[1]/ant_length_px,
+                                 c2_ratio_y = capsule_coord$c2[2]/ant_length_px,
+                                 r1_ratio   = capsule_coord$r1[1]/ant_length_px,
+                                 r2_ratio   = capsule_coord$r2[1]/ant_length_px
+      )
+      if (!capsule_name %in%names(capsule_list)){ # if this is the first time we encounter this capsule, add it to capsule list...
+        capsule_list <- c(capsule_list,list(capsule_info)) 
+        if(length(names(capsule_list))==0){
+          names(capsule_list) <- capsule_name
+        }else{
+          names(capsule_list)[length(capsule_list)] <- capsule_name
         }
+      }else{ #otherwise, add a line to the existing dataframe within capsule_list
+        capsule_list[[capsule_name]] <- rbind(capsule_list[[capsule_name]] , capsule_info)
       }
     }
+    # extract offset btewen tag centre and ant centre
+    for (id in ant$identifications){
+      oriented_metadata <- rbind(oriented_metadata,data.frame(experiment       = experiment_name,
+                                                              antID            = ant$ID,
+                                                              tagIDdecimal     = id$tagValue,
+                                                              angle            = id$antAngle,
+                                                              x_tag_coord      = id$antPosition[1], 
+                                                              y_tag_coord      = id$antPosition[2],
+                                                              x_ant_coord      = id$antPosition[1]*cos(-id$antAngle) - id$antPosition[2]*sin(-id$antAngle),
+                                                              y_ant_coord      = id$antPosition[1]*sin(-id$antAngle) + id$antPosition[2]*cos(-id$antAngle),
+                                                              length_px        = ant_length_px,
+                                                              stringsAsFactors = F))
+    }
   }
-  # save new version of myrmidon files
-  fort_data$save(paste0(directory, substr(dataset_name, 1, nchar(dataset_name)-9),'_metaID.myrmidon'))
 }
 
-#### Adjust replaced or re-glued tags ####
-# For the tags that got lost and replaced (see experiment notes) 
-# Open the file 
-# check time at which the first tag was lost 
-# mark
+# Measures of mean ant length and offset between tag centre and ant centre will be heavily influenced by the queen
+# So we need to remove the queen from the computation by removing outliers in ant lenght measurements
+interquartile_range <- quantile(oriented_metadata$length_px,probs=c(0.25,0.75))
+outlier_bounds      <- c(interquartile_range[1]-1.5*(interquartile_range[2]-interquartile_range[1]),interquartile_range[2]+1.5*(interquartile_range[2]-interquartile_range[1]))
+oriented_metadata <- oriented_metadata[which(oriented_metadata$length_px>=outlier_bounds[1]&oriented_metadata$length_px<=outlier_bounds[2]),]  # apply outlier exclusion to oriented_metadata and to capsule list
+for (caps in 1:length(capsule_list)){
+  capsule_list[[caps]] <-capsule_list[[caps]] [ as.character(interaction(capsule_list[[caps]] $experiment,capsule_list[[caps]] $antID))%in%as.character(interaction(oriented_metadata $experiment,oriented_metadata $antID)),]
+}
+# Once queen(s) has(have) been removed, get the mean coordinates of the offset between tag centre and ant centre
+mean_x_ant_coord <- mean(oriented_metadata$x_ant_coord)
+mean_y_ant_coord <- 0 ##set it to zero manually because we don't expect there to be a consistent bias in deviation / #mean_y_ant_coord <- mean(oriented_metadata$y_ant_coord) ###this is expected to be 0 or near 0 (check!) because the tag should be as likely to be to the right or to the left of the ant's bilateral symmetry line
+mean_worker_length_px <- mean(oriented_metadata$length_px) # Get the average worker length from the data
+for (caps in 1:length(capsule_list)){ # Finally, get information on each capsule
+  capsule_list[[caps]] <- colMeans(capsule_list[[caps]][,which(grepl("ratio",names(capsule_list[[caps]])))])
+}
 
-# same for tags that goet reoriented 
+#### Ant Orient Express Part 2 ####
 
+
+# open the tracking file to be auto oriented
+#tracking_data <- fmExperimentOpen(paste0(dir_data,'c11_m_AntsCreated_cor.myrmidon'))
+
+files <- list.files(directory)
+files <- files[grep("tags_corrected.myrmidon",files)]
+
+for (file in files) {
+  tracking_data <- fmExperimentOpen(paste0(directory, file))
+  for (caps in 1:length(capsule_list)){ #add the caps from the source file above
+    tracking_data$createAntShapeType(names(capsule_list)[caps])
+  }
+  ants <- tracking_data$ants
+  # get trajectory data to extract ant orientation:
+  # short tracking using all data -> using start and end time from the experiment metadata
+  #from <- fmTimeCreate(offset=fmQueryGetDataInformations(tracking_data)$start) # experiment start time # from <- fmTimeSinceEver()
+  #to   <- fmTimeCreate(offset=fmQueryGetDataInformations(tracking_data)$end  ) # experiment end time   # to   <- fmTimeForever()
+  from <- fmTimeCreate(offset=fmQueryGetDataInformations(tracking_data)$end - 12*3600) # longer tracking data - computation takes very long -> only use a subset of the data e.g. last 12 hours
+  to   <- fmTimeCreate(offset=fmQueryGetDataInformations(tracking_data)$end)
+  max_gap <- fmHour(24*365)  # use a  large value to make sure you get only one trajectory per ant (larger than the time difference between from to defined above)
+  positions <- fmQueryComputeAntTrajectories(tracking_data, start = from, end = to, maximumGap = max_gap, computeZones = TRUE)
+  #Then compute trajectories & hard-wire ant correspondence between trajectories_summary and trajectorues
+  positions$trajectories_summary$antID_str <- paste("ant_",positions$trajectories_summary$antID,sep="") # creates a ID string for each ant: ant1, ant2,...
+  names(positions$trajectories)       <- positions$trajectories_summary$antID_str # and use the content of that column to rename the objects within trajectory list
+  max_time_gap <- 0.5 # define a max temporal gap for which you are happy to calculate a movement angle; e.g. 0.5 s
+  min_dist_moved <- 30 # define a minimum distance moved, as you don't want to use noise or small shifts in position in this calculation; e.g. 30 pix (to think about)
+  for (i in 1:length(ants)){
+    if (tracking_data$ants[[i]]$identifications[[1]]$tagValue==0) {next} # skip the queen
+    if (is.element(i,positions$trajectories_summary$antID)) {
+      # to be fool proof, and be sure you extract the trajectory corresponding the correct ant, make sure you make use of the antID_str column!
+      traj <- positions$trajectories [[   positions$trajectories_summary[which(positions$trajectories_summary$antID==ants[[i]]$ID),"antID_str"]    ]]
+      traj <- cbind(traj,add_angles(traj,max_time_gap,min_dist_moved))   # feed traj to c++ program
+      AntAngle <- as.numeric(- mean(circular(na.omit(traj$Tag_minus_Movement_Angle),units="radians",zero=0)))   #  get mean deviation angle between body and tag - the ant angle is equal to minus the Tag minus Movement angle output by C++ program
+      x_tag_coord <- mean_x_ant_coord*cos(AntAngle) - mean_y_ant_coord*sin(AntAngle)  # now use trigonometry to calculate the pose, using AntAngle
+      y_tag_coord <- mean_x_ant_coord*sin(AntAngle) + mean_y_ant_coord*cos(AntAngle)
+      for (id in ants[[i]]$identifications){  # write this into ant metadata
+        id$setUserDefinedAntPose(c(x_tag_coord,y_tag_coord), AntAngle)
+      }
+      # also add this to trajectories_summary
+      positions$trajectories_summary[which(positions$trajectories_summary$antID==ants[[i]]$ID),"ant_angle"] <- AntAngle
+      positions$trajectories_summary[which(positions$trajectories_summary$antID==ants[[i]]$ID),"x_tag_coord"] <- x_tag_coord
+      positions$trajectories_summary[which(positions$trajectories_summary$antID==ants[[i]]$ID),"y_tag_coord"] <- y_tag_coord
+      # finally, for each ant, add capsules using mean_ant_length and capsule_list
+      for (caps in 1:length(capsule_list)){
+        capsule_ratios <- capsule_list[[caps]]; names(capsule_ratios) <- gsub("_ratio","",names(capsule_ratios))
+        capsule_coords <- mean_worker_length_px*capsule_ratios
+        ants[[i]]$addCapsule(caps, fmCapsuleCreate(c1 = c(capsule_coords["c1_x"],capsule_coords["c1_y"]), c2 = c(capsule_coords["c2_x"],capsule_coords["c2_y"]), r1 = capsule_coords["r1"], r2 = capsule_coords["r2"] ) )
+      }
+    } else {
+      print(i)
+      print("False")
+    }
+  }
+  tracking_data$save(paste0(directory, substr(file, 1, nchar(file)-23),'oriented.myrmidon'))
+}
+
+positions <- fmQueryComputeAntTrajectories(tracking_data, start = from, end = to, maximumGap = max_gap, computeZones = TRUE)
+ants[[49]]$identifications[[1]]$end
+?FortMyrmidon
+?fmQueryComputeAntTrajectories
+
+
+tracking_data$ants[[1]]
+tracking_data <- fmExperimentOpen(paste0(directory, files[1]))
+positions <- fmQueryComputeAntTrajectories(tracking_data$ants[[1]], start = from, end = to, maximumGap = max_gap, fmMatcherAntID(ant[[i]]$ID), computeZones = TRUE, )
+
+fmMatcherAntID(001)
+ants[[49]]$ID
+
+
+################################################3
+# redo the loop above with different times for each ant
+
+files <- list.files(directory)
+files <- files[grep("tags_corrected.myrmidon",files)]
+
+for (file in files) {
+  tracking_data <- fmExperimentOpen(paste0(directory, file))
+  for (caps in 1:length(capsule_list)){ #add the caps from the source file above
+    tracking_data$createAntShapeType(names(capsule_list)[caps])
+  }
+  ants <- tracking_data$ants
+  max_gap <- fmHour(24*365)
+  for (i in 1:length(ants)){
+    if (tracking_data$ants[[i]]$identifications[[1]]$tagValue==0) {next} # skip the queen
+    tag_statistics <- fmQueryComputeTagStatistics(tracking_data)
+    from <- fmTimeCreate(tag_statistics$lastSeen[i] -12*3600)
+    to   <- fmTimeCreate(tag_statistics$lastSeen[i])
+    positions <- fmQueryComputeAntTrajectories(tracking_data, start = from, end = to, maximumGap = max_gap, fmMatcherAntID(ant[[i]]$ID), computeZones = TRUE)
+    positions$trajectories_summary$antID_str <- paste("ant_",positions$trajectories_summary$antID,sep="")
+    names(positions$trajectories)       <- positions$trajectories_summary$antID_str
+    max_time_gap <- 0.5 
+    min_dist_moved <- 30
+    if (is.element(i,positions$trajectories_summary$antID)) {
+      # to be fool proof, and be sure you extract the trajectory corresponding the correct ant, make sure you make use of the antID_str column!
+      traj <- positions$trajectories [[   positions$trajectories_summary[which(positions$trajectories_summary$antID==ants[[i]]$ID),"antID_str"]    ]]
+      traj <- cbind(traj,add_angles(traj,max_time_gap,min_dist_moved))   # feed traj to c++ program
+      AntAngle <- as.numeric(- mean(circular(na.omit(traj$Tag_minus_Movement_Angle),units="radians",zero=0)))   #  get mean deviation angle between body and tag - the ant angle is equal to minus the Tag minus Movement angle output by C++ program
+      x_tag_coord <- mean_x_ant_coord*cos(AntAngle) - mean_y_ant_coord*sin(AntAngle)  # now use trigonometry to calculate the pose, using AntAngle
+      y_tag_coord <- mean_x_ant_coord*sin(AntAngle) + mean_y_ant_coord*cos(AntAngle)
+      for (id in ants[[i]]$identifications){  # write this into ant metadata
+        id$setUserDefinedAntPose(c(x_tag_coord,y_tag_coord), AntAngle)
+      }
+      # also add this to trajectories_summary
+      positions$trajectories_summary[which(positions$trajectories_summary$antID==ants[[i]]$ID),"ant_angle"] <- AntAngle
+      positions$trajectories_summary[which(positions$trajectories_summary$antID==ants[[i]]$ID),"x_tag_coord"] <- x_tag_coord
+      positions$trajectories_summary[which(positions$trajectories_summary$antID==ants[[i]]$ID),"y_tag_coord"] <- y_tag_coord
+      # finally, for each ant, add capsules using mean_ant_length and capsule_list
+      for (caps in 1:length(capsule_list)){
+        capsule_ratios <- capsule_list[[caps]]; names(capsule_ratios) <- gsub("_ratio","",names(capsule_ratios))
+        capsule_coords <- mean_worker_length_px*capsule_ratios
+        ants[[i]]$addCapsule(caps, fmCapsuleCreate(c1 = c(capsule_coords["c1_x"],capsule_coords["c1_y"]), c2 = c(capsule_coords["c2_x"],capsule_coords["c2_y"]), r1 = capsule_coords["r1"], r2 = capsule_coords["r2"] ) )
+      }
+    } else {
+      print(i)
+      print("False")
+    }
+  }
+  tracking_data$save(paste0(directory, substr(file, 1, nchar(file)-23),'oriented.myrmidon'))
+}
+
+ants[[i]]
+  
+  
+
+
+
+
+# Next check your files manually to see if orientations look all right (especially treatment ants and ants that got retagged or reoriented)
+# Then, manually adjust queen meta data (tag size, manual orientation)
+# Then automatically assign the queen capsules based on tag size
+
+
+
+
+
+#### Leftover Scripts ####
 # Information that might be included or needed: 
   
   # Steps to take first:
