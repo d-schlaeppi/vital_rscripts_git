@@ -220,7 +220,7 @@ for (element in files) {
 # set working directory to the new directory containing the extrapolated tracking data
 directory <- '/media/gw20248/gismo_hd2/vital/fc2/' 
 setwd(directory)
-^
+
 
 # get a list of all folders in the directory and compile them as a list containing only folders with the tracking data
 list.files(path=directory, pattern=NULL, all.files=FALSE, full.name=FALSE)
@@ -250,8 +250,11 @@ for (i in 1:nrow(data_collection)) {
       #    tracking_data$addTrackingDataDirectory(s$ID, paste0(directory,folder_name))
       #  } else {next}
       #}
-      # save the file base file with created ants 
-      tracking_data$save(paste0(directory, file_name))
+      # how to fix the issue with adding the traking data directories
+      # In the latest version of the R bindings, fmExperiment$addTrackingdataDirectory() takes an additional fixCorruptedData argument.
+      # The way the rcpp package works (the package that allows a R program to interface with C++), if you fail to provide all needed arguments, it returns this very cryptic method, which does not tell you to add the missing value.
+      # To get the old behavior please use FALSE, and the call will fail if there is a data corruption. Use TRUE to ask to not fail but try to fix any encountered error (will cause permanent data loss, but let you recover as much data as possible).
+      tracking_data$save(paste0(directory, file_name)) # save the file base file with created ants
     } else {
       file_name <- paste0(data_collection[i,"colony_nr"], '_f_base.myrmidon') # file name will be of the following structure: c01_m_base.myrmidon (m = main tracking vs f = feeding)
       tracking_data <- fmExperimentOpen("base_source.myrmidon")
@@ -271,15 +274,12 @@ for (i in 1:nrow(data_collection)) {
 }
 
 
-
-
-
 #### 3.1.1 Extra step manually assign to each of the base files the corresponding data in fort ####
 
  # needs to be done because addTrackingDataDirectory() does not work? otherwise this could all be done automatically and ant creation could go in the same loop
 
 
-#### 3.2 Create ant for all myrmidon files (main = m and feeding = f) ####
+#### 3.2 Create ants for all myrmidon files (main = m and feeding = f) ####
 
 types <- c("m", "f")
 for (i in 1:nrow(data_collection)) {
@@ -305,7 +305,7 @@ for (i in 1:nrow(data_collection)) {
 
 # now that we have all the ant identifications right and marked the times at which the tags were replaced and reoriented we can run the automated orientation script. 
 
-#### 3.3 Creat all the metadata keys ####
+#### 3.3 Create all the metadata keys ####
 
 for (i in 1:nrow(data_collection)) {
     fort_data <- fmExperimentOpen(paste0(data_collection[i,"colony_nr"], "_m_AntsCreated.myrmidon"))
@@ -315,7 +315,8 @@ for (i in 1:nrow(data_collection)) {
     fort_data$setMetaDataKey(key = "IsAlive",     default_Value = TRUE)
     fort_data$setMetaDataKey(key = "treatment",   default_Value = "NA") # treated ants will get control or virus
     fort_data$setMetaDataKey(key = "glass_beads", default_Value = "NA") # treated ants will get yellow or blue
-    fort_data$setMetaDataKey(ley = "comment",     default_Value = "NA")
+    fort_data$setMetaDataKey(key = "comment",     default_Value = "NA")
+    fort_data$setMetaDataKey(key = "tag_reoriented", default_Value = FALSE)
     fort_data$spaces[[1]]$createZone(name = "nest") # create zones to be defined manually in the fort files 
     fort_data$spaces[[1]]$createZone(name = "arena")
     fort_data$spaces[[1]]$createZone(name = "water_left")
@@ -349,6 +350,7 @@ for (i in 1:nrow(data_collection)) {
 # Manually adjust the myrmidon file according to adrianos post processing guide
 # https://uob.sharepoint.com/:w:/r/teams/grp-AntsEpidemiologyLab/_layouts/15/Doc.aspx?sourcedoc=%7B2562631B-A6E5-4289-907F-89502F6C27E6%7D&file=pre-processing_Adriano_June2022.docx&action=default&mobileredirect=true&cid=5b8c1184-40b2-4f60-8bd7-e5801d42d6f5
 # And do the rest of the manual post processing and meta data creation... e.g. Dead workers, Zones 
+# for the ants that got a new tag also update the meta variable tag_reoriented = true so they will be skipped in the auto orientation just like the queen. 
 
 #### Ant Orient Express ####
 #### Ant Orient Express Part 1 ####
@@ -443,8 +445,11 @@ for (caps in 1:length(capsule_list)){ # Finally, get information on each capsule
 
 files <- list.files(directory)
 files <- files[grep("tags_corrected.myrmidon",files)]
+#files <- files[grep("pre_orientation",files)]
 
 not_oriented <- NULL
+to_orient_manually <- NULL
+
 for (file in files) {
   tracking_data <- fmExperimentOpen(paste0(directory, file))
   for (caps in 1:length(capsule_list)){ #add the caps from the source file above
@@ -468,6 +473,12 @@ for (file in files) {
     if(length(tracking_data$ants[[i]]$identifications) == 0) {
       print(paste(file, i, "no ant", sep = " -> "))
       not_oriented <- append(not_oriented, paste(file, i, "no ant", sep = " -> "))
+      next
+    }
+    #skip ants that got retagged and create a table (to be saved in a file) with all the skipped ants that need manual orientation
+    if (ants[[i]]$getValue("tag_reoriented", fmTimeForever())) {
+      to_orient_manually <- append(to_orient_manually, paste(file, i, ants[[i]]$ID, "retagged", sep = " -> "))
+      print(paste(file, i, "skipped because of retagging", sep = " -> "))
       next
     }
     if (tracking_data$ants[[i]]$identifications[[1]]$tagValue==0) {next} # skip the queen
@@ -500,14 +511,53 @@ for (file in files) {
   not_oriented <- append(not_oriented, paste("time", Sys.time() ,sep = " : "))
 }
 fwrite(list(not_oriented), file = paste(Sys.Date(), "",format(Sys.time(), "%H-%M-%S"), "not_oriented.txt", sep = "_"))
-
+fwrite(list(to_orient_manually), file = paste(Sys.Date(), "",format(Sys.time(), "%H-%M-%S"), "to_orient_manually.txt", sep = "_"))
 
 
 
 
 # Next check your files manually to see if orientations look all right (especially treatment ants and ants that got retagged or reoriented)
-# Then, manually adjust queen meta data (tag size, manual orientation)
+# Then, manually adjust orientation of retagged ants and meta data of the queen (tag size, manual orientation)
 # Then automatically assign the queen capsules based on tag size
+
+
+
+files <- list.files(directory)
+files <- files[grep("tags_corrected.myrmidon",files)]
+
+for (file in files) {
+  tracking_data <- fmExperimentOpen(paste0(directory, file))
+  tracking_data$setMetaDataKey(key = "tag_reoriented", default_Value = FALSE)
+  tracking_data$save(paste0(directory, substr(file, 1, nchar(file)-23),'pre_orientation.myrmidon'))
+}
+
+file <- "c12_m_pre_orientation.myrmidon"
+
+tracking_data <- fmExperimentOpen(paste0(directory, file))
+ants <- tracking_data$ants
+ants[[1]]$ID
+ants[[92]]$getValue("tag_reoriented", fmTimeForever())
+
+for (i in 1:length(ants)){
+  if (ants[[i]]$getValue("tag_reoriented", fmTimeForever())) {print(ants[[i]]$ID)}
+}
+
+
+
+
+file <- "c15_m_tags_corrected.myrmidon"
+tracking_data <- fmExperimentOpen(paste0(directory, file))
+ants <- tracking_data$ants
+ants[[1]]$ID
+ants[[92]]$getValue("IsTreated", fmTimeForever())
+ants[[1]]$identifications
+
+for (i in 1:length(ants)){
+  if (ants[[i]]$getValue("IsTreated", fmTimeForever())) {
+    print(ants[[i]]$ID)
+    print(ants[[i]]$identifications)}
+}
+
 
 
 
