@@ -28,10 +28,10 @@
 # 3. Neonic only survival analysis
 # 4. Flupy Funguy combined exposure survival 
 
-#### 1. prerequisites ####
+#### 1.  prerequisites ####
 rm(list=ls())
 #load required libraries functions and code
-install.packages("tydir")
+
 library(survival)
 library(coxme)
 library(scales)
@@ -50,14 +50,18 @@ library(rlang)
 library(ggplot2)
 library(viridis)
 library(broom)
+library(car) # Anova()
+library(blmeco) #compareqqnorm()
+library(survminer) # used in the analysis of the survival curves
+
 
 
 # set general working directory and get data
-directory <- "/Users/gismo/Documents/GitHub/snf_2/"
+directory <- "/Users/gismo/Documents/GitHub/vital_rscripts_git/snf_2/"
 setwd(directory) # homeoffice mac github folder
+source('printme_coxme.R') # used in the analysis of the survival curves
 
-
-#### 2. Fluorescin Feeding trial ####
+#### 2.  Fluorescin Feeding trial ####
 files <- list.files()
 print(files)
 dat <- read.table("full_fluorescin_feeding_quantification.txt", header = TRUE)
@@ -74,8 +78,8 @@ for(i in 1:nrow(dat)) {
   # collect variables
   run                   <- as.factor(dat[i, "run"])
   nr                    <- dat[i, "nr"]
-  colony                <- dat[i, "colony"]
-  petridish             <- dat[i, "petridish"]
+  colony                <- as.factor(dat[i, "colony"])
+  petridish             <- as.factor(dat[i, "petridish"])
   treatment             <- as.factor(dat[i, "treatment"])
   sample_type           <- dat[i, "sample_type"]
   concentration         <- dat[i, "conc"]
@@ -200,7 +204,7 @@ ggplot(data_stdcurves, aes(x = concentration, y = fluorescence, color = sample_t
   xlab("Concentration") + 
   ylab("Fluorescence") + 
   ggtitle("Standard Curves") + 
-  scale_color_discrete(name = "Sample Type")
+  scale_color_viridis_d(name = "Run")
 # -> standard curves for the second run are flatter --> first and second run need different coefficients for food calculation
 # remove no ant standard curve, then calculate a mean std curve for the first and the second round and derive their coefficients for food consumption
 
@@ -271,78 +275,236 @@ boxplot(data_samples$consumed_volume_0 ~ data_samples$treatment)
 boxplot(data_run_1$consumed_volume_0~data_run_1$treatment)
 boxplot(data_run_2$consumed_volume_0~data_run_2$treatment)
 
+
+#### 2.3 Food consumption graph ####
 # nice graph based on 0 intercept model 
 
+ggplot(data_samples, aes(x = treatment, y = consumed_volume_0)) +
+  geom_boxplot(fill = alpha(viridis(4)[4], 0.5), color = "black", notch = TRUE) +
+  geom_jitter(width = 0.2, height = 0, alpha = 0.2, color = viridis(1)[1]) +
+  labs(x = "Treatment", y = "Sugarwater Consumption [ul]", title = "Sugarwater Consumption by Treatment Group")+
+  theme(panel.background = element_rect(fill = "white", color = "black"),
+        panel.border = element_rect(color = "black", fill = NA))
+
+# separately for each of the two runs: 
+
+data_samples$trt_run <- interaction(data_samples$treatment, data_samples$run)
+levels_order <- c("control.1", "control.2", "low.1", "low.2", "mid.1", "mid.2", "high.1", "high.2")
+data_samples$trt_run <- factor(data_samples$trt_run, levels = levels_order)
+
+ggplot(data_samples, aes(x = trt_run, y = consumed_volume_0, fill = factor(run))) +
+  geom_boxplot(color = "black", notch = TRUE, alpha = 0.5) +
+  geom_jitter(width = 0.2, height = 0, alpha = 0.2, color = viridis(1)[1]) +
+  labs(x = "Treatment and Run", y = "Sugarwater Consumption [ul]", title = "Sugarwater Consumption by Treatment and Run")+
+  scale_fill_manual(values = viridis(2)) +
+  theme(panel.background = element_rect(fill = "white", color = "black"),
+        panel.border = element_rect(color = "black", fill = NA)) 
 
 
 
+#### 2.4 Fluoprescin Stats ####
+hist(data_samples$consumed_volume_0)
+# data is clearly not normally distributed. Log transformations did not work to get to a distribution suitable for lmer. 
+# As the data is negative exponential distribution we use a glmer negative binomial model with thetha = 1 which coresponds to a negative exp distribution
 
-
-
-
-
-
-
-# volume = slope*fluorescence + intercept
-data_samples$consumed_volume <- data_samples$fluorescence*slope + intercept
-boxplot(data_samples$consumed_volume ~ data_samples$treatment, xlab = "treatment", ylab = "sugarwater consumption [ul]")
-#abline(median(data_samples$consumed_volume[data_samples$treatment == "high"]), 0)
-
-
-#### next step do the statistical test on this data ####
-
-mod <- lmer(log(consumed_volume) ~ treatment + (1|colony) + (1|petridish), data = data_samples, REML = FALSE)
+mod <- glmer.nb(consumed_volume_0 ~ treatment + (1|colony) + (1|petridish) + (1|run), data = data_samples)
 summary(mod)
 Anova(mod)
-lsmeans(mod, pairwise ~ treatment, adjust = "tukey")
-marginal = lsmeans(mod, ~ treatment, data = data_samples)
-CLD = cld(marginal,
-          alpha=0.05,
-          Letters=letters,
-          adjust="tukey")
-CLD
-
-hist(log(data_samples$consumed_volume))
-
-#check model assumptions
-compareqqnorm(mod)
-par(mfrow=c(2,2))
-scatter.smooth(fitted(mod),resid(mod)); abline(h=0, lty=2)  # residuals vs. fitted
-title("Tukey-Anscombe Plot")
-qqnorm(resid(mod), main="normal QQ-plot, residuals") 
-qqline(resid(mod))  # qq of residuals
-scatter.smooth(fitted(mod), sqrt(abs(resid(mod))))  # homogeneity of variance
-plot(mod)
-par(mfrow=c(1,1))
-#homogenity of variance # plot(mod, 1)
-leveneTest(residuals(mod) ~ data$caste[!is.na(data$virus_titre)]) #non-significant = ok 
-boxplot(residuals(mod) ~ data$caste[!is.na(data$virus_titre)])
-#normality  # plot(mod, 2)
-aov_residuals <- residuals(object = mod)
-shapiro.test(x = aov_residuals) # non significant --> ok$
-# so far the high treatment is appears significantly lower than the controls and the low ones. But the model is not right (residuals indicate that model assumptions violated)
-# --> next transform fluorescence values to estimates of the volumes consumed by the ants. 
+cld(emmeans(mod, pairwise ~ "treatment", adjust = "tukey"), Letters = letters)
+# a trend, but no significant differences
 
 
 
+#### 3.  Neonic only survival analysis ####
+
+exp1_data <- read.csv('flupy_survival_test.csv')
+exp1_data$concentration <- factor(exp1_data$concentration )
+
+#### 3.1 Stats neonic only ####
+null_model <- coxme ( Surv (time = survival, event = censor) ~ 1                 + ( 1 | petri_dish) , data = exp1_data)
+full_model <- coxme ( Surv (time = survival, event = censor) ~ 1 + concentration + ( 1 | petri_dish) , data = exp1_data)
+anova(null_model   ,  full_model )
+
+summary(glht( full_model, linfct = mcp (concentration="Tukey")), test=adjusted("BH"))
+letters <- cld(summary(glht( full_model, linfct = mcp (concentration="Tukey")), test=adjusted("BH")))
 
 
 
-#### 3. Neonic only survival analysis ####
-dat_neo <- read.table("neo_survival.txt", fill=TRUE, header = TRUE)
-head(dat_neo)
+#### 3.1 Plot neonic only ####
+surviplot1 <- survfit(Surv (time = survival, event = censor) ~ 1 + concentration , data=exp1_data) #basic plot
+legend <- c('0     - a', '0.5  - ab','1     - ab','5     - a','10   - ab','50   - ab','100  - b','500  - c')
 
+surv_plot <- ggsurvplot(surviplot1, data = exp1_data,
+                        censor = FALSE,
+                        legend.title = 'concentration [ppm]',
+                        legend.labs = legend, 
+                        legend = c(0.15,0.25),
+                        xlab = 'Time (days)',
+                        ylab = 'Proportion Surviving',
+                        break.time.by=2,
+                        xlim = c(0,21),
+                        ggtheme = theme_bw(),
+                        palette = viridis(8, begin = 0, end = 0.8, option = 5),
+                        conf.int= TRUE,
+                        conf.int.alpha = 0.1
+)
+# remove the grid lines
+surv_plot$plot <- surv_plot$plot + theme(panel.grid = element_blank())
+surv_plot
 
-
-#### 4. Flupy Funguy combined exposure survival ####
-
-
-
-
+aggregate(  censor ~ concentration, FUN=mean,data=exp1_data)
 
 
 
 
+#### 4.  Flupy Fungus combined exposure effects on individual survival ####
+# prepare data
+#reading data
+antdata2 <- read.csv('flupy_fungus_individual_survival_data.csv')
+str(antdata2)
+antdata2$fungus <- as.factor(antdata2$fungus)
+antdata2$petri_dish <- as.factor(antdata2$petri_dish)
+antdata2$block <- as.factor(antdata2$block)
 
-#### Neonic only survival analysis ####
+# creating a colony column, random factor must be controlled
+antdata2 <- within(antdata2,colony <- substr(petri_dish,2,2))
+antdata2$colony <- as.factor(antdata2$colony)
 
+# making concentration a proper number, NOT factor
+antdata2$concentration <- as.numeric(as.character(antdata2$concentration))
+
+#### 4.1 Stats FluFu Indi ####
+
+# full interaction model, compared to a model without interaction
+flupy_fungus_interaction_model <- coxme ( Surv (time = survival, event = censor) ~ 1 + concentration  + fungus + concentration:fungus + (1 | petri_dish) + (1 | colony) + (1 | block), data = antdata2)
+flupy_fungus_model             <- coxme ( Surv (time = survival, event = censor) ~ 1 + concentration  + fungus                        + (1 | petri_dish) + (1 | colony) + (1 | block), data = antdata2)
+fungus_model                   <- coxme ( Surv (time = survival, event = censor) ~ 1 + fungus + ( 1 | petri_dish) + (1 | colony) + (1 | block), data = antdata2)
+null_model                     <- coxme ( Surv (time = survival, event = censor) ~ 1                 + ( 1 | petri_dish) + (1 | colony) + (1 | block) , data = antdata2)
+anova(null_model, fungus_model, flupy_fungus_model, flupy_fungus_interaction_model)
+
+# next get the pairwise differences for the final graph. 
+# clear effect of fungus and no effect of (explicitly sub lethal) Flupy concentration
+# trend for interactive effect
+
+#### perform a permutation test on the survival model ####
+
+# try to do a permutation test with the help of chatGPT
+
+
+
+#### 4.2 Flu Fu Indi plots #####
+surviplot <- survfit(Surv (time = survival, event = censor) ~ 1 + concentration + fungus, data=antdata2)
+surv_plot2 <- ggsurvplot(surviplot, data = antdata2, 
+           linetype = "fungus", 
+           color = "concentration", break.time.by=2,
+           palette = viridis(3, begin = 0, end = 0.9, option = 1),
+           xlab = 'Time (days)', ylab = 'Proportion Surviving',
+           xlim = c(0, max(antdata2$survival)),
+           censor = FALSE,
+           panel.labs = list(fungus = c("FUNGUS", "SHAM")), 
+           legend.title = 'FPF Concentration [ppm]', legend.labs = c(), legend = c(0.17,0.25),
+           ggtheme = theme_bw(), 
+           conf.int = FALSE, 
+           conf.int.alpha = 0.1
+           )
+surv_plot2$plot <- surv_plot2$plot + theme(panel.grid = element_blank()) +
+                                     scale_linetype_discrete(name = "Fungus", labels = c("M. brunneum", "Sham"))
+surv_plot2
+
+theme <- theme(axis.line = element_line(colour = "black"),
+                     panel.grid.major = element_blank(),
+                     panel.grid.minor = element_blank(),
+                     panel.border = element_rect(colour = "black", fill="NA", linewidth=1),
+                     panel.background = element_blank())
+
+surv_plot3 <- ggsurvplot(surviplot, data = antdata2,
+           legend.title = 'FPF Concentration [ppm]', legend.labs = c(), legend = c(0.15,0.15),
+           xlab = 'Time (days)', ylab = 'Proportion Surviving',
+           palette = viridis(3, begin = 0, end = 0.9, option = 5), 
+           ggtheme = theme,
+           xlim = c(0,20), break.time.by=2,
+           facet.by = "fungus",
+           panel.labs = list(fungus = c("M. brunneum", "Sham")), 
+           short.panel.labs = TRUE,
+           panel.labs.font = list(face = "bold.italic", size = 11),
+           panel.labs.background = list(color = "black", linewidth = 2, fill = "white"),
+           censor = FALSE,
+           conf.int = TRUE,
+           conf.int.alpha = 0.1,
+)
+surv_plot3
+
+aggregate(  censor ~ fungus + concentration, FUN=mean,data=antdata2)
+
+
+#### 4.3 FluFu Indi analysed for 14 days ####
+# Analyse dataset only for 14 days. 
+# create a new column "survival_14" and "censor_14 in antdata2
+antdata2$survival_14 <- ifelse(antdata2$survival >= 14, 14, antdata2$survival)
+antdata2$censor_14 <- ifelse(antdata2$survival <= 13, 1, 0)
+
+#baseline model which is then updated to become the full interaction model
+null_model        <- coxme ( Surv (time = survival_14, event = censor_14) ~ 1                          + (1 | petri_dish) + (1 | colony) + (1 | block), data = antdata2)
+flupy_model       <- coxme ( Surv (time = survival_14, event = censor_14) ~ 1 + concentration          + (1 | petri_dish) + (1 | colony) + (1 | block), data = antdata2)
+fungus_model      <- coxme ( Surv (time = survival_14, event = censor_14) ~ 1 + concentration + fungus + (1 | petri_dish) + (1 | colony) + (1 | block), data = antdata2)
+interaction_model <- coxme ( Surv (time = survival_14, event = censor_14) ~ 1 + concentration * fungus + (1 | petri_dish) + (1 | colony) + (1 | block), data = antdata2)
+anova(null_model, flupy_model, fungus_model, interaction_model)
+
+surviplot_14 <- survfit(Surv (time = survival_14, event = censor_14) ~ 1 + concentration + fungus, data=antdata2)
+surv_plot14 <- ggsurvplot(surviplot_14, data = antdata2,
+                         legend.title = 'FPF Concentration [ppm]', legend.labs = c(), legend = c(0.15,0.15),
+                         xlab = 'Time (days)', ylab = 'Proportion Surviving',
+                         palette = viridis(3, begin = 0, end = 0.9, option = 5), 
+                         ggtheme = theme,
+                         xlim = c(0,15), break.time.by=2,
+                         facet.by = "fungus",
+                         panel.labs = list(fungus = c("M. brunneum", "Sham")), 
+                         short.panel.labs = TRUE,
+                         panel.labs.font = list(face = "bold.italic", size = 11),
+                         panel.labs.background = list(color = "black", linewidth = 2, fill = "white"),
+                         censor = FALSE,
+                         conf.int = TRUE,
+                         conf.int.alpha = 0.1,
+)
+surv_plot14
+
+# repeat the same for different cut offs to see if the
+
+# Set the range of cutoff values
+cutoff_values <- 7:20
+# Create a list to store the anova results for each model
+anova_results <- vector("list", length(cutoff_values))
+
+# Loop over the cutoff values
+for (i in seq_along(cutoff_values)) {
+  cutoff <- cutoff_values[i]
+  # Create the survival and censor columns for the current cutoff
+  survival_col <- paste0("survival_", cutoff)
+  censor_col <- paste0("censor_", cutoff)
+  antdata2[[survival_col]] <- ifelse(antdata2$survival >= cutoff, cutoff, antdata2$survival)
+  antdata2[[censor_col]] <- ifelse(antdata2$survival <= (cutoff - 1), 1, 0)
+  
+  # Fit the four Cox proportional hazards models with the current cutoff
+  null_model        <- coxme(Surv(time = antdata2[[survival_col]], event = antdata2[[censor_col]]) ~ 1 + (1 | petri_dish) + (1 | colony) + (1 | block), data = antdata2)
+  flupy_model       <- coxme(Surv(time = antdata2[[survival_col]], event = antdata2[[censor_col]]) ~ 1 + concentration + (1 | petri_dish) + (1 | colony) + (1 | block), data = antdata2)
+  fungus_model      <- coxme(Surv(time = antdata2[[survival_col]], event = antdata2[[censor_col]]) ~ 1 + concentration + fungus + (1 | petri_dish) + (1 | colony) + (1 | block), data = antdata2)
+  interaction_model <- coxme(Surv(time = antdata2[[survival_col]], event = antdata2[[censor_col]]) ~ 1 + concentration * fungus + (1 | petri_dish) + (1 | colony) + (1 | block), data = antdata2)
+  
+  # Run the anova and store the output in the anova_results list
+  anova_results[[i]] <- anova(null_model, flupy_model, fungus_model, interaction_model)
+}
+
+# Print the anova results for each cutoff value
+for (i in seq_along(cutoff_values)) {
+  cutoff <- cutoff_values[i]
+  cat("Anova results for cutoff", cutoff, "\n")
+  print(cutoff)
+  print(anova_results[[i]])
+}
+
+
+
+
+
+
+#### Follow this up with the colony level effects ####
