@@ -381,14 +381,9 @@ flupy_fungus_model             <- coxme ( Surv (time = survival, event = censor)
 fungus_model                   <- coxme ( Surv (time = survival, event = censor) ~ 1 + fungus + ( 1 | petri_dish) + (1 | colony) + (1 | block), data = antdata2)
 null_model                     <- coxme ( Surv (time = survival, event = censor) ~ 1                 + ( 1 | petri_dish) + (1 | colony) + (1 | block) , data = antdata2)
 anova(null_model, fungus_model, flupy_fungus_model, flupy_fungus_interaction_model)
-
-# next get the pairwise differences for the final graph. 
 # clear effect of fungus and no effect of (explicitly sub lethal) Flupy concentration
 # trend for interactive effect
 
-#### perform a permutation test on the survival model ####
-
-# try to do a permutation test with the help of chatGPT
 
 
 
@@ -433,7 +428,6 @@ surv_plot3 <- ggsurvplot(surviplot, data = antdata2,
            conf.int.alpha = 0.1,
 )
 surv_plot3
-
 aggregate(  censor ~ fungus + concentration, FUN=mean,data=antdata2)
 
 
@@ -442,13 +436,84 @@ aggregate(  censor ~ fungus + concentration, FUN=mean,data=antdata2)
 # create a new column "survival_14" and "censor_14 in antdata2
 antdata2$survival_14 <- ifelse(antdata2$survival >= 14, 14, antdata2$survival)
 antdata2$censor_14 <- ifelse(antdata2$survival <= 13, 1, 0)
-
 #baseline model which is then updated to become the full interaction model
 null_model        <- coxme ( Surv (time = survival_14, event = censor_14) ~ 1                          + (1 | petri_dish) + (1 | colony) + (1 | block), data = antdata2)
 flupy_model       <- coxme ( Surv (time = survival_14, event = censor_14) ~ 1 + concentration          + (1 | petri_dish) + (1 | colony) + (1 | block), data = antdata2)
 fungus_model      <- coxme ( Surv (time = survival_14, event = censor_14) ~ 1 + concentration + fungus + (1 | petri_dish) + (1 | colony) + (1 | block), data = antdata2)
 interaction_model <- coxme ( Surv (time = survival_14, event = censor_14) ~ 1 + concentration * fungus + (1 | petri_dish) + (1 | colony) + (1 | block), data = antdata2)
 anova(null_model, flupy_model, fungus_model, interaction_model)
+
+antdata2$concentration_factor <- as.factor(antdata2$concentration)
+null_model        <- coxme ( Surv (time = survival_14, event = censor_14) ~ 1                          + (1 | petri_dish) + (1 | colony) + (1 | block), data = antdata2)
+flupy_model_f       <- coxme ( Surv (time = survival_14, event = censor_14) ~ 1 + concentration_factor          + (1 | petri_dish) + (1 | colony) + (1 | block), data = antdata2)
+fungus_model_f      <- coxme ( Surv (time = survival_14, event = censor_14) ~ 1 + concentration_factor + fungus + (1 | petri_dish) + (1 | colony) + (1 | block), data = antdata2)
+interaction_model_f <- coxme ( Surv (time = survival_14, event = censor_14) ~ 1 + concentration_factor * fungus + (1 | petri_dish) + (1 | colony) + (1 | block), data = antdata2)
+anova(null_model, flupy_model_f, fungus_model_f, interaction_model_f)
+
+summary(interaction_model_f)
+summary(glht(interaction_model_f, test=adjusted("BH")))
+pairs_model <- emmeans(interaction_model_factor, ~ concentration_factor*fungus)
+pairwise_model <- pairs(pairs_model)
+CLD_model <- cld(pairwise_model, alpha = 0.05, adjust = "tukey")
+
+levels(antdata2$concentration_factor)
+levels(antdata2$fungus)
+
+# get the pairwise differences?
+coefficients(interaction_model_f)
+#             0M 5M 50m 0s 5S 50S
+mat <-  matrix(c( 1, 0, 0, 0, 0, 
+                  0, 1, 0, 0, 0,
+                  0, 0, 1, 0, 0,
+                  0, 0, 0, 1, 0,
+                  0, 0, 0, 0, 1,
+                 -1, 1, 0, 0, 0,
+                 -1, 0, 1, 0, 0,
+                 -1, 0, 0, 1, 0,
+                 -1, 0, 0, 0, 1,
+                  0,-1, 1, 0, 0,
+                  0,-1, 0,-1, 0,
+                  0,-1, 0, 0, 1,
+                  0, 0,-1, 1, 0,
+                  0, 0,-1, 0, 1,
+                  0, 0, 0, -1, 1),
+               byrow=TRUE,
+               ncol=5,
+               dimnames=list(c(
+                 "0M - 5M",
+                 "0M - 50M",
+                 "0M - 0S",
+                 "0M - 5S",
+                 "0M - 50S",
+                 "5M - 50M",
+                 "5M - 0S",
+                 "5M - 5S",
+                 "5M - 50S",
+                 "50M - 0S",
+                 "50M - 5S",
+                 "50M - 50S",
+                 "0S - 5S",
+                 "0S - 50S",
+                 "5S - 50S"
+  ))
+)
+
+differences <- summary(glht(interaction_model_f, linfct = mat), test = adjusted("BH"))
+pvalues <- as.numeric(differences$test$pvalues)
+coefs <- as.numeric(differences$test$coefficients)
+hazard_ratios <- sprintf("%.2f", exp(coefs))
+names(pvalues) <- names(differences$test$coefficients)
+names(coefs) <- names(differences$test$coefficients)
+names(hazard_ratios) <- names(differences$test$coefficients)
+differences
+hazard_ratios
+
+
+
+
+
+
+
 
 surviplot_14 <- survfit(Surv (time = survival_14, event = censor_14) ~ 1 + concentration + fungus, data=antdata2)
 surv_plot14 <- ggsurvplot(surviplot_14, data = antdata2,
@@ -468,13 +533,19 @@ surv_plot14 <- ggsurvplot(surviplot_14, data = antdata2,
 )
 surv_plot14
 
-# repeat the same for different cut offs to see if the
 
+
+
+
+
+
+#### Cutoffs other than 14 ####
+
+# repeat the same for different cut offs to see if when we can see the interaction effect. 
 # Set the range of cutoff values
 cutoff_values <- 7:20
 # Create a list to store the anova results for each model
 anova_results <- vector("list", length(cutoff_values))
-
 # Loop over the cutoff values
 for (i in seq_along(cutoff_values)) {
   cutoff <- cutoff_values[i]
@@ -501,6 +572,14 @@ for (i in seq_along(cutoff_values)) {
   print(cutoff)
   print(anova_results[[i]])
 }
+
+# IT SEEMS THAT IT IS BEST MOST IDEAL FOR THE RESULTS IF WE LOOK AT THE EFFECTS AFTER 14 DAYS
+
+
+
+
+
+
 
 
 
