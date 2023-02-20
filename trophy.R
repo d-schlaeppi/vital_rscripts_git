@@ -25,6 +25,7 @@ list.files(path=directory, pattern=NULL, all.files=FALSE, full.name=FALSE)
 # get all folders in the directory and compile them as a list (only folders containing the tracking data)
 data_list <- list.files(path=directory, pattern=NULL, all.files=FALSE, full.name=FALSE) # all files
 data_list <- grep(data_list, pattern = "trophy", invert = FALSE, value = TRUE)
+data_list <- grep(data_list, pattern = "myrmidon", invert = TRUE, value = TRUE)
 print(data_list)
 
 data_collection <- NULL 
@@ -47,7 +48,6 @@ data_collection
 
 #### create base myrmidon files and create ants ####
 for (i in 1:nrow(data_collection)) {
-      file_name <- paste0(data_collection[i,"colony_id"], '_base.myrmidon')
       tracking_data <- fmExperimentOpen("base_source.myrmidon")
       s <- tracking_data$createSpace(data_collection[i,"tracking_system_main"])
       printf("Space '%s' has ID: %d\n",s$name,s$ID)
@@ -55,7 +55,7 @@ for (i in 1:nrow(data_collection)) {
       # assign the tracking data
       for (folder_name in data_list) {
         if (grepl(data_collection[i,"tracking_system_main"], folder_name, fixed = TRUE) ) {
-          tracking_data$addTrackingDataDirectory(s$ID, paste0(directory,folder_name), fixCorruptedData = TRUE)
+          tracking_data$addTrackingDataDirectory(s$ID, paste0(directory,folder_name), fixCorruptedData = FALSE) # fix corrupt data TRUE seemed to make an issue when trying to open the files - after ~97% of tag statistics fort myrmidon just crashed
         } else {next}
       }
       tracking_data$save(paste0(directory, data_collection[i,"colony_id"], '.myrmidon'))
@@ -69,8 +69,8 @@ for (i in 1:nrow(data_collection)) {
               print(identification)
             }
           }
-      tracking_data$save(paste0(directory, data_collection[i,"colony_id"], 'ants_created.myrmidon'))
-      paste0(data_collection[i,"colony_id"], ' ants created')
+      data$save(paste0(directory, data_collection[i,"colony_id"], '_ants_created.myrmidon'))
+      print(paste0(data_collection[i,"colony_id"], ' ants created'))
 }
 
 

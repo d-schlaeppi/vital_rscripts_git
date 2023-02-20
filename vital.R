@@ -25,6 +25,8 @@
 # If you do short trackings (e.g. for treatments in addition to a main tracking increase the rate at which pictures are taken of each ant in the leto file)
 # Use dedicated queen tags (0x000) if possible!
 
+# used tracking systems Daniel: Maintracking - trojan, prideaux, guillam ; feeding sessions - guillam, esterhase 
+
 # Step by step processing your tracking data:
 # Step 1: For each tracking system setting (typically 1 per tracking system) used select one exemplary colony get mean worker size
 #   Step 1.1 Create base myrmidon files
@@ -212,10 +214,9 @@ for (element in files) {
 
 
 
-#### 3.1 Create all base myrmidon files for extrapolated data ####
+#### 3.1 Create all base myrmidon files for extrapolated data  ####
 
 # !!! Manually copy the file base_source.myrmidon into the directory containing the tracking files !!!
-
 
 # set working directory to the new directory containing the extrapolated tracking data
 directory <- '/media/gw20248/gismo_hd2/vital/fc2/' 
@@ -276,8 +277,8 @@ for (i in 1:nrow(data_collection)) {
 
 #### 3.1.1 Extra step manually assign to each of the base files the corresponding data in fort ####
 
- # needs to be done because addTrackingDataDirectory() does not work? otherwise this could all be done automatically and ant creation could go in the same loop
-
+ # needs to be done because addTrackingDataDirectory() does not work yet ? otherwise this could all be done automatically and ant creation could go in the same loop
+ # there was a fix for this (see trophy data) but with the fix there seems to be a new error that causes fort to crash. No further investigations done yet.
 
 #### 3.2 Create ants for all myrmidon files (main = m and feeding = f) ####
 
@@ -365,6 +366,7 @@ sourceCpp(paste0(directory,"Get_Movement_Angle.cpp"))
 # so far only main colonies included
 
 # list a source myrmidon file containing the manually oriented data with capsules
+# (choose 1 of the manually oriented colonies to define a capsule definition in fort studio for a medium sized ant and replicate the shape for all of the ants of the colony)
 #source_data_list <- list("/home/gw20248/Documents/data_copy_for_trials/vital_fc2_trojan_c27_DS_AntsCreated_ManuallyOriented_CapsAutoDefined.myrmidon") #,
 #                         "/home/gw20248/Documents/data_copy_for_trials/vital_fc2_prideaux_c02_DS_AntsCreated_ManuallyOriented_CapsAutoDefined.myrmidon")
 
@@ -439,7 +441,6 @@ for (caps in 1:length(capsule_list)){ # Finally, get information on each capsule
 
 #### Ant Orient Express Part 2 ####
 
-
 # open the tracking file to be auto oriented
 #tracking_data <- fmExperimentOpen(paste0(dir_data,'c11_m_AntsCreated_cor.myrmidon'))
 
@@ -507,74 +508,35 @@ for (file in files) {
       not_oriented <- append(not_oriented, paste(file, i, "FALSE", "exit before selected period", sep = " -> "))
     }
   }
-  tracking_data$save(paste0(directory, substr(file, 1, nchar(file)-23),'oriented.myrmidon'))
+  tracking_data$save(paste0(directory, substr(file, 1, nchar(file)-24),'oriented.myrmidon'))
   not_oriented <- append(not_oriented, paste("time", Sys.time() ,sep = " : "))
 }
 fwrite(list(not_oriented), file = paste(Sys.Date(), "",format(Sys.time(), "%H-%M-%S"), "not_oriented.txt", sep = "_"))
 fwrite(list(to_orient_manually), file = paste(Sys.Date(), "",format(Sys.time(), "%H-%M-%S"), "to_orient_manually.txt", sep = "_"))
 
+### Next check your files manually to see if orientations look all right (especially treatment ants and ants that got retagged or reoriented)
+   # open each of the files and do the following 
+   # 1 - For each queen manually assign at least 3 poses
+   # 2 - manually adjust orientation of any retagged ants (check file to_orient_manually.txt)
+   # 3 - run the code to copy queen capsules form a source file and adjust tag size of queens automatically
 
 
-
-# Next check your files manually to see if orientations look all right (especially treatment ants and ants that got retagged or reoriented)
-# Then, manually adjust orientation of retagged ants and meta data of the queen (tag size, manual orientation)
 # Then automatically assign the queen capsules based on tag size
 
-
-
-files <- list.files(directory)
-files <- files[grep("tags_corrected.myrmidon",files)]
-
-for (file in files) {
-  tracking_data <- fmExperimentOpen(paste0(directory, file))
-  tracking_data$setMetaDataKey(key = "tag_reoriented", default_Value = FALSE)
-  tracking_data$save(paste0(directory, substr(file, 1, nchar(file)-23),'pre_orientation.myrmidon'))
-}
-
-file <- "c12_m_pre_orientation.myrmidon"
-
+file <- "c01_m_poriented.myrmidon"
 tracking_data <- fmExperimentOpen(paste0(directory, file))
-ants <- tracking_data$ants
-ants[[1]]$ID
-ants[[92]]$getValue("tag_reoriented", fmTimeForever())
-
-for (i in 1:length(ants)){
-  if (ants[[i]]$getValue("tag_reoriented", fmTimeForever())) {print(ants[[i]]$ID)}
-}
+tracking_data$ants[[1]]$identifications[[1]]$tagSize <- 1.56
+tracking_data$save(paste0(directory, substr(file, 1, nchar(file)-18),'queen_modified.myrmidon'))
 
 
 
 
-file <- "c15_m_tags_corrected.myrmidon"
-tracking_data <- fmExperimentOpen(paste0(directory, file))
-ants <- tracking_data$ants
-ants[[1]]$ID
-ants[[92]]$getValue("IsTreated", fmTimeForever())
-ants[[1]]$identifications
-
-for (i in 1:length(ants)){
-  if (ants[[i]]$getValue("IsTreated", fmTimeForever())) {
-    print(ants[[i]]$ID)
-    print(ants[[i]]$identifications)}
-}
+#### Next steps ####
+ 
+   ### Manually apply the zones of the feeding area.
+   ### Implement the ant pose cloner (check if scaling is needed) - Aim: get orientation and capsules for the feeding tracking from the already processed main tracking. 
+   ### Extract the coordinates of the feeding zones
+   ### Come up with a solution to that gives tells us which ants were feeding in the treatments and create a rule to define which colonies to include in the analyses. 
 
 
 
-
-
-
-#### Leftover Scripts ####
-# Information that might be included or needed: 
-  
-  # Steps to take first:
-  # Create manually oriented base files
-  # Orient 1 lanrge colony per tracking system (food flow experiment Daniel - 3 tracking systems used for main tracking and 2 tracking systems used to record feeding sessions)
-  # used tracking systems Daniel: Maintracking - trojan, prideaux, guillam ; feeding sessions - guillam, esterhase 
-  # choose 1 of the manually oriented colonies to define a capsule definition in fort studio for a medium sized ant and replicate the shape for all of the ants of the colony
-  # apply this capsule definition for the remaining manually oriented colonies using the script below. The originals of these files have been stored as *.myrmidon.old
-  
-
-# if the code above runs, include the ant orientation code and the capsule code for a quick post processing, 
-# then apply the ant pose cloner to synchronize feeding and main tracking files.
-# (check if there is indeed no scaling required to make the capsule cloning work)
-# then, run the ant orient_express!
