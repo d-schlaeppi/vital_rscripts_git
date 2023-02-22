@@ -108,8 +108,11 @@ for(i in 1:nrow(dat)) {
 
 
 # set working directory for the myrmidon files (before the extrapolation)
-directory <- "/home/gw20248/Documents/data_copy_for_trials/"
-# directory <- '/media/gw20248/gismo_hd3/vital/fc2/' 
+#directory <- "/home/gw20248/Documents/data_copy_for_trials/"  # preliminary processing on local computer
+# or
+#directory <- '/media/gw20248/gismo_hd3/vital/fc2/' # HD with raw data for preparations
+# or 
+directory <- '/media/gw20248/gismo_hd2/vital/fc2/'  # HD with extrapolated data
 setwd(directory)
 
 # use the below directory if you are already at the later steps
@@ -442,7 +445,7 @@ for (caps in 1:length(capsule_list)){ # Finally, get information on each capsule
 #### Ant Orient Express Part 2 ####
 
 # open the tracking file to be auto oriented
-#tracking_data <- fmExperimentOpen(paste0(dir_data,'c11_m_AntsCreated_cor.myrmidon'))
+# tracking_data <- fmExperimentOpen(paste0(dir_data,'c11_m_AntsCreated_cor.myrmidon'))
 
 files <- list.files(directory)
 files <- files[grep("tags_corrected.myrmidon",files)]
@@ -514,26 +517,156 @@ for (file in files) {
 fwrite(list(not_oriented), file = paste(Sys.Date(), "",format(Sys.time(), "%H-%M-%S"), "not_oriented.txt", sep = "_"))
 fwrite(list(to_orient_manually), file = paste(Sys.Date(), "",format(Sys.time(), "%H-%M-%S"), "to_orient_manually.txt", sep = "_"))
 
-### Next check your files manually to see if orientations look all right (especially treatment ants and ants that got retagged or reoriented)
+
+#### Queen modification and other checks ####
+# Next check your files manually to see if orientations look all right (especially treatment ants and ants that got retagged or reoriented)
    # open each of the files and do the following 
-   # 1 - For each queen manually assign at least 3 poses
-   # 2 - manually adjust orientation of any retagged ants (check file to_orient_manually.txt)
-   # 3 - run the code to copy queen capsules form a source file and adjust tag size of queens automatically
+   # 1 - For each queen manually assign at least 3 poses - done
+   # 2 - manually adjust orientation of any re tagged ants (check file to_orient_manually.txt) - done
+   # 3 - manually copy capsules for re tagged ants: open the myrmidon files for all colonies with re tagged ants. Select an ant with capsules, clone shape, select no scaling and no overwriting - done
+   # 4 - run the code to copy queen capsules form a source file and adjust tag size of queens automatically
+
+# Manually create a queen capsule source file from an average sized queen - > Select the most average sized queen from my data set. 
+
+# step 1 use the ant ruler to select the most medium size queen. 
+# get mean size of all queens
+# select the queen with the smallest difference to the mean. 
+
+# set working directory (where the tracking data is)
+directory <- '/media/gw20248/gismo_hd2/vital/fc2/'  # HD with extrapolated data
+setwd(directory)
+# get a list with the latest myrmidon file with manually oriented queens
+files <- list.files(path=directory, pattern=NULL, all.files=FALSE, full.name=FALSE) # all files
+files <- grep(files, pattern = "queen_modified", invert = FALSE, value = TRUE)
+
+# calculate the mean queen size and identify the colony with the most average sized queen for manual capsule definition. 
+queen_size <- NULL
+for (file in files) {
+  tracking_data <- fmExperimentOpen(paste0(directory, file))
+  queen_length_mm <- mean(fmQueryComputeMeasurementFor(tracking_data,antID=1)$length_mm)
+  queen_size <- rbind(queen_size, data.frame(colony = file,
+                                             queen_length_mm = queen_length_mm,
+                                             stringsAsFactors = F))
+}
+queen_size$diff <- abs(queen_size$queen_length_mm - mean(queen_size$queen_length_mm))
+source_colony <-queen_size$colony[which.min(queen_size$diff)]
+print(source_colony)
+
+# open a source colony file to manually create a well fitting queen shape and safe the file as queen_shape_source.myrmidon
+# Next: automatically assign the queen capsules and adjust queen tag size
+
+### select queen shape source file
+defined_capsule_file <- paste(directory,"queen_shape_source.myrmidon",sep='')
+### select files that need the queen shape
+no_capsule_list <- list.files(path=directory, pattern=NULL, all.files=FALSE, full.name=FALSE) # all files
+no_capsule_list <- grep(files, pattern = "queen_modified", invert = FALSE, value = TRUE)
 
 
-# Then automatically assign the queen capsules based on tag size
+### create empty variables
+data_list         <- list (defined_capsule_file)
+oriented_metadata <- NULL
+capsule_list <- list()
+### run loop to get the capsule information from the source file
+for (myrmidon_file in data_list){
+  oriented_data <- fmExperimentOpen(myrmidon_file)
+  experiment_name <- "FCII" 
+  oriented_ants <- oriented_data$ants
+  capsule_names <- oriented_data$antShapeTypeNames
+  ### extract queen length and capsules (this script only works if all queens were done with a queen tag 0x000 and thus always with antID = 1)
+  queen_length_px <- mean(fmQueryComputeMeasurementFor(oriented_data,antID=1)$length_px)
+  capsules      <- oriented_ants[[1]]$capsules
+  for (caps in 1:length(capsules)){
+    capsule_name  <- capsule_names[[capsules[[caps]]$type]]
+    capsule_coord <- capsules[[caps]]$capsule
+    capsule_info <- data.frame(experiment = experiment_name,
+                               antID      = 1,
+                               c1_ratio_x = capsule_coord$c1[1]/queen_length_px,
+                               c1_ratio_y = capsule_coord$c1[2]/queen_length_px,
+                               c2_ratio_x = capsule_coord$c2[1]/queen_length_px,
+                               c2_ratio_y = capsule_coord$c2[2]/queen_length_px,
+                               r1_ratio   = capsule_coord$r1[1]/queen_length_px,
+                               r2_ratio   = capsule_coord$r2[1]/queen_length_px)
+    if (!capsule_name %in%names(capsule_list)){ ###if this is the first time we encounter this capsule, add it to capsule list...
+      capsule_list <- c(capsule_list,list(capsule_info)) 
+      if(length(names(capsule_list))==0){
+        names(capsule_list) <- capsule_name
+      }else{
+        names(capsule_list)[length(capsule_list)] <- capsule_name
+      }
+    }else{###otherwise, add a line to the existing dataframe within capsule_list
+      capsule_list[[capsule_name]] <- rbind(capsule_list[[capsule_name]] , capsule_info)
+    }
+  }
+  ###extract offset between tag center and ant center
+  for (id in oriented_ants[[1]]$identifications){
+    oriented_metadata <- rbind(oriented_metadata,data.frame(experiment       = experiment_name,
+                                                            antID            = 1,
+                                                            tagIDdecimal     = id$tagValue,
+                                                            angle            = id$antAngle,
+                                                            x_tag_coord      = id$antPosition[1], 
+                                                            y_tag_coord      = id$antPosition[2],
+                                                            x_ant_coord      = id$antPosition[1]*cos(-id$antAngle) - id$antPosition[2]*sin(-id$antAngle),
+                                                            y_ant_coord      = id$antPosition[1]*sin(-id$antAngle) + id$antPosition[2]*cos(-id$antAngle),
+                                                            length_px        = queen_length_px,
+                                                            stringsAsFactors = F))
+  }
+}
+for (caps in 1:length(capsule_list)){
+  capsule_list[[caps]] <- colMeans(capsule_list[[caps]][,which(grepl("ratio",names(capsule_list[[caps]])))])
+}
 
-file <- "c01_m_poriented.myrmidon"
-tracking_data <- fmExperimentOpen(paste0(directory, file))
-tracking_data$ants[[1]]$identifications[[1]]$tagSize <- 1.56
-tracking_data$save(paste0(directory, substr(file, 1, nchar(file)-18),'queen_modified.myrmidon'))
-
-
-
+### Write capsule data to each file that requires the queen capsules
+for (no_capsule_file in no_capsule_list) {
+  # open tracking data which need new capsule
+  tracking_data <- fmExperimentOpen(no_capsule_file) 
+  ants <- tracking_data$ants
+  ant_length_px <- mean(fmQueryComputeMeasurementFor(tracking_data,antID=1)$length_px)
+  ants[[1]]$clearCapsules()
+  capsule_number <- 0   #assign capsule numbers that match the order of the looped capsule names positions
+  for (capsule_name in unlist(tracking_data$antShapeTypeNames)) {
+    capsule_number <- capsule_number +1
+    capsule_ratios <- capsule_list[[capsule_name]]; names(capsule_ratios) <- gsub("_ratio","",names(capsule_ratios))
+    capsule_coords <- ant_length_px*capsule_ratios
+    ants[[1]]$addCapsule(capsule_number, fmCapsuleCreate(c1 = c(capsule_coords["c1_x"],capsule_coords["c1_y"]), c2 = c(capsule_coords["c2_x"],capsule_coords["c2_y"]), r1 = capsule_coords["r1"], r2 = capsule_coords["r2"] ) )
+  }
+  #tracking_data$save(no_capsule_file)
+  try(ants[[1]]$identifications[[1]]$tagSize <- 1.52, silent = TRUE) # adjust tag size for the queen
+  tracking_data$save(paste0(directory, substr(no_capsule_file, 1, nchar(no_capsule_file)-23),'queen_modified_test.myrmidon'))
+  print(paste0("Added queen capsule to",no_capsule_file))
+  #close experiment
+  rm(list=(c("tracking_data")))
+}
 
 #### Next steps ####
- 
-   ### Manually apply the zones of the feeding area.
+  ### Manually apply the zones of the feeding area.
+
+# Unfortunately the zone workspace does not allow us to have a screenshot of different times. Thus we have to modify the images used to display in the zone workspace. 
+# First we copy the relevant images "frame_XXXX.png" into a new folder 
+# Then we take a screenshot of the feeding that contains the food and use inkscape to overlay the new image on the original and safe it with the same original name in a new folder. 
+# Last we copy all the files back into their respective folder
+# the next time we open fort we should be able to see the newly created image in the zoning workspace
+
+# get a list with the latest myrmidon file with manually oriented queens
+files <- list.files(path=directory, pattern=NULL, all.files=FALSE, full.name=FALSE) # all files
+files <- grep(files, pattern = "_feeding_DS.00", invert = FALSE, value = TRUE)
+# Extract the replication numbers from the file names
+rep_nums <- as.numeric(gsub(".*\\.(\\d+)$", "\\1", files))
+# Identify and remove duplicates based on the file names without the replication numbers
+unique_files <- files[!duplicated(gsub("\\.\\d+$", "", files), fromLast = TRUE)]
+
+for (file in unique_files) {
+  folderpath <- paste0(directory, file, "/ants/")
+  files <- list.files(folderpath)
+  files <- grep(files, pattern = "frame", invert = FALSE, value = TRUE)
+  numbers <- as.integer(sub("^.*_(\\d+)\\.png$", "\\1", files))# Extract the numbers from the file names using regular expressions
+  smallest_file <- files[which.min(numbers)]  # Find the file with the smallest number
+  dest_path <- paste0(directory, "/screenshots/original_frame_pictures/", sub(".*(c[0-9]+).*", "\\1", file), "/")
+  file.copy(file.path(folderpath, smallest_file), dest_path, overwrite = TRUE)
+}
+
+
+
+
    ### Implement the ant pose cloner (check if scaling is needed) - Aim: get orientation and capsules for the feeding tracking from the already processed main tracking. 
    ### Extract the coordinates of the feeding zones
    ### Come up with a solution to that gives tells us which ants were feeding in the treatments and create a rule to define which colonies to include in the analyses. 

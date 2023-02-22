@@ -37,7 +37,7 @@ files <- list(
 
 #### ANT-RULER ####
 
-output_name <- file.path(paste0(dir_data,"Mean_ant_length_colonies_new.txt")) # define the name of the textfile containing your measurements
+output_name <- file.path(paste0(dir_data,"Mean_ant_length_colonies_new.txt")) # define the name of the text file containing your measurements
 
 for (element in files) {
   # get tracking data
