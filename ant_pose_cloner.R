@@ -14,40 +14,59 @@ rm(list=ls())
 
 #### prerequisites ####
 
-# load libraries
 library(FortMyrmidon) #R bindings
-#library(Rcpp)
-#library(circular)
-#library(R.utils)
 
 # set working directory
-directory <- "/home/gw20248/Documents/data_copy_for_trials/"
+directory <- '/media/gw20248/gismo_hd2/vital/fc2/'  # HD with extrapolated data
 setwd(directory)
 
+source_files <- list.files(directory, pattern = "m_queen_modified_c\\d{2}\\.myrmidon$")
+tracking_data_type <- c("source", "dest")
 
+is.numeric(source_ants[[1]]$identifications[[1]]$tagValue)
+is.numeric(source_ants[[53]]$identifications[[1]]$tagValue)
 
-# once we have the post-processed date rewrite the script below to do all colonies in one go: 
-
-for (i in 1:nrow(data_collection)) {
-  main_file_name  <- paste0("colony_nr and rest of the main file name", "with colony nr set as i")
-  secondary_file_name <- paste0("colony_nr and rest of the corresponding feeding file name", "with colony nr set as i")
-  #then include here the code below 
+for (source_file in source_files) {
+    colony_name <- substr(source_file, 18, nchar(source_file)-9)
+    source_data <- fmExperimentOpen(source_file)
+    source_ants <- source_data$ants
+    capsule_names <- source_data$antShapeTypeNames
+    dest_data <- fmExperimentOpen(paste0("f_AntsCreated_", substr(source_file, 18, nchar(source_file))))
+    dest_ants <- dest_data$ants  
+    tag_value_vector <- data.frame(tag_values = numeric(0)) # create vector of all ants from the source file 
+    tag_values <- NULL
+    for (i in source_ants) {
+      tryCatch({
+        if (is.numeric(i$identifications[[1]]$tagValue)) {
+          tag_values <- i$identifications[[1]]$tagValue
+          tag_value_vector <- rbind(tag_value_vector, data.frame(tag_values))
+        }}, error = function(e) {
+          # ignore the error and continue to the next iteration
+          NULL
+        })
+      }
+    # for each ant in the destination file copy the size, orientation and capsule (and optionally all metadata) form the source ant. 
+    for (x in dest_ants) {
+      if(is.element(x$identifications[[1]]$tagValue, as.matrix(tag_value_vector))) {
+        print(paste0(source_file, " treated ant ", x$identifications[[1]]$tagValue))
+        
+       # here place to code to do copy capsules and orientation
+        
+        }
+    }
+    tracking_data$save(paste0("f_AntsModified_", substr(source_file, 18, nchar(source_file))))  
 }
   
 
-# select the two related files you want to work with (both need to have ants already created) 
-main_file_name <- "vital_fc2_prideaux_c02_DS_AntsCreated_ManuallyOriented_CapsAutoDefined_metaID.myrmidon" # main tracking file
-#secondary_file_name <- "vital_fc2_esterhase_c02_feeding_DS_AntsCreated_metaID.myrmidon" # treatment tracking file
-secondary_file_name <- "vital_fc2_esterhase_c02_feeding_DS_AntsCreated.myrmidon" # treatment tracking file
+    
 
 
-# file containing the oriented ants with capsules
-source_file <- paste0(directory, main_file_name)
-destination_files <- list(
-  paste0(directory, secondary_file_name)
-)
 
-# files containing the ants that need automatic orienting and capsules based on the source file
+
+
+
+
+
 
 #### Extraction of information on AntPose and Capsules from the source file ####
 
@@ -60,12 +79,9 @@ ant_lenght_px <- NULL
 output_name <- file.path(paste0(directory, "Mean_ant_length_colonies.txt")) 
 
 for (file in data_list) {
-  experiment_name <- unlist(strsplit(file,split="/"))[length(unlist(strsplit(file,split="/")))]
-  source_data <- fmExperimentOpen(file)
-  source_ants <- source_data$ants
-  capsule_names <- source_data$antShapeTypeNames
+  colony_identifier <- 
   for (ant in source_ants) {
-    # extract ant length and capsuöes
+    # extract ant length and capsules
     ant_length_px <- mean(fmQueryComputeMeasurementFor(source_data,antID=ant$ID)$length_px)
     capsules <- ant$capsules
     for (caps in 1:length(capsules)){
@@ -86,7 +102,7 @@ for (file in data_list) {
         }else{
           names(capsule_list)[length(capsule_list)] <- capsule_name
         }
-      }else{###otherwise, add a line to the existing dataframe within capsule_list
+      }else{ ###otherwise, add a line to the existing dataframe within capsule_list
         capsule_list[[capsule_name]] <- rbind(capsule_list[[capsule_name]] , capsule_info)
       }
     }
@@ -104,24 +120,6 @@ for (file in data_list) {
     }
   }
  }
-
-# remove the queen
-interquartile_range <- quantile(source_metadata$length_px,probs=c(0.25,0.75), na.rm =TRUE)
-outlier_bounds      <- c(interquartile_range[1]-1.5*(interquartile_range[2]-interquartile_range[1]),interquartile_range[2]+1.5*(interquartile_range[2]-interquartile_range[1]))
-### apply outlier exclusion to source_metadata
-source_metadata <- source_metadata[which(source_metadata$length_px>=outlier_bounds[1]&source_metadata$length_px<=outlier_bounds[2]),]  
-### apply outlier exclusion to capsule list
-for (caps in 1:length(capsule_list)){
-  capsule_list[[caps]] <-capsule_list[[caps]] [ as.character(interaction(capsule_list[[caps]] $experiment,capsule_list[[caps]] $antID))%in%as.character(interaction(source_metadata $experiment, source_metadata $antID)),]
-}
-for (caps in 1:length(capsule_list)){
-  capsule_list[[caps]] <- colMeans(capsule_list[[caps]][,which(grepl("ratio",names(capsule_list[[caps]])))])
-}
-
-mean_ant_size_without_queen_source_file <- mean(source_metadata$length_px)
-
-ANT.LENGTH <- NULL
-
 
 
 
@@ -176,14 +174,6 @@ for (destination_file in destination_files) {
   rm(list=(c("tracking_data")))
   
 }
-
-
-
-
-#### ant orientation cloner ####
-
-for each ant in the feeding file 
-check for the corresponding ant in the source file and assign its values to this ant. 
 
 
 

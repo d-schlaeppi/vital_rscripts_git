@@ -25,7 +25,7 @@
 # If you do short trackings (e.g. for treatments in addition to a main tracking increase the rate at which pictures are taken of each ant in the leto file)
 # Use dedicated queen tags (0x000) if possible!
 
-# used tracking systems Daniel: Maintracking - trojan, prideaux, guillam ; feeding sessions - guillam, esterhase 
+# used tracking systems Daniel: Main tracking - trojan, prideaux, guillam ; feeding sessions - guillam, esterhase 
 
 # Step by step processing your tracking data:
 # Step 1: For each tracking system setting (typically 1 per tracking system) used select one exemplary colony get mean worker size
@@ -73,7 +73,9 @@ library(FortMyrmidon) # R bindings
 library(R.utils)      # printf()
 library(Rcpp)         # contains sourceCpp (used for ant orientation)
 library(circular)     # used for ant orientation
-library(data.table)   # used to save files fwrite(list(myVector), file = "myFile.csv") 
+library(data.table)   # used to save files fwrite(list(myVector), file = "myFile.csv")
+install.packages("stringr")
+library(stringr)
 
 
 
@@ -664,7 +666,24 @@ for (file in unique_files) {
   file.copy(file.path(folderpath, smallest_file), dest_path, overwrite = TRUE)
 }
 
-
+#### renaming some files for a better overview in the folder #### 
+file_list <- list.files(directory)
+for (file_name in file_list) {
+  if (grepl("^c\\d{2}_[fm]_[^\\.]+\\.myrmidon$", file_name)) { # Check if the file name matches the desired pattern
+    num <- str_extract(file_name, "\\d{2}") # Extract the number and letter from the file name
+    letter <- str_extract(file_name, "[fm]") 
+    string <- substr(str_extract(file_name, "(?<=_)[^\\.]+"), 3, nchar(str_extract(file_name, "(?<=_)[^\\.]+"))) # Extract the string from the file name
+    new_file_name <- paste0(letter, "_", string, "_c", num, ".myrmidon")     # Construct the new file name
+    # Display the old and new file names and prompt the user to confirm
+    cat(paste0("Old name: ", file_name, "\n"))
+    cat(paste0("New name: ", new_file_name, "\n"))
+    confirm <- readline(prompt="Rename this file? (y/n): ")
+    if (tolower(confirm) == "y") {  # If the user confirms, rename the file
+      file.rename(file.path(directory, file_name), file.path(directory, new_file_name))
+      cat(paste0("Renamed file ", file_name, " to ", new_file_name, "\n")) # Print a message to indicate the file has been renamed
+    } 
+  }
+}
 
 
    ### Implement the ant pose cloner (check if scaling is needed) - Aim: get orientation and capsules for the feeding tracking from the already processed main tracking. 
