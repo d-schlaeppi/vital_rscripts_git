@@ -23,8 +23,7 @@ setwd(directory)
 source_files <- list.files(directory, pattern = "m_queen_modified_c\\d{2}\\.myrmidon$")
 tracking_data_type <- c("source", "dest")
 
-is.numeric(source_ants[[1]]$identifications[[1]]$tagValue)
-is.numeric(source_ants[[53]]$identifications[[1]]$tagValue)
+
 
 for (source_file in source_files) {
     colony_name <- substr(source_file, 18, nchar(source_file)-9)
@@ -46,134 +45,105 @@ for (source_file in source_files) {
         })
       }
     # for each ant in the destination file copy the size, orientation and capsule (and optionally all metadata) form the source ant. 
-    for (x in dest_ants) {
-      if(is.element(x$identifications[[1]]$tagValue, as.matrix(tag_value_vector))) {
-        print(paste0(source_file, " treated ant ", x$identifications[[1]]$tagValue))
-        
-       # here place to code to do copy capsules and orientation
-        
+    # here get the information on the capsules from the source file
+    for (ant in source_ants){
+      if (ant$identifications[[1]]$tagValue==0) {next} # skip the queen
+      # extract ant length and capsules
+      ant_length_px <- mean(fmQueryComputeMeasurementFor(source_data,antID=ant$ID)$length_px)
+      capsules      <- ant$capsules
+      for (caps in 1:length(capsules)){
+        capsule_name  <- capsule_names[[capsules[[caps]]$type]]
+        capsule_coord <- capsules[[caps]]$capsule
+        capsule_info <- data.frame(experiment = experiment_name,
+                                   antID      = ant$ID,
+                                   c1_ratio_x = capsule_coord$c1[1]/ant_length_px,
+                                   c1_ratio_y = capsule_coord$c1[2]/ant_length_px,
+                                   c2_ratio_x = capsule_coord$c2[1]/ant_length_px,
+                                   c2_ratio_y = capsule_coord$c2[2]/ant_length_px,
+                                   r1_ratio   = capsule_coord$r1[1]/ant_length_px,
+                                   r2_ratio   = capsule_coord$r2[1]/ant_length_px
+        )
+        if (!capsule_name %in%names(capsule_list)){ # if this is the first time we encounter this capsule, add it to capsule list...
+          capsule_list <- c(capsule_list,list(capsule_info)) 
+          if(length(names(capsule_list))==0){
+            names(capsule_list) <- capsule_name
+          }else{
+            names(capsule_list)[length(capsule_list)] <- capsule_name
+          }
+        }else{ #otherwise, add a line to the existing dataframe within capsule_list
+          capsule_list[[capsule_name]] <- rbind(capsule_list[[capsule_name]] , capsule_info)
         }
-    }
-    tracking_data$save(paste0("f_AntsModified_", substr(source_file, 18, nchar(source_file))))  
-}
-  
-
-    
-
-
-
-
-
-
-
-
-
-#### Extraction of information on AntPose and Capsules from the source file ####
-
-data_list <- list(source_file)
-source_metadata <- NULL
-capsule_list<- list()
-ant_lenght_px <- NULL
-
-# define name of output file
-output_name <- file.path(paste0(directory, "Mean_ant_length_colonies.txt")) 
-
-for (file in data_list) {
-  colony_identifier <- 
-  for (ant in source_ants) {
-    # extract ant length and capsules
-    ant_length_px <- mean(fmQueryComputeMeasurementFor(source_data,antID=ant$ID)$length_px)
-    capsules <- ant$capsules
-    for (caps in 1:length(capsules)){
-      capsule_name  <- capsule_names[[capsules[[caps]]$type]]
-      capsule_coord <- capsules[[caps]]$capsule
-      capsule_info <- data.frame(experiment = experiment_name,
-                                 antID      = ant$ID,
-                                 c1_ratio_x = capsule_coord$c1[1]/ant_length_px,
-                                 c1_ratio_y = capsule_coord$c1[2]/ant_length_px,
-                                 c2_ratio_x = capsule_coord$c2[1]/ant_length_px,
-                                 c2_ratio_y = capsule_coord$c2[2]/ant_length_px,
-                                 r1_ratio   = capsule_coord$r1[1]/ant_length_px,
-                                 r2_ratio   = capsule_coord$r2[1]/ant_length_px)
-      if (!capsule_name %in%names(capsule_list)){ ###if this is the first time we encounter this capsule, add it to capsule list...
-        capsule_list <- c(capsule_list,list(capsule_info)) 
-        if(length(names(capsule_list))==0){
-          names(capsule_list) <- capsule_name
-        }else{
-          names(capsule_list)[length(capsule_list)] <- capsule_name
-        }
-      }else{ ###otherwise, add a line to the existing dataframe within capsule_list
-        capsule_list[[capsule_name]] <- rbind(capsule_list[[capsule_name]] , capsule_info)
+      }
+      # extract offset btewen tag centre and ant centre
+      for (id in ant$identifications){
+        oriented_metadata <- rbind(oriented_metadata,data.frame(experiment       = experiment_name,
+                                                                antID            = ant$ID,
+                                                                tagIDdecimal     = id$tagValue,
+                                                                angle            = id$antAngle,
+                                                                x_tag_coord      = id$antPosition[1], 
+                                                                y_tag_coord      = id$antPosition[2],
+                                                                x_ant_coord      = id$antPosition[1]*cos(-id$antAngle) - id$antPosition[2]*sin(-id$antAngle),
+                                                                y_ant_coord      = id$antPosition[1]*sin(-id$antAngle) + id$antPosition[2]*cos(-id$antAngle),
+                                                                length_px        = ant_length_px,
+                                                                stringsAsFactors = F))
       }
     }
-    for (id in ant$identifications){
-      source_metadata <- rbind(source_metadata, data.frame(experiment       = experiment_name,
-                                                              antID            = ant$ID,
-                                                              tagIDdecimal     = id$tagValue,
-                                                              angle            = id$antAngle,
-                                                              x_tag_coord      = id$antPosition[1], 
-                                                              y_tag_coord      = id$antPosition[2],
-                                                              x_ant_coord      = id$antPosition[1]*cos(-id$antAngle) - id$antPosition[2]*sin(-id$antAngle),
-                                                              y_ant_coord      = id$antPosition[1]*sin(-id$antAngle) + id$antPosition[2]*cos(-id$antAngle),
-                                                              length_px        = ant_length_px,
-                                                              stringsAsFactors = F))
+    mean_x_ant_coord <- mean(oriented_metadata$x_ant_coord)
+    mean_y_ant_coord <- 0 ##set it to zero manually because we don't expect there to be a consistent bias in deviation / #mean_y_ant_coord <- mean(oriented_metadata$y_ant_coord) ###this is expected to be 0 or near 0 (check!) because the tag should be as likely to be to the right or to the left of the ant's bilateral symmetry line
+    mean_worker_length_px <- mean(oriented_metadata$length_px) # Get the average worker length from the data
+    for (caps in 1:length(capsule_list)){ # Finally, get information on each capsule
+      capsule_list[[caps]] <- colMeans(capsule_list[[caps]][,which(grepl("ratio",names(capsule_list[[caps]])))])
     }
-  }
- }
-
-
-
-
-#### Write capsule data to each manually oriented file ####
-for (destination_file in destination_files) {
-  # open tracking data which need new capsule
-  tracking_data <- fmExperimentOpen(destination_file) 
-  source_data <- fmExperimentOpen(source_file)
-  ants <- tracking_data$ants
-  for (ant in ants){
-    ### extract ant length and capsules
-    ant_length_px <- mean_ant_size_without_queen_source_file
-    ANT.LENGTH <- rbind(ANT.LENGTH,data.frame(
-      length_px        = ant_length_px,
-      stringsAsFactors = F))
-  }
-  #create dataset with mean values x colony
-  ant_length_colony <- data.frame(ant.length=mean(ANT.LENGTH$length_px,na.rm=T), colony=destination_file)    
-  for (caps in 1:length(capsule_list)){
-    tracking_data$createAntShapeType(names(capsule_list)[caps])
-  }
-  for (i in 1:length(ants)){
-    #use mean size of each manually oriented file that needs the capsule
-    ant_length_px <- mean_ant_size_without_queen_source_file
-    ants[[i]]$clearCapsules()
-    ##assign capule numbers that match the order of the looped capsule names positions
-    capsule_number <- 0
-    for (capsule_name in unlist(tracking_data$antShapeTypeNames)) {
-      capsule_number <- capsule_number +1
-      # the file information
-      #MAKE SURE THERE IS CAPSULE MATCHING, TO AVOID MIXING UP SHAPE INDEXES
-      capsule_ratios <- capsule_list[[capsule_name]]; names(capsule_ratios) <- gsub("_ratio","",names(capsule_ratios))
-      capsule_coords <- ant_length_px*capsule_ratios
+    ### now copy orientation and capsule on the destination ants 
+    for (caps in 1:length(capsule_list)){ #add the caps from the source file above
+      dest_data$createAntShapeType(names(capsule_list)[caps])
+    }
+    for (ant in dest_ants) {
+      if(is.element(ant$identifications[[1]]$tagValue, as.matrix(tag_value_vector))) {
+          id$setUserDefinedAntPose(c(source_ants[["the one that has the same tag value"]]$identifications[[1]]$antPosition[1],  # x_tag_coord
+                                     source_ants[["the one that has the same tag value"]]$identifications[[1]]$antPosition[2]), # y_tag_coord
+                                     source_ants[["the one that has the same tag value"]]$identifications[[1]]$antAngle) # AntAngle
+      }
+    # finally, for each ant, add capsules using mean_ant_length and capsule_list
+      for (caps in 1:length(capsule_list)){
+        capsule_ratios <- capsule_list[[caps]]; names(capsule_ratios) <- gsub("_ratio","",names(capsule_ratios))
+        capsule_coords <- mean_worker_length_px*capsule_ratios
+        ant[[i]]$addCapsule(caps, fmCapsuleCreate(c1 = c(capsule_coords["c1_x"],capsule_coords["c1_y"]), c2 = c(capsule_coords["c2_x"],capsule_coords["c2_y"]), r1 = capsule_coords["r1"], r2 = capsule_coords["r2"] ) )
+      }
       
-      ants[[i]]$addCapsule(capsule_number, fmCapsuleCreate(c1 = c(capsule_coords["c1_x"],capsule_coords["c1_y"]), c2 = c(capsule_coords["c2_x"],capsule_coords["c2_y"]), r1 = capsule_coords["r1"], r2 = capsule_coords["r2"] ) )
+      print(paste0(source_file, " treated ant ", ant$identifications[[1]]$tagValue, " got oriented :-) "))
       
-    }#IF THIS RESULTS IN A ERROR, CHECK PREVIOUS VERSION ON GIT OR COMPARE WITH DataPrep4_Clone-capule-queens-only_v082.R
-  }
-  
-  #tracking_data$save(destination_file) 
-  tracking_data$save(paste0(sub("\\..*", "", destination_file),"_CapsAutoDefined_NEW.myrmidon"))
-  
-  ## save
-  if (file.exists(output_name)){
-    write.table(ant_length_colony,file=output_name,append=T,col.names=F,row.names=F,quote=T,sep=",")
-  }else{
-    write.table(ant_length_colony,file=output_name,append=F,col.names=T,row.names=F,quote=T,sep=",")
-  }
-  
-  #close experiment
-  rm(list=(c("tracking_data")))
-  
+    }
+    dest_data$save(paste0("f_AntsModified_", substr(source_file, 18, nchar(source_file))))  
 }
+
+  
+    
+source_ants[[2]]$capsules
+dest_ants[[2]]$capsules
+
+dest_ants[[2]]$capsules <- source_ants[[2]]$capsules
+dest_ants[[2]]$antPosition[1]
+
+dest_ants[[2]]$identifications[[1]]$antPosition
+
+
+
+
+source_ants[[2]]$identifications
+fmQueryComputeMeasurementFor(tracking_data,antID=ant$ID)$length_px
+
+id$setUserDefinedAntPose(c(x_tag_coord,y_tag_coord), AntAngle)
+
+
+
+
+
+
+
+
+
+
 
 
 
