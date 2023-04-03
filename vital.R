@@ -74,7 +74,6 @@ library(R.utils)      # printf()
 library(Rcpp)         # contains sourceCpp (used for ant orientation)
 library(circular)     # used for ant orientation
 library(data.table)   # used to save files fwrite(list(myVector), file = "myFile.csv")
-install.packages("stringr")
 library(stringr)
 
 
