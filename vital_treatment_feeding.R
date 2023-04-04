@@ -7,32 +7,29 @@ rm(list=ls())
 
 # load necessary libraries
 library(dplyr)
+library(ggplot2)
+library(plotly)
+library(viridis)
 
 ### read in table that contains a collection of information on the experiments and each colony, and create a data frame containing all the useful things for the myrmidon files
 setwd("/home/gw20248/Documents/vital_rscripts_git/")
 dat <- read.csv("vital_treatment_feeding_annotation.csv", header = TRUE, stringsAsFactors = F)
-dat$time_start[422] <- NA
-dat$time_stop[422] <- NA
-dat$time_start[680] <- NA
-dat$time_stop[680] <- NA
 
+# create a data frame with the missing times from the colonies with an error in fort
 colony <- c("c05", "c09", "c12", "c13", "c17", "c21")
 time <- c("2022-03-16T09:18:34.196Z", "2022-03-23T08:46:06.150Z", "2022-03-26T09:47:19:881Z", "2022-03-30T09:13:39.464Z", "2022-04-06T09:14:40.527Z", "2022-04-13T09:36:14:331Z")
 time_correction_df <- data.frame(colony, time)
 
+#### step 1 adjust the time format and calculate the duration of each feeding event ####
 
-# step 1 adjust the time format and calculate the duration of each feeding event. 
 for (i in 1:nrow(dat)) {
-  if (is.na(dat$time_start[i])) {
-    dat$time_diff[i] <- 0
+  if (is.na(dat$time_start[i])) { 
+    dat$time_diff[i] <- 0 # for the ants that had NA set time feeding as 0 then move on.
     next
   }
-  if (nchar(dat$time_start[i]) == 30) {
-    #time1 <- format(as.POSIXct(df$time_start[1], format = "%Y-%m-%dT%H:%M:%S"), "%Y-%m-%d %H:%M:%S") # get starting time of feeding 
-    #time2 <- format(as.POSIXct(df$time_stop[1], format = "%Y-%m-%dT%H:%M:%S"), "%Y-%m-%d %H:%M:%S") # get stop time 
-    #time_diff_sec <- difftime(time1, time2, units="secs") #calculate time difference in seconds to get the duration of the feeding
-    dat$time_diff[i] <- abs(as.numeric(difftime(as.POSIXct(df$time_start[i], format = "%Y-%m-%dT%H:%M:%S"), as.POSIXct(df$time_stop[i], format = "%Y-%m-%dT%H:%M:%S"), units="secs")))
-  } else {
+  if (nchar(dat$time_start[i]) == 30) { # if time is in the format of fort calculate the duration and save it 
+    dat$time_diff[i] <- abs(as.numeric(difftime(as.POSIXct(dat$time_start[i], format = "%Y-%m-%dT%H:%M:%S"), as.POSIXct(dat$time_stop[i], format = "%Y-%m-%dT%H:%M:%S"), units="secs")))
+  } else { # if time is in the format of the mpv player reformat it so a format similar to the fort format then calculate the feeding duration 
     colony <- dat$colony[i]
     correction_factor <- time_correction_df$time[which(time_correction_df$colony == colony)]
     correction_time <- as.POSIXct(correction_factor, format = "%Y-%m-%dT%H:%M:%S")
@@ -44,64 +41,232 @@ for (i in 1:nrow(dat)) {
   }
 }
 
-# Group the data by ant ID and colony and calculate the total duration of feeding events per ant
+#### Group the data by ant ID and colony and calculate the total duration of feeding events per ant ####
 summed_dat <- dat %>%
   group_by(colony, position, focal_AntID) %>%
   summarise(
     total_duration = sum(ifelse(is.na(time_diff), 0, time_diff)))
 summed_dat
+summed_dat$focal_AntID <- as.character(summed_dat$focal_AntID)
 
-# step 3 for each colony get the proportion of ants above a certain treshold of feeding duration for both sides
+#### For each colony get the proportion of ants above a certain threshold of feeding duration, proportion of feeders and balance between position 1 & 2 ####
+threshold_feeding <- 0 # threshold to define how long an ants were feeding to be included as feeder
+threshold_proportion <- 1 # define a threshold for the proportion of ants of that need to be classified as feeder for colonies to be classified as good enough for subsequent analyses
+threshold_balance <- 0 # define a threshold for the balance between the proportion of feeders in position 1 and 2 for colonies to be classified as good enough for subsequent analyses
 
-# set the threshold for total duration
-threshold <- 30
-
-# calculate the proportion of ants that have total_duration >= threshold for each colony and position
-prop_dat <- summed_dat %>%
-  group_by(colony, position) %>%
-  summarise(prop = mean(total_duration >= threshold))
-
-# select the colonies that meet the criteria
-selected_colonies <- prop_dat %>%
+feeders <- summed_dat %>%
   group_by(colony) %>%
-  filter(all(prop >= 0.75)) %>%
-  filter(abs(diff(prop)) <= 0.25) %>%
+  summarize(
+    feeders_p1 = sum(total_duration >= threshold_feeding & position == "p1"),
+    feeders_p2 = sum(total_duration >= threshold_feeding & position == "p2"),
+    feeders_out_of_p1 = paste(sum(total_duration >= threshold_feeding & position == "p1"), "/", 0.5*n()), 
+    feeders_out_of_p2 = paste(sum(total_duration >= threshold_feeding & position == "p2"), "/", 0.5*n()), 
+    prop_feeders_p1 = sum(total_duration >= threshold_feeding & position == "p1") / (0.5*n()), 
+    prop_feeders_p2 = sum(total_duration >= threshold_feeding & position == "p2") / (0.5*n())
+  )
+# Filter colonies based on criteria
+selected_colonies <- feeders %>%
+  filter(prop_feeders_p1 >= threshold_proportion & prop_feeders_p2 >= threshold_proportion & abs(prop_feeders_p1 - prop_feeders_p2) <= threshold_balance) %>%
   pull(colony)
+# Print list of selected colonies
+selected_colonies
+length(selected_colonies)
+
+
+#### selection of thresholds - loop over multiple values ####
+
+# Define different multiple threshold values to find the right combination
+threshold_feeding <- c(0, 15, 30, 45, 60, 90, 180, 270, 360) 
+threshold_proportion <- c(1, 0.8, 0.75, 0.66, 0.5, 0.25, 0) 
+threshold_balance <- c(0, 0.1, 0.2, 0.25, 0.33, 0.4, 0.5, 0.75, 1)
+
+# create  empty list to store selected colonies for each combination of thresholds
+selected_colonies_list <- list()
+# create empty data frame to store excluded colonies
+excluded_colonies <- data.frame(t_feeding = numeric(),
+                                t_proportion = numeric(),
+                                t_balance = numeric(),
+                                included_colonies = numeric(),
+                                excluded_colonies = numeric())
+
+# Iterate over threshold values
+for (i in seq_along(threshold_feeding)) {
+  for (j in seq_along(threshold_proportion)) {
+    for (k in seq_along(threshold_balance)) {
+      # recalculate the feeder table
+      feeders <- NULL
+      feeders <- summed_dat %>%
+        group_by(colony) %>%
+        summarize(
+          feeders_p1 = sum(total_duration >= threshold_feeding[i] & position == "p1"),
+          feeders_p2 = sum(total_duration >= threshold_feeding[i] & position == "p2"),
+          feeders_out_of_p1 = paste(sum(total_duration >= threshold_feeding[i] & position == "p1"), "/", 0.5*n()), 
+          feeders_out_of_p2 = paste(sum(total_duration >= threshold_feeding[i] & position == "p2"), "/", 0.5*n()), 
+          prop_feeders_p1 = sum(total_duration >= threshold_feeding[i] & position == "p1") / (0.5*n()), 
+          prop_feeders_p2 = sum(total_duration >= threshold_feeding[i] & position == "p2") / (0.5*n())
+        )
+      # Filter colonies based on criteria
+      selected_colonies <- feeders %>%
+        filter(prop_feeders_p1 >= threshold_proportion[j] & prop_feeders_p2 >= threshold_proportion[j] & abs(prop_feeders_p1 - prop_feeders_p2) <= threshold_balance[k]) %>%
+        pull(colony)
+      # Add selected colonies to the list
+      selected_colonies_list[[paste(threshold_feeding[i], threshold_proportion[j], threshold_balance[k], sep = "_")]] <- selected_colonies
+      # Calculate number of excluded colonies
+      excluded_colonies_count <- length(unique(feeders$colony)) - length(selected_colonies)
+      included_colonies_count <- length(unique(feeders$colony)) - excluded_colonies_count 
+      # Add row to excluded_colonies data frame
+      excluded_colonies <- rbind(excluded_colonies,
+                                 data.frame(t_feeding = threshold_feeding[i],
+                                            t_proportion = threshold_proportion[j],
+                                            t_balance = threshold_balance[k],
+                                            included_colonies = included_colonies_count,
+                                            excluded_colonies = excluded_colonies_count))
+    }
+  }
+}
+
+selected_colonies_list[1]
+
+
+#### try to visualize the exclusion power of the different thresholds ####
+
+ggplot(excluded_colonies, aes(x = t_feeding, y = t_proportion, fill = excluded_colonies)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient(low = "white", high = "steelblue") +
+  labs(title = "Excluded colonies by threshold combination",
+       x = "Threshold feeding (seconds)",
+       y = "Threshold proportion",
+       fill = "Excluded colonies")
+
+ggplot(excluded_colonies, aes(x = t_feeding, y = t_proportion, z = t_balance, fill = excluded_colonies)) +
+  geom_tile(color = "white", size = 0.2) +
+  scale_fill_gradient(low = "white", high = "steelblue") +
+  labs(title = "Excluded colonies by threshold combination",
+       x = "Threshold feeding (seconds)",
+       y = "Threshold proportion",
+       z = "Threshold balance",
+       fill = "Excluded colonies") +
+  theme(axis.text.z = element_text(size = 10, angle = 90, hjust = 1))
 
 
 
+plot_ly(excluded_colonies, x = ~t_feeding, y = ~t_proportion, z = ~t_balance, 
+        color = ~excluded_colonies, 
+        colors = viridis_pal()(100),
+        type = "scatter3d", mode = "markers") %>%
+  add_markers(size = 5) %>%
+  layout(scene = list(xaxis = list(title = "Threshold feeding (seconds)", nticks = 5),
+                      yaxis = list(title = "Threshold proportion", nticks = 5),
+                      zaxis = list(title = "Threshold balance", nticks = 5),
+                      xaxis_title_font = list(size = 12),
+                      yaxis_title_font = list(size = 12),
+                      zaxis_title_font = list(size = 12),
+                      axis.title = element_text(size = 14),
+                      axis.text.x = element_text(size = 12),
+                      axis.text.y = element_text(size = 12),
+                      axis.text.z = element_text(size = 12)))
 
 
-# step 4 get an idea of how it looks overall
+# filter the rows based on the excluded_colonies value
+filtered_excluded <- excluded_colonies %>% 
+  filter(t_feeding == 45  & excluded_colonies <= 16)
+# print the combinations of thresholds that satisfy the condition
+print(filtered_excluded)
 
-# step 5 come up with some criteria to select colonies based on poportion of feeders and even ness between the two positions
+#choose one of the threshold sets.
 
-# step 6 correct the data by going over the comments in the raw data and exlcude/include critical cases
+#### check the colonies selected with those tresholds ####
+threshold_feeding <- 45 
+threshold_proportion <- 0.5
+threshold_balance <- 0.25
+feeders <- summed_dat %>%
+  group_by(colony) %>%
+  summarize(
+    feeders_p1 = sum(total_duration >= threshold_feeding & position == "p1"),
+    feeders_p2 = sum(total_duration >= threshold_feeding & position == "p2"),
+    feeders_out_of_p1 = paste(sum(total_duration >= threshold_feeding & position == "p1"), "/", 0.5*n()), 
+    feeders_out_of_p2 = paste(sum(total_duration >= threshold_feeding & position == "p2"), "/", 0.5*n()), 
+    prop_feeders_p1 = sum(total_duration >= threshold_feeding & position == "p1") / (0.5*n()), 
+    prop_feeders_p2 = sum(total_duration >= threshold_feeding & position == "p2") / (0.5*n())
+  )
+selected_colonies <- feeders %>%
+  filter(prop_feeders_p1 >= threshold_proportion & prop_feeders_p2 >= threshold_proportion & abs(prop_feeders_p1 - prop_feeders_p2) <= threshold_balance) %>%
+  pull(colony)
+selected_colonies
+length(selected_colonies)
+colonies_to_analyse <- subset(feeders, colony %in% selected_colonies)
+colonies_to_analyse
+
+#### Analyses of the feeding behavior ####
+
+# import the general information of each colony regarding position and bead colors
+df <- read.csv("fc2_overview_data.csv", header = TRUE, stringsAsFactors = F)
+data_collection <- NULL 
+for(i in 1:nrow(df)) {
+  # collect variables
+  nr                    <- i
+  colony_id             <- df[i, "colony_id"]
+  block                 <- df[i, "block"]
+  colony_nr             <- paste0("c", sprintf("%02d", i))
+  treatment             <- df[i, "treatment"]
+  food_position_1       <- df[i, "food_position_1"]
+  food_position_2       <- df[i, "food_position_2"]
+  tracking_system_main  <- df[i, "tracking_system_main"]
+  tracking_system_feeding <- df[i, "tracking_system_feeding"] 
+  # combine variables to a data frame  
+  data_collection <-  rbind(data_collection, data.frame(nr, 
+                                                        colony_id,
+                                                        block, 
+                                                        colony_nr,
+                                                        treatment,
+                                                        food_position_1,
+                                                        food_position_2,
+                                                        tracking_system_main,
+                                                        tracking_system_feeding,
+                                                        stringsAsFactors = F))
+}
+
+# create new data frame containing all information needed
+dynamic <- NULL
+for (i in 1:nrow(summed_dat)) {
+  nr                <- i
+  colony_id         <- as.character(summed_dat[i, "colony"])
+  position          <- summed_dat[i, "position"]
+  focal_AntID       <- summed_dat[i, "focal_AntID"]
+  feeding_duration  <- summed_dat[i, "total_duration"]
+  treatment         <- data_collection$treatment[data_collection$colony_nr == colony_id]
+  if (treatment == "cc"){
+    food  <- "control"
+    ifelse(position == "p1", 
+           beads <- "yellow", beads <- "blue")
+  } else {
+    if (position == "p1" ){
+      food  <- "virus"
+      ifelse(treatment == "vy", 
+             beads <- "yellow", beads <- "blue")
+    } else {
+      food <- "control"
+      ifelse(treatment == "vy", 
+             beads <- "blue", beads <- "yellow")
+    }
+  }
+  dynamic <-  rbind(dynamic, data.frame(nr,   # combine variables to a data frame  
+                                        colony_id,
+                                        position, 
+                                        focal_AntID,
+                                        feeding_duration,
+                                        treatment,
+                                        food,
+                                        beads,
+                                        stringsAsFactors = F ))
+}
 
 
-# Create sample dataframes
-dat <- data.frame(colony = c("A", "B", "C", "D", "E"),
-                  time_start = c("01:38:30.000", "03:15:20.000", "02:12:10.000", "04:00:00.000", "01:30:40.000"),
-                  stringsAsFactors = FALSE)
+boxplot(dynamic$total_duration ~ dynamic$beads)
+boxplot(dynamic$total_duration ~ dynamic$food)
 
-time_correction_df <- data.frame(colony = c("A", "B", "C", "D", "E"),
-                                 time_correction = c("2022-03-09 10:10:40", "2022-03-09 10:15:20", "2022-03-09 10:20:30", "2022-03-09 10:25:00", "2022-03-09 10:30:10"),
-                                 stringsAsFactors = FALSE)
-
-# Merge the two dataframes based on the "colony" variable
-merged_df <- merge(dat, time_correction_df, by = "colony")
-
-# Convert "time_start" to POSIXct format
-merged_df$time_start <- as.POSIXct(merged_df$time_start, format = "%H:%M:%S.%OS")
-
-# Add time correction to "time_start"
-merged_df$time_start <- merged_df$time_start + as.POSIXct(merged_df$time_correction)
-
-# Remove "time_correction" variable from the merged dataframe
-merged_df$time_correction <- NULL
-
-# View the corrected dataframe
-merged_df
-
+# next run quick stats to show that there is no difference in the feeding duration between the two colonies. 
+# next go over the manual annotation file and insert a correction variable to exclude ants which then later on died because they drowned themselves in food (either dead or because their behavior completely off)
+# ev include this script in the main vital script.
 
 
