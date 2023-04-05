@@ -8,8 +8,10 @@ rm(list=ls())
 # load necessary libraries
 library(dplyr)
 library(ggplot2)
-library(plotly)
-library(viridis)
+library(plotly) # 3d graph
+library(viridis) 
+library(pscl) # zero inflated poisson distribution model
+library(glmmTMB) # zero inflated poisson distribution model with random factors
 
 ### read in table that contains a collection of information on the experiments and each colony, and create a data frame containing all the useful things for the myrmidon files
 setwd("/home/gw20248/Documents/vital_rscripts_git/")
@@ -122,33 +124,13 @@ for (i in seq_along(threshold_feeding)) {
                                             included_colonies = included_colonies_count,
                                             excluded_colonies = excluded_colonies_count))
     }
-  }
+  } # maybe include a line to save the list and excluded colony df
 }
 
 selected_colonies_list[1]
 
 
 #### try to visualize the exclusion power of the different thresholds ####
-
-ggplot(excluded_colonies, aes(x = t_feeding, y = t_proportion, fill = excluded_colonies)) +
-  geom_tile(color = "white") +
-  scale_fill_gradient(low = "white", high = "steelblue") +
-  labs(title = "Excluded colonies by threshold combination",
-       x = "Threshold feeding (seconds)",
-       y = "Threshold proportion",
-       fill = "Excluded colonies")
-
-ggplot(excluded_colonies, aes(x = t_feeding, y = t_proportion, z = t_balance, fill = excluded_colonies)) +
-  geom_tile(color = "white", size = 0.2) +
-  scale_fill_gradient(low = "white", high = "steelblue") +
-  labs(title = "Excluded colonies by threshold combination",
-       x = "Threshold feeding (seconds)",
-       y = "Threshold proportion",
-       z = "Threshold balance",
-       fill = "Excluded colonies") +
-  theme(axis.text.z = element_text(size = 10, angle = 90, hjust = 1))
-
-
 
 plot_ly(excluded_colonies, x = ~t_feeding, y = ~t_proportion, z = ~t_balance, 
         color = ~excluded_colonies, 
@@ -262,11 +244,127 @@ for (i in 1:nrow(summed_dat)) {
 }
 
 
-boxplot(dynamic$total_duration ~ dynamic$beads)
+#### Stats on feeding behavior ####
+# is there an effect of food quality (control or virus) on the duration the ants spend feeding
+
 boxplot(dynamic$total_duration ~ dynamic$food)
+hist(dynamic$total_duration, breaks = 40)
+# data is zero inflated poisson (e.g. counting number of seconds the ants spend feeding similar to e.g. the number of days a patient
+
+# Fit zero-inflated Poisson regression model
+model <- zeroinfl(total_duration ~ food | 1, data = dynamic, dist = "poisson")
+summary(model) # ok but we need random factors 
+
+
+
+
+library(glmmTMB)
+# Fit mixed-effects zero-inflated Poisson regression model
+model <- glmmTMB(total_duration ~ food + (1 | colony_id) + (1 | treatment)+ (1 | beads),
+                 ziformula = ~1, data = dynamic, family = "truncated_poisson")
+summary(model)
+
+head(dynamic)
+# run the same test but only with the subset of the virus treatment
+dynamic_treatment <- subset(dynamic, treatment != "cc")
+model <- glmmTMB(total_duration ~ food + (1 | colony_id) + (1 | beads),
+                 ziformula = ~1, data = dynamic_treatment, family = "truncated_poisson")
+summary(model)
+boxplot(dynamic_treatment$total_duration ~ dynamic_treatment$food)
+
+
+
+boxplot(dynamic$total_duration ~ dynamic$beads)
+# Fit mixed-effects zero-inflated Poisson regression model with random factors
+model <- glmmTMB(total_duration ~ beads + (1 | colony_id) + (1 | food),
+                 ziformula = ~1, data = dynamic, family = "truncated_poisson")
+summary(model)
+boxplot(dynamic_treatment$total_duration ~ dynamic_treatment$beads)
+
+
+
+
+
+#### Adriano Method ####
+# Load packages
+library(gamlss)
+library(gamlss.dist)
+
+# Load your data (replace 'mydata' with your actual data vector)
+mydata <- dynamic$total_duration
+# Create a vector of distribution family names
+distributions <- c("ZAP","ZIP")
+# Initialize a data frame to store results
+results <- data.frame(Family = character(), AIC = numeric(), Shapiro_p = numeric())
+# Initialize an empty list to store residual plots
+plots <- list()
+plots_qq <- list()
+# Loop over distribution families, fit models, report AIC, calculate Shapiro-Wilk p-value for residuals, and create residual density plots
+for (dist in distributions) {
+  fit <- gamlss(mydata ~ 1, family = dist, data = list(y = mydata))
+  aic <- AIC(fit)
+  shapiro_p <- shapiro.test(residuals(fit))$p.value
+  # Add results to the data frame
+  results <- rbind(results, data.frame(Family = dist, AIC = aic, Shapiro_p = shapiro_p))
+  # Create residual density plot
+  p <- ggplot(data.frame(residuals = residuals(fit)),
+              aes(x = residuals)) +
+    geom_histogram() +
+    labs(title = paste("Residuals Density -", dist)) #+
+  #coord_cartesian(xlim = c(-10, 10), ylim = c(0, 0.5)) # Set common x and y limits for better comparison
+  plots[[dist]] <- p
+  q <-
+    plots_qq[[dist]] <- q
+}
+# Sort results by AIC
+results <- results[order(results$AIC),]
+print(results)
+
+# Plot residual density functions in one panel
+grid.arrange(grobs = plots)
+# Fit a GAMLSS model with lognormal distribution
+gamlss_model <- gamlss(total_duration ~ beads + random(as.factor(colony_id)),
+                       data = dynamic,
+                       family =  ZIP())
+# Plot residuals vs. fitted values
+# plot(fitted(gamlss_model), residuals(gamlss_model), xlab = "Fitted values", ylab = "Pearson residuals")
+# abline(h = 0, lty = 2, col = "red")
+# QQ plot of residuals
+Shap <- shapiro.test(residuals(gamlss_model))
+qqnorm(residuals(gamlss_model),main = paste(GROUP,GENE,"qqnorm","\nshap.test p=", round(Shap$p.value,4),sep=" "))
+qqline(residuals(gamlss_model))
+#https://www.gamlss.com/wp-content/uploads/2013/01/gamlss-manual.pdf
+wp(gamlss_model,xvar=~Treatment)
+
+
+
+
+
+
+
+
+
 
 # next run quick stats to show that there is no difference in the feeding duration between the two colonies. 
 # next go over the manual annotation file and insert a correction variable to exclude ants which then later on died because they drowned themselves in food (either dead or because their behavior completely off)
 # ev include this script in the main vital script.
+
+dynamic$total_duration
+ggplot(data = dynamic, aes(x = total_duration)) +
+  geom_histogram(binwidth = 50) +
+  ggtitle("Histogram of Total Duration")
+
+ggplot(data = dynamic, aes(sample = total_duration)) +
+  stat_qq() +
+  ggtitle("Q-Q Plot of Total Duration")
+
+library(fitdistrplus)
+fit_gamma <- fitdist(dynamic$total_duration, "gamma")
+fit_zigamma <- fitdist(dynamic$total_duration, "ziggamma")
+
+# Compare AIC values
+AIC(fit_gamma, fit_zigamma)
+
+
 
 
