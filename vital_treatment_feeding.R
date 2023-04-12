@@ -8,13 +8,17 @@ rm(list=ls())
 # load necessary libraries
 library(dplyr)
 library(ggplot2)
+library(ggdark)
 library(plotly) # 3d graph
 library(viridis) 
 library(pscl) # zero inflated poisson distribution model
 library(glmmTMB) # zero inflated poisson distribution model with random factors
 
 ### read in table that contains a collection of information on the experiments and each colony, and create a data frame containing all the useful things for the myrmidon files
-setwd("/home/gw20248/Documents/vital_rscripts_git/")
+setwd("/home/gw20248/Documents/vital_rscripts_git/") #Uni
+#or 
+setwd("/Users/gismo/Documents/GitHub/vital_rscripts_git/") #home mac
+
 dat <- read.csv("vital_treatment_feeding_annotation.csv", header = TRUE, stringsAsFactors = F)
 
 # create a data frame with the missing times from the colonies with an error in fort
@@ -59,6 +63,7 @@ threshold_balance <- 0 # define a threshold for the balance between the proporti
 feeders <- summed_dat %>%
   group_by(colony) %>%
   summarize(
+    treatment = 
     feeders_p1 = sum(total_duration >= threshold_feeding & position == "p1"),
     feeders_p2 = sum(total_duration >= threshold_feeding & position == "p2"),
     feeders_out_of_p1 = paste(sum(total_duration >= threshold_feeding & position == "p1"), "/", 0.5*n()), 
@@ -79,7 +84,7 @@ length(selected_colonies)
 
 # Define different multiple threshold values to find the right combination
 threshold_feeding <- c(0, 15, 30, 45, 60, 90, 180, 270, 360) 
-threshold_proportion <- c(1, 0.8, 0.75, 0.66, 0.5, 0.25, 0) 
+threshold_proportion <- c(1, 0.8, 0.75, 0.66, 0.5, 0.25, 0)
 threshold_balance <- c(0, 0.1, 0.2, 0.25, 0.33, 0.4, 0.5, 0.75, 1)
 
 # create  empty list to store selected colonies for each combination of thresholds
@@ -124,13 +129,14 @@ for (i in seq_along(threshold_feeding)) {
                                             included_colonies = included_colonies_count,
                                             excluded_colonies = excluded_colonies_count))
     }
-  } # maybe include a line to save the list and excluded colony df
+  } 
 }
 
 selected_colonies_list[1]
 
 
-#### try to visualize the exclusion power of the different thresholds ####
+
+#### visualize the exclusion power of the different thresholds ####
 
 plot_ly(excluded_colonies, x = ~t_feeding, y = ~t_proportion, z = ~t_balance, 
         color = ~excluded_colonies, 
@@ -149,18 +155,41 @@ plot_ly(excluded_colonies, x = ~t_feeding, y = ~t_proportion, z = ~t_balance,
                       axis.text.z = element_text(size = 12)))
 
 
+
+#### which are the best colonies ####
+# Combine all selected colonies into a single vector
+selected_colonies_vec <- unlist(selected_colonies_list)
+# Count the number of times each colony appears
+colony_counts <- table(selected_colonies_vec)
+# Sort the counts in descending order
+sorted_counts <- sort(colony_counts, decreasing = TRUE)
+# Print the sorted counts
+print(sorted_counts)
+plot(colony_counts)
+plot(sorted_counts)
+
+
+
+
+
 # filter the rows based on the excluded_colonies value
 filtered_excluded <- excluded_colonies %>% 
   filter(t_feeding == 45  & excluded_colonies <= 16)
 # print the combinations of thresholds that satisfy the condition
 print(filtered_excluded)
 
+filtered_excluded <- excluded_colonies %>% 
+  filter(t_feeding == 30  & excluded_colonies <= 16)
+print(filtered_excluded)
 #choose one of the threshold sets.
 
-#### check the colonies selected with those tresholds ####
-threshold_feeding <- 45 
+
+
+
+#### check the colonies selected with those thresholds ####
+threshold_feeding <- 45
 threshold_proportion <- 0.5
-threshold_balance <- 0.25
+threshold_balance <- 0.4
 feeders <- summed_dat %>%
   group_by(colony) %>%
   summarize(
@@ -179,6 +208,48 @@ length(selected_colonies)
 colonies_to_analyse <- subset(feeders, colony %in% selected_colonies)
 colonies_to_analyse
 
+
+
+
+### Check if selected colonies are equally balanced between the two treatments. 
+# Merge the two data frames based on "colony" variable
+merged_data <- merge(colonies_to_analyse, data_collection, by = "colony")
+table(merged_data$treatment)
+
+
+### check if selected colonies correspond to the best colonies
+# Get the names of the top 14 colonies in sorted_counts
+top_colonies <- names(sorted_counts)[1:14]
+# Check if the colonies in colonies_to_analyse are in the top 14
+all(colonies_to_analyse$colony %in% top_colonies)
+setdiff(colonies_to_analyse$colony, top_colonies)
+# Initialize boolean variable
+match_found <- FALSE
+# Loop through selected_colonies_list and compare each list of selected colonies to top_colonies
+for (i in seq_along(threshold_feeding)) {
+  for (j in seq_along(threshold_proportion)) {
+    for (k in seq_along(threshold_balance)) {
+      selected_colonies <- selected_colonies_list[[paste(threshold_feeding[i], threshold_proportion[j], threshold_balance[k], sep = "_")]]
+      if (identical(selected_colonies, top_colonies)) {
+        cat("Threshold combination for best ranking colonies: feeding =", threshold_feeding[i], ", proportion =", threshold_proportion[j], ", balance =", threshold_balance[k], "\n")
+        # Set boolean variable to TRUE if match is found
+        match_found <- TRUE
+      }
+    }
+  }
+}
+
+# Print message if no match was found
+if (!match_found) {
+  cat("No threshold combination found for best ranking colonies.\n")
+}
+
+
+
+
+
+
+
 #### Analyses of the feeding behavior ####
 
 # import the general information of each colony regarding position and bead colors
@@ -190,6 +261,7 @@ for(i in 1:nrow(df)) {
   colony_id             <- df[i, "colony_id"]
   block                 <- df[i, "block"]
   colony_nr             <- paste0("c", sprintf("%02d", i))
+  colony                <- paste0("c", sprintf("%02d", i))
   treatment             <- df[i, "treatment"]
   food_position_1       <- df[i, "food_position_1"]
   food_position_2       <- df[i, "food_position_2"]
@@ -200,6 +272,7 @@ for(i in 1:nrow(df)) {
                                                         colony_id,
                                                         block, 
                                                         colony_nr,
+                                                        colony,
                                                         treatment,
                                                         food_position_1,
                                                         food_position_2,
@@ -244,97 +317,92 @@ for (i in 1:nrow(summed_dat)) {
 }
 
 
-#### Stats on feeding behavior ####
-# is there an effect of food quality (control or virus) on the duration the ants spend feeding
 
+
+
+
+#### Stats on feeding behavior ####
+
+### food control or virus
+# is there an effect of food quality (control or virus) on the duration the ants spend feeding
 boxplot(dynamic$total_duration ~ dynamic$food)
 hist(dynamic$total_duration, breaks = 40)
 # data is zero inflated poisson (e.g. counting number of seconds the ants spend feeding similar to e.g. the number of days a patient
 
-# Fit zero-inflated Poisson regression model
+# Fit zero-inflated Poisson regression model first test
 model <- zeroinfl(total_duration ~ food | 1, data = dynamic, dist = "poisson")
-summary(model) # ok but we need random factors 
+summary(model) # ok but we need random factors
 
 
-
-
-library(glmmTMB)
-# Fit mixed-effects zero-inflated Poisson regression model
+# Fit mixed-effects zero-inflated Poisson regression model with random factors
 model <- glmmTMB(total_duration ~ food + (1 | colony_id) + (1 | treatment)+ (1 | beads),
                  ziformula = ~1, data = dynamic, family = "truncated_poisson")
 summary(model)
-
 head(dynamic)
-# run the same test but only with the subset of the virus treatment
-dynamic_treatment <- subset(dynamic, treatment != "cc")
-model <- glmmTMB(total_duration ~ food + (1 | colony_id) + (1 | beads),
-                 ziformula = ~1, data = dynamic_treatment, family = "truncated_poisson")
+# same but with virus fraction only: 
+dynamic_virus_only <- subset(dynamic, treatment != "cc")
+model <- glmmTMB(total_duration ~ food + (1 | colony_id) + (1 | treatment)+ (1 | beads),
+                 ziformula = ~1, data = dynamic_virus_only, family = "truncated_poisson")
 summary(model)
-boxplot(dynamic_treatment$total_duration ~ dynamic_treatment$food)
 
 
 
-boxplot(dynamic$total_duration ~ dynamic$beads)
+# test model assumptions
+library(DHARMa)
+res = simulateResiduals(model)
+plot(res, asFactor = T)
+# violates assumption of normally distributed residuals --> find alternative solution
+
+#Check if the number of zeros is similar for both food sources!
+dynamic_virus_only %>%
+  group_by(food) %>%
+  summarize(count = sum(total_duration == 0))
+
+
+
+ggplot(dynamic_virus_only, aes(x = food, y = total_duration, fill = food)) +
+  geom_boxplot(aes(fill= food),colour ="white", width = 0.3, alpha = 0.6)+
+  geom_jitter(height = 0, width = 0.2, alpha = 0.5, color = "white") +
+  labs(title = "Feeding Duration by Food Source",
+       x = "Food type", y = "Duration [log(seconds+0.5)])", 
+       fill = "Food type") +
+  dark_theme_classic() +
+  theme(legend.position = "none")
+
+# Count the number of observations for each food group
+dynamic_virus_only %>%
+  group_by(food) %>%
+  summarize(count = n())
+
+
+
+
+
+
+
+#### BEADS ####
+
 # Fit mixed-effects zero-inflated Poisson regression model with random factors
 model <- glmmTMB(total_duration ~ beads + (1 | colony_id) + (1 | food),
                  ziformula = ~1, data = dynamic, family = "truncated_poisson")
 summary(model)
-boxplot(dynamic_treatment$total_duration ~ dynamic_treatment$beads)
+ggplot(dynamic, aes(x = beads, y = total_duration, fill = beads)) +
+  geom_boxplot() +
+  geom_jitter(height = 0, width = 0.2, alpha = 0.5, color = "white") +
+  labs(title = "Feeding Duration by bead Color",
+       x = "Bead color", y = "Duration (seconds)", 
+       fill = "Bead color") +
+  dark_theme_classic() +
+  theme(legend.position = "none")
 
 
 
+# Fit mixed-effects zero-inflated Poisson regression model with random factors
+model <- glmmTMB(total_duration ~ beads + food + (1 | colony_id),
+                 ziformula = ~1, data = dynamic, family = "truncated_poisson")
+summary(model)
 
 
-#### Adriano Method ####
-# Load packages
-library(gamlss)
-library(gamlss.dist)
-
-# Load your data (replace 'mydata' with your actual data vector)
-mydata <- dynamic$total_duration
-# Create a vector of distribution family names
-distributions <- c("ZAP","ZIP")
-# Initialize a data frame to store results
-results <- data.frame(Family = character(), AIC = numeric(), Shapiro_p = numeric())
-# Initialize an empty list to store residual plots
-plots <- list()
-plots_qq <- list()
-# Loop over distribution families, fit models, report AIC, calculate Shapiro-Wilk p-value for residuals, and create residual density plots
-for (dist in distributions) {
-  fit <- gamlss(mydata ~ 1, family = dist, data = list(y = mydata))
-  aic <- AIC(fit)
-  shapiro_p <- shapiro.test(residuals(fit))$p.value
-  # Add results to the data frame
-  results <- rbind(results, data.frame(Family = dist, AIC = aic, Shapiro_p = shapiro_p))
-  # Create residual density plot
-  p <- ggplot(data.frame(residuals = residuals(fit)),
-              aes(x = residuals)) +
-    geom_histogram() +
-    labs(title = paste("Residuals Density -", dist)) #+
-  #coord_cartesian(xlim = c(-10, 10), ylim = c(0, 0.5)) # Set common x and y limits for better comparison
-  plots[[dist]] <- p
-  q <-
-    plots_qq[[dist]] <- q
-}
-# Sort results by AIC
-results <- results[order(results$AIC),]
-print(results)
-
-# Plot residual density functions in one panel
-grid.arrange(grobs = plots)
-# Fit a GAMLSS model with lognormal distribution
-gamlss_model <- gamlss(total_duration ~ beads + random(as.factor(colony_id)),
-                       data = dynamic,
-                       family =  ZIP())
-# Plot residuals vs. fitted values
-# plot(fitted(gamlss_model), residuals(gamlss_model), xlab = "Fitted values", ylab = "Pearson residuals")
-# abline(h = 0, lty = 2, col = "red")
-# QQ plot of residuals
-Shap <- shapiro.test(residuals(gamlss_model))
-qqnorm(residuals(gamlss_model),main = paste(GROUP,GENE,"qqnorm","\nshap.test p=", round(Shap$p.value,4),sep=" "))
-qqline(residuals(gamlss_model))
-#https://www.gamlss.com/wp-content/uploads/2013/01/gamlss-manual.pdf
-wp(gamlss_model,xvar=~Treatment)
 
 
 
@@ -347,7 +415,7 @@ wp(gamlss_model,xvar=~Treatment)
 
 # next run quick stats to show that there is no difference in the feeding duration between the two colonies. 
 # next go over the manual annotation file and insert a correction variable to exclude ants which then later on died because they drowned themselves in food (either dead or because their behavior completely off)
-# ev include this script in the main vital script.
+
 
 dynamic$total_duration
 ggplot(data = dynamic, aes(x = total_duration)) +
