@@ -19,7 +19,9 @@ setwd("/home/gw20248/Documents/vital_rscripts_git/") #Uni
 #or 
 setwd("/Users/gismo/Documents/GitHub/vital_rscripts_git/") #home mac
 
-dat <- read.csv("vital_treatment_feeding_annotation.csv", header = TRUE, stringsAsFactors = F)
+#dat <- read.csv("vital_treatment_feeding_annotation.csv", header = TRUE, stringsAsFactors = F)
+dat <- read.csv("vital_treatment_feeding_annotation_2.csv", header = TRUE, stringsAsFactors = F)
+
 
 # create a data frame with the missing times from the colonies with an error in fort
 colony <- c("c05", "c09", "c12", "c13", "c17", "c21")
@@ -51,19 +53,23 @@ for (i in 1:nrow(dat)) {
 summed_dat <- dat %>%
   group_by(colony, position, focal_AntID) %>%
   summarise(
-    total_duration = sum(ifelse(is.na(time_diff), 0, time_diff)))
+    total_duration = sum(ifelse(is.na(time_diff), 0, time_diff)), 
+    excluder = mean(exclude))
 summed_dat
 summed_dat$focal_AntID <- as.character(summed_dat$focal_AntID)
 
-#### For each colony get the proportion of ants above a certain threshold of feeding duration, proportion of feeders and balance between position 1 & 2 ####
-threshold_feeding <- 0 # threshold to define how long an ants were feeding to be included as feeder
-threshold_proportion <- 1 # define a threshold for the proportion of ants of that need to be classified as feeder for colonies to be classified as good enough for subsequent analyses
-threshold_balance <- 0 # define a threshold for the balance between the proportion of feeders in position 1 and 2 for colonies to be classified as good enough for subsequent analyses
 
+
+#### For each colony get the proportion of ants above a certain threshold of feeding duration, proportion of feeders and balance between position 1 & 2 ####
+# old version without excluder
+# manually excluding specific individuals that were not viable upon return after treatment and will thus be excluded
+threshold_feeding <- 0 # threshold to define how long an ants were feeding to be included as feeder (the number of seconds an ant spends feeding to be classified as an actual feeder)
+threshold_proportion <- 1 # define a threshold for the proportion of ants of that need to be classified as feeder for colonies to be classified as good enough for subsequent analyses (number between 0 and 1 with 1= 100% of ants were feeding and 0 = 0% of ants were feeding)
+threshold_balance <- 0 # define a threshold for the balance between the proportion of feeders in position 1 and 2 for colonies to be classified as good enough for subsequent analyses (balance specified as the difference in the proportion of ants for the two feeding position 0 --> the proportion is the same for both colonies. 1 --> in one position 100% of ants were feeding while in the other it was 0%
+# these are just examples and can be played around with 
 feeders <- summed_dat %>%
   group_by(colony) %>%
   summarize(
-    treatment = 
     feeders_p1 = sum(total_duration >= threshold_feeding & position == "p1"),
     feeders_p2 = sum(total_duration >= threshold_feeding & position == "p2"),
     feeders_out_of_p1 = paste(sum(total_duration >= threshold_feeding & position == "p1"), "/", 0.5*n()), 
@@ -80,12 +86,46 @@ selected_colonies
 length(selected_colonies)
 
 
-#### selection of thresholds - loop over multiple values ####
+#### repeat the above but exclude the ants that need to excluded because they are not very viable after treatment (mostly because they managed to drown themselves)
+threshold_feeding <- 0 # threshold to define how long an ants were feeding to be included as feeder (the number of seconds an ant spends feeding to be classified as an actual feeder)
+threshold_proportion <- 1 # define a threshold for the proportion of ants of that need to be classified as feeder for colonies to be classified as good enough for subsequent analyses (number between 0 and 1 with 1= 100% of ants were feeding and 0 = 0% of ants were feeding)
+threshold_balance <- 0 # define a threshold for the balance between the proportion of feeders in position 1 and 2 for colonies to be classified as good enough for subsequent analyses (balance specified as the difference in the proportion of ants for the two feeding position 0 --> the proportion is the same for both colonies. 1 --> in one position 100% of ants were feeding while in the other it was 0%
+# these are just examples and can be played around with 
+feeders <- NULL
+feeders <- summed_dat %>%
+  group_by(colony) %>%
+  summarize(
+    feeders_p1 = sum(total_duration >= threshold_feeding & position == "p1" & excluder != 1),
+    feeders_p2 = sum(total_duration >= threshold_feeding & position == "p2" & excluder != 1),
+    non_feeders_p1 = sum((position == "p1" & total_duration < threshold_feeding) | (position == "p1" & excluder == 1)),
+    non_feeders_p2 = sum((position == "p2" & total_duration < threshold_feeding) | (position == "p2" & excluder == 1)),
+    feeders_out_of_p1 = paste(sum(total_duration >= threshold_feeding & position == "p1" & excluder != 1), "/", 0.5*n()),
+    feeders_out_of_p2 = paste(sum(total_duration >= threshold_feeding & position == "p2" & excluder != 1), "/", 0.5*n()), 
+    prop_feeders_p1 = sum(total_duration >= threshold_feeding & position == "p1" & excluder != 1) / (0.5*n()),
+    prop_feeders_p2 = sum(total_duration >= threshold_feeding & position == "p2" & excluder != 1) / (0.5*n()) 
+  )
+# Filter colonies based on criteria
+selected_colonies <- feeders %>%
+  filter(prop_feeders_p1 >= threshold_proportion & prop_feeders_p2 >= threshold_proportion & abs(prop_feeders_p1 - prop_feeders_p2) <= threshold_balance) %>%
+  pull(colony)
+# Print list of selected colonies
+selected_colonies
+length(selected_colonies)
+
+
+
+
+
+#### selection of thresholds - loop over multiple values to get the best colonies ####
 
 # Define different multiple threshold values to find the right combination
-threshold_feeding <- c(0, 15, 30, 45, 60, 90, 180, 270, 360) 
-threshold_proportion <- c(1, 0.8, 0.75, 0.66, 0.5, 0.25, 0)
-threshold_balance <- c(0, 0.1, 0.2, 0.25, 0.33, 0.4, 0.5, 0.75, 1)
+threshold_feeding <- c(0, 10, 15, 20, 25, 30, 35, 40, 45, 50, 60, 75, 90, 120, 180) 
+threshold_proportion <- c(1, 0.9, 0.8, 0.75, 0.7, 0.66, 0.6, 0.5, 0.4, 0.25, 0)
+threshold_balance <- c(0, 0.1, 0.2, 0.25, 0.3, 0.33, 0.4, 0.5, 0.6, 0.75, 1)
+
+threshold_feeding <- c(0, 15, 30, 45, 60) 
+threshold_proportion <- c(1,  0.85, 0.75, 0.66, 0.5)
+threshold_balance <- c(0, 0.15, 0.25, 0.33, 0.5)
 
 # create  empty list to store selected colonies for each combination of thresholds
 selected_colonies_list <- list()
@@ -96,6 +136,10 @@ excluded_colonies <- data.frame(t_feeding = numeric(),
                                 included_colonies = numeric(),
                                 excluded_colonies = numeric())
 
+#it takes a while to run this loop. The list with the selected colonies and the dataframe with excluded colonies have been saved and can be called with the following code
+#selected_colonies_list <- readRDS("selected_colonies_list.rds")
+#excluded_colonies <- readRDS("excluded_colonies.rds")
+
 # Iterate over threshold values
 for (i in seq_along(threshold_feeding)) {
   for (j in seq_along(threshold_proportion)) {
@@ -105,12 +149,14 @@ for (i in seq_along(threshold_feeding)) {
       feeders <- summed_dat %>%
         group_by(colony) %>%
         summarize(
-          feeders_p1 = sum(total_duration >= threshold_feeding[i] & position == "p1"),
-          feeders_p2 = sum(total_duration >= threshold_feeding[i] & position == "p2"),
-          feeders_out_of_p1 = paste(sum(total_duration >= threshold_feeding[i] & position == "p1"), "/", 0.5*n()), 
-          feeders_out_of_p2 = paste(sum(total_duration >= threshold_feeding[i] & position == "p2"), "/", 0.5*n()), 
-          prop_feeders_p1 = sum(total_duration >= threshold_feeding[i] & position == "p1") / (0.5*n()), 
-          prop_feeders_p2 = sum(total_duration >= threshold_feeding[i] & position == "p2") / (0.5*n())
+          feeders_p1 = sum(total_duration >= threshold_feeding[i] & position == "p1" & excluder != 1),
+          feeders_p2 = sum(total_duration >= threshold_feeding[i] & position == "p2" & excluder != 1),
+          non_feeders_p1 = sum((position == "p1" & total_duration < threshold_feeding[i]) | (position == "p1" & excluder == 1)),
+          non_feeders_p2 = sum((position == "p2" & total_duration < threshold_feeding[i]) | (position == "p2" & excluder == 1)),
+          feeders_out_of_p1 = paste(sum(total_duration >= threshold_feeding[i] & position == "p1" & excluder != 1), "/", 0.5*n()),
+          feeders_out_of_p2 = paste(sum(total_duration >= threshold_feeding[i] & position == "p2" & excluder != 1), "/", 0.5*n()), 
+          prop_feeders_p1 = sum(total_duration >= threshold_feeding[i] & position == "p1" & excluder != 1) / (0.5*n()),
+          prop_feeders_p2 = sum(total_duration >= threshold_feeding[i] & position == "p2" & excluder != 1) / (0.5*n()) 
         )
       # Filter colonies based on criteria
       selected_colonies <- feeders %>%
@@ -129,15 +175,18 @@ for (i in seq_along(threshold_feeding)) {
                                             included_colonies = included_colonies_count,
                                             excluded_colonies = excluded_colonies_count))
     }
-  } 
+  }
 }
 
+# if needed the latest version of this can be saved so it can be called again without re-running the loop
+saveRDS(selected_colonies_list, "selected_colonies_list.rds")
+saveRDS(excluded_colonies, "excluded_colonies.rds")
 selected_colonies_list[1]
 
 
 
-#### visualize the exclusion power of the different thresholds ####
 
+#### visualize the exclusion power of the different thresholds ####
 plot_ly(excluded_colonies, x = ~t_feeding, y = ~t_proportion, z = ~t_balance, 
         color = ~excluded_colonies, 
         colors = viridis_pal()(100),
@@ -156,17 +205,17 @@ plot_ly(excluded_colonies, x = ~t_feeding, y = ~t_proportion, z = ~t_balance,
 
 
 
+
+
+
 #### which are the best colonies ####
-# Combine all selected colonies into a single vector
-selected_colonies_vec <- unlist(selected_colonies_list)
-# Count the number of times each colony appears
-colony_counts <- table(selected_colonies_vec)
-# Sort the counts in descending order
-sorted_counts <- sort(colony_counts, decreasing = TRUE)
+selected_colonies_vec <- unlist(selected_colonies_list) # Combine all selected colonies into a single vector 
+colony_counts <- table(selected_colonies_vec) #Count the number of times each colony appears
+sorted_counts <- sort(colony_counts, decreasing = TRUE)# Sort the counts in descending order
 # Print the sorted counts
 print(sorted_counts)
 plot(colony_counts)
-plot(sorted_counts)
+plot(sorted_counts, las=2)
 
 
 
@@ -174,22 +223,51 @@ plot(sorted_counts)
 
 # filter the rows based on the excluded_colonies value
 filtered_excluded <- excluded_colonies %>% 
-  filter(t_feeding == 45  & excluded_colonies <= 16)
+  filter(included_colonies >= 14)
 # print the combinations of thresholds that satisfy the condition
 print(filtered_excluded)
-
 filtered_excluded <- excluded_colonies %>% 
   filter(t_feeding == 30  & excluded_colonies <= 16)
 print(filtered_excluded)
 #choose one of the threshold sets.
+# or simply select the 14 best colonies!!! 
 
 
 
 
-#### check the colonies selected with those thresholds ####
-threshold_feeding <- 45
+#### check the colonies selected with those thresholds or the X best colonies from the treshold selection ####
+{ # run the loop with the defined parameters 
+threshold_feeding <- 30
 threshold_proportion <- 0.5
-threshold_balance <- 0.4
+threshold_balance <- 0.34
+feeders <- summed_dat %>%
+  group_by(colony) %>%
+  summarize(
+    feeders_p1 = sum(total_duration >= threshold_feeding & position == "p1" & excluder != 1),
+    feeders_p2 = sum(total_duration >= threshold_feeding & position == "p2" & excluder != 1),
+    non_feeders_p1 = sum((position == "p1" & total_duration < threshold_feeding) | (position == "p1" & excluder == 1)),
+    non_feeders_p2 = sum((position == "p2" & total_duration < threshold_feeding) | (position == "p2" & excluder == 1)),
+    feeders_out_of_p1 = paste(sum(total_duration >= threshold_feeding & position == "p1" & excluder != 1), "/", 0.5*n()),
+    feeders_out_of_p2 = paste(sum(total_duration >= threshold_feeding & position == "p2" & excluder != 1), "/", 0.5*n()), 
+    prop_feeders_p1 = sum(total_duration >= threshold_feeding & position == "p1" & excluder != 1) / (0.5*n()),
+    prop_feeders_p2 = sum(total_duration >= threshold_feeding & position == "p2" & excluder != 1) / (0.5*n()) 
+  )
+selected_colonies <- feeders %>%
+  filter(prop_feeders_p1 >= threshold_proportion & prop_feeders_p2 >= threshold_proportion & abs(prop_feeders_p1 - prop_feeders_p2) <= threshold_balance) %>%
+  pull(colony)
+selected_colonies
+length(selected_colonies)
+colonies_to_analyse <- subset(feeders, colony %in% selected_colonies)
+colonies_to_analyse
+}
+
+
+
+
+# select the best performing colonies. 
+x <- 14 #define the numbers of colonies to be selected
+sorted_counts
+selected_colonies <- names(sorted_counts)[1:14]
 feeders <- summed_dat %>%
   group_by(colony) %>%
   summarize(
@@ -200,49 +278,56 @@ feeders <- summed_dat %>%
     prop_feeders_p1 = sum(total_duration >= threshold_feeding & position == "p1") / (0.5*n()), 
     prop_feeders_p2 = sum(total_duration >= threshold_feeding & position == "p2") / (0.5*n())
   )
-selected_colonies <- feeders %>%
-  filter(prop_feeders_p1 >= threshold_proportion & prop_feeders_p2 >= threshold_proportion & abs(prop_feeders_p1 - prop_feeders_p2) <= threshold_balance) %>%
-  pull(colony)
-selected_colonies
-length(selected_colonies)
 colonies_to_analyse <- subset(feeders, colony %in% selected_colonies)
 colonies_to_analyse
 
 
 
+#### Check if selected colonies are equally balanced between the two treatments and bead colors ####
 
-### Check if selected colonies are equally balanced between the two treatments. 
+# import treatments and other data: 
+experiment_data <- read.csv("fc2_overview_data.csv", header = TRUE, stringsAsFactors = F)
+data_collection <- NULL 
+for(i in 1:nrow(experiment_data)) {
+  # collect variables
+  nr                    <- i
+  colony_id             <- experiment_data[i, "colony_id"]
+  block                 <- experiment_data[i, "block"]
+  colony             <- paste0("c", sprintf("%02d", i))
+  treatment             <- experiment_data[i, "treatment"]
+  food_position_1       <- experiment_data[i, "food_position_1"]
+  food_position_2       <- experiment_data[i, "food_position_2"]
+  tracking_system_main  <- experiment_data[i, "tracking_system_main"]
+  tracking_system_feeding <- experiment_data[i, "tracking_system_feeding"] 
+  # combine variables to a data frame  
+  data_collection <-  rbind(data_collection, data.frame(nr, 
+                                                        colony_id,
+                                                        block, 
+                                                        colony,
+                                                        treatment,
+                                                        food_position_1,
+                                                        food_position_2,
+                                                        tracking_system_main,
+                                                        tracking_system_feeding,
+                                                        stringsAsFactors = F))
+}
+
+
 # Merge the two data frames based on "colony" variable
 merged_data <- merge(colonies_to_analyse, data_collection, by = "colony")
+# check it the selected colonies are balanced across treatments 
 table(merged_data$treatment)
+# this is not perfect, there is one control too few and one vb too many... 
 
 
-### check if selected colonies correspond to the best colonies
-# Get the names of the top 14 colonies in sorted_counts
-top_colonies <- names(sorted_counts)[1:14]
-# Check if the colonies in colonies_to_analyse are in the top 14
-all(colonies_to_analyse$colony %in% top_colonies)
-setdiff(colonies_to_analyse$colony, top_colonies)
-# Initialize boolean variable
-match_found <- FALSE
-# Loop through selected_colonies_list and compare each list of selected colonies to top_colonies
-for (i in seq_along(threshold_feeding)) {
-  for (j in seq_along(threshold_proportion)) {
-    for (k in seq_along(threshold_balance)) {
-      selected_colonies <- selected_colonies_list[[paste(threshold_feeding[i], threshold_proportion[j], threshold_balance[k], sep = "_")]]
-      if (identical(selected_colonies, top_colonies)) {
-        cat("Threshold combination for best ranking colonies: feeding =", threshold_feeding[i], ", proportion =", threshold_proportion[j], ", balance =", threshold_balance[k], "\n")
-        # Set boolean variable to TRUE if match is found
-        match_found <- TRUE
-      }
-    }
-  }
-}
+### plot sorted counts from the colony selection above 
+treatments <- data_collection$treatment[match(names(sorted_counts), data_collection$colony)] # Match treatments with colonies
+colors <- ifelse(treatments == "cc", "red", ifelse(treatments == "vy", "yellow", "blue")) # Create color vector
+barplot(sorted_counts, col=colors, las=2)
 
-# Print message if no match was found
-if (!match_found) {
-  cat("No threshold combination found for best ranking colonies.\n")
-}
+
+
+
 
 
 
@@ -405,14 +490,6 @@ summary(model)
 
 
 
-
-
-
-
-
-
-
-
 # next run quick stats to show that there is no difference in the feeding duration between the two colonies. 
 # next go over the manual annotation file and insert a correction variable to exclude ants which then later on died because they drowned themselves in food (either dead or because their behavior completely off)
 
@@ -432,6 +509,29 @@ fit_zigamma <- fitdist(dynamic$total_duration, "ziggamma")
 
 # Compare AIC values
 AIC(fit_gamma, fit_zigamma)
+
+
+
+
+
+
+
+
+
+#### selection of FCII ants to be manually annotated for the trophy classifier ####
+
+# Select ants with total_duration >= 30 and excluder == 0
+selected_ants <- summed_dat %>% 
+  filter(total_duration >= 30, excluder == 0) %>% 
+  group_by(colony, position) %>% 
+  sample_n(1) %>% 
+  ungroup() %>% 
+  select(colony, position, antID = focal_AntID)
+table(selected_ants$colony)
+
+# Save selected ants to a text file
+write.table(selected_ants, file = "vital_ants_to_annotate.txt", 
+            quote = FALSE, sep = "\t", row.names = FALSE)
 
 
 
