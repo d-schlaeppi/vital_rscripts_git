@@ -1,56 +1,56 @@
-colony	position	antID
-c01	p1	15
-c01	p2	10
-c02	p1	8
-c02	p2	5
-c03	p1	18
-c03	p2	17
-c04	p1	1
-c04	p2	12
-c05	p1	7
-c05	p2	3
-c06	p1	14
-c06	p2	4
-c07	p1	15
-c07	p2	10
-c08	p1	3
-c08	p2	7
-c09	p2	3
-c10	p1	8
-c10	p2	5
-c11	p1	7
-c11	p2	5
-c12	p1	13
-c12	p2	16
-c13	p1	6
-c13	p2	16
-c14	p1	13
-c14	p2	9
-c15	p1	10
-c15	p2	1
-c16	p1	2
-c16	p2	8
-c17	p1	12
-c17	p2	7
-c18	p1	6
-c18	p2	3
-c19	p1	6
-c19	p2	14
-c20	p1	12
-c20	p2	15
-c21	p1	9
-c21	p2	10
-c22	p1	6
-c22	p2	13
-c23	p1	10
-c23	p2	5
-c24	p1	1
-c24	p2	3
-c25	p1	1
-c25	p2	3
-c26	p1	2
-c26	p2	11
-c27	p1	3
-c27	p2	10
-c28	p1	2
-c28	p2	16
+colony	position	antID	tagID
+c01	p1	9	0x3df
+c01	p2	3	0x17a
+c02	p1	8	0x3b2
+c02	p2	18	0x81d
+c03	p1	2	0x0ce
+c03	p2	14	0x5d8
+c04	p1	1	0x01e
+c04	p2	15	0x65d
+c05	p1	6	0x30a
+c05	p2	4	0x2db
+c06	p1	12	0x6ad
+c06	p2	10	0x61e
+c07	p1	14	0x6c4
+c07	p2	11	0x5b9
+c08	p1	3	0x289
+c08	p2	6	0x4c2
+c09	p2	3	0x20b
+c10	p1	11	0x508
+c10	p2	5	0x35f
+c11	p1	11	0x69b
+c11	p2	8	0x59e
+c12	p1	8	0x249
+c12	p2	16	0x5a8
+c13	p1	5	0x2e1
+c13	p2	12	0x5a2
+c14	p1	13	0x571
+c14	p2	9	0x366
+c15	p1	12	0x691
+c15	p2	1	0x058
+c16	p1	13	0x4da
+c16	p2	1	0x0cb
+c17	p1	12	0x6ae
+c17	p2	9	0x553
+c18	p1	2	0x276
+c18	p2	3	0x28d
+c19	p1	8	0x536
+c19	p2	5	0x48a
+c20	p1	11	0x561
+c20	p2	10	0x533
+c21	p1	3	0x0df
+c21	p2	6	0x1c8
+c22	p1	8	0x424
+c22	p2	2	0x088
+c23	p1	10	0x587
+c23	p2	12	0x676
+c24	p1	10	0x522
+c24	p2	2	0x084
+c25	p1	1	0x100
+c25	p2	10	0x383
+c26	p1	5	0x1ba
+c26	p2	9	0x1fd
+c27	p1	13	0x33f
+c27	p2	11	0x296
+c28	p1	2	0x062
+c28	p2	16	0x3cc

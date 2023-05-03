@@ -51,12 +51,13 @@ for (i in 1:nrow(dat)) {
 
 #### Group the data by ant ID and colony and calculate the total duration of feeding events per ant ####
 summed_dat <- dat %>%
-  group_by(colony, position, focal_AntID) %>%
+  group_by(colony, position, focal_AntID, tagID) %>%
   summarise(
     total_duration = sum(ifelse(is.na(time_diff), 0, time_diff)), 
     excluder = mean(exclude))
 summed_dat
 summed_dat$focal_AntID <- as.character(summed_dat$focal_AntID)
+summed_dat$tagID <- paste0("0x", summed_dat$tagID)
 
 
 
@@ -521,12 +522,13 @@ AIC(fit_gamma, fit_zigamma)
 #### selection of FCII ants to be manually annotated for the trophy classifier ####
 
 # Select ants with total_duration >= 30 and excluder == 0
+head(summed_dat)
 selected_ants <- summed_dat %>% 
   filter(total_duration >= 30, excluder == 0) %>% 
   group_by(colony, position) %>% 
   sample_n(1) %>% 
   ungroup() %>% 
-  select(colony, position, antID = focal_AntID)
+  select(colony, position, antID = focal_AntID, tagID)
 table(selected_ants$colony)
 
 # Save selected ants to a text file
