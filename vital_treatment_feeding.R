@@ -13,6 +13,7 @@ library(plotly) # 3d graph
 library(viridis) 
 library(pscl) # zero inflated poisson distribution model
 library(glmmTMB) # zero inflated poisson distribution model with random factors
+library(entropy)
 
 ### read in table that contains a collection of information on the experiments and each colony, and create a data frame containing all the useful things for the myrmidon files
 setwd("/home/gw20248/Documents/vital_rscripts_git/") #Uni
@@ -21,7 +22,7 @@ setwd("/Users/gismo/Documents/GitHub/vital_rscripts_git/") #home mac
 
 #dat <- read.csv("vital_treatment_feeding_annotation.csv", header = TRUE, stringsAsFactors = F)
 dat <- read.csv("vital_treatment_feeding_annotation_2.csv", header = TRUE, stringsAsFactors = F)
-
+head(dat)
 
 # create a data frame with the missing times from the colonies with an error in fort
 colony <- c("c05", "c09", "c12", "c13", "c17", "c21")
@@ -78,7 +79,7 @@ feeders <- summed_dat %>%
     prop_feeders_p1 = sum(total_duration >= threshold_feeding & position == "p1") / (0.5*n()), 
     prop_feeders_p2 = sum(total_duration >= threshold_feeding & position == "p2") / (0.5*n())
   )
-# Filter colonies based on criteria
+ # Filter colonies based on criteria
 selected_colonies <- feeders %>%
   filter(prop_feeders_p1 >= threshold_proportion & prop_feeders_p2 >= threshold_proportion & abs(prop_feeders_p1 - prop_feeders_p2) <= threshold_balance) %>%
   pull(colony)
@@ -218,8 +219,7 @@ print(sorted_counts)
 plot(colony_counts)
 plot(sorted_counts, las=2)
 
-
-
+selected_colonies_sorted_counts <- sorted_counts[1:14]
 
 
 # filter the rows based on the excluded_colonies value
@@ -325,6 +325,150 @@ table(merged_data$treatment)
 treatments <- data_collection$treatment[match(names(sorted_counts), data_collection$colony)] # Match treatments with colonies
 colors <- ifelse(treatments == "cc", "red", ifelse(treatments == "vy", "yellow", "blue")) # Create color vector
 barplot(sorted_counts, col=colors, las=2)
+
+
+
+
+#### Alternative method of colony selection ####
+# idea: using entropy as a measure of balance between the two feeding positions without using tresholds. 
+# calculate a standardized measure of entropy and then plot the difference in entropy between the two colonies on one a
+
+# step1 -  calculate log10 (+1sec) of the feeding. duration (subset to remove individuals to exclude)
+
+# Exclude rows where excluder != 0 & log10 of total_duration (with +1 second)
+df_filtered <- summed_dat %>% filter(excluder == 0)
+df_filtered$log_duration <- log10(df_filtered$total_duration + 1)
+# Calculate the mean of total_duration per colony
+mean_duration <- df_filtered %>%
+  group_by(colony) %>%
+  summarise(mean_duration_log = mean(log_duration))
+# Calculate the entropy for position p1
+entropy_p1 <- df_filtered %>%
+  group_by(colony, position) %>%
+  filter(position == "p1") %>%
+  summarise(entropy_p1 = entropy(log_duration)/entropy(rep(1, length(log_duration))))
+# Calculate the entropy for position p2
+entropy_p2 <- df_filtered %>%
+  group_by(colony, position) %>%
+  filter(position == "p2") %>%
+  summarise(entropy_p2 = entropy(log_duration)/entropy(rep(1, length(log_duration))))
+# Merge the results into a new data frame
+new_df <- left_join(mean_duration, entropy_p1, by = "colony") %>%
+  left_join(entropy_p2, by = "colony")
+# Calculate the absolute difference between entropy_p1 and entropy_p2
+new_df <- new_df %>%
+  mutate(entropy_diff = abs(entropy_p1 - entropy_p2))
+# Print the new data frame
+print(new_df)
+
+# Plotting mean_duration_log against entropy_diff with colony labels
+ggplot(new_df, aes(x = entropy_diff, y = mean_duration_log, label = colony)) +
+  geom_point() +
+  geom_text(vjust = -0.5) +
+  xlab("Entropy Difference") +
+  ylab("Mean Duration (Log)") +
+  ggtitle("Mean Duration Log vs. Entropy Difference") +
+  theme_minimal()
+
+max_entropy_diff <- max(new_df$entropy_diff, na.rm = TRUE)
+max_duration_log <- max(new_df$mean_duration_log, na.rm = TRUE)
+new_df <- new_df %>%
+  mutate(distance = (max_duration_log - mean_duration_log)/max_duration_log +  (1-(max_entropy_diff - entropy_diff)/max_entropy_diff))
+
+
+
+# Sort the new_df based on the distance in ascending order
+sorted_df <- new_df %>%
+  arrange(distance)
+
+# Select the top 14 colonies from the sorted_df
+top_left_colonies <- head(sorted_df, 14)
+
+# Plotting mean_duration_log against entropy_diff with colony labels and displaying distance values
+ggplot(new_df, aes(x = entropy_diff, y = mean_duration_log, label = colony)) +
+  geom_point() +
+  geom_text(vjust = -0.5) +
+  xlab("Entropy Difference") +
+  ylab("Mean Duration (Log)") +
+  ggtitle("Mean Duration Log vs. Entropy Difference") +
+  theme_minimal() +
+  geom_point(data = top_left_colonies, color = "red", size = 5, shape = 16)
+
+
+# Extract the colony identifiers from selected_colonies_vec
+treshold_selected_colonies <- names(selected_colonies_sorted_counts)
+
+ggplot(new_df, aes(x = entropy_diff, y = mean_duration_log, label = colony)) +
+  geom_point() +
+  geom_text(vjust = -0.5) +
+  xlab("Entropy Difference") +
+  ylab("Mean Duration (Log)") +
+  ggtitle("Mean Duration Log vs. Entropy Difference") +
+  theme_minimal() +
+  geom_point(data = top_left_colonies, color = "blue", size = 5, shape = 16) +
+  geom_point(data = new_df[new_df$colony %in% treshold_selected_colonies, ], color = "yellow", size = 3, shape = 16)
+
+
+#### next do a ranking approach based on total durtion and position difference in tot_duration
+
+
+
+
+
+
+
+
+
+# practice / example lines
+x <- c(0,0,0,0,0,0,1)
+y <- c(1,1,1,1,1,1,1)
+entropy(x)
+entropy(y)
+x <- c(2.63, 1.28, 1.76, 2.88, 1.4, 2.07)
+entropy(x)
+normalized_entropy <- entropy(x)/entropy(rep(1, length(x)))
+# notes from nathalie on 10 ants 12 ants
+colony1 <- log10( 1+  c(0,0,0,10,10,60,60,60,90,120,150,180   )     )
+colony1_entropy <- entropy(colony1)/entropy (rep (1,length(colony1)))
+volume_ingested_colony1<- mean(colony1)
+
+
+# step2 - for each colony and position calculate size standardized entropy 
+# step3 - plot mean feeding duration and position entropy difference to find the best colonies. 
+# step4 - compare selected colonies with the treshold approach. 
+
+
+
+
+
+#### GPT approach ####
+
+# Calculate the balance between Position 1 and Position 2 for each colony
+balance <- df_filtered %>%
+  group_by(colony) %>%
+  summarise(balance = abs(mean(total_duration[position == "p1"]) - mean(total_duration[position == "p2"])))
+# Calculate the number of ants with total_duration = 0 for each colony
+num_zeros <- df_filtered %>%
+  group_by(colony) %>%
+  summarise(num_zeros = sum(total_duration == 0))
+# Calculate the overall total_duration for each colony
+overall_duration <- df_filtered %>%
+  group_by(colony) %>%
+  summarise(overall_duration = sum(total_duration))
+# Merge the characteristics into a single data frame
+characteristics <- left_join(left_join(balance, num_zeros, by = "colony"), overall_duration, by = "colony")
+# Assign scores to each colony based on the characteristics
+characteristics$score <- with(characteristics, balance / max(balance) + num_zeros / max(num_zeros) + overall_duration / max(overall_duration))
+# Sort the colonies based on scores
+sorted_colonies <- characteristics %>%
+  arrange(desc(score))
+# Select the top 14 colonies based on scores
+selected_colonies <- characteristics %>%
+  top_n(14, score)
+# Print the selected colonies
+print(selected_colonies)
+
+
 
 
 
