@@ -71,7 +71,7 @@ DATADIR <- "/media/gw20248/gismo_hd2/vital/fc2" # "/media/bzniks/Seagate\ Portab
 # R scripts and functions
 SCRIPTDIR <- "/home/gw20248/Documents/vital_rscripts_git/behaviour_inferral_scripts"# "~/Dropbox/SeniorLectureship_Bristol/Students_postdocs/PhD_students/2019 Adriano Wanderlingh/code/PhD-exp1-data-analysis-main/ScriptsR_FINAL"
 # output folder (depending on the number of loops you run it can be up to 1 GB but a single run is only ~50 MB)
-SAVEOUTPUT <- "/media/gw20248/gismo_hd6/behaviour_inferral" # "/media/bzniks/FiveTB"
+SAVEOUTPUT <- "/media/gw20248/gismo_hd6/data/behaviour_inferral" # "/media/bzniks/FiveTB"
 # file that the mean ant body lenght for each colony based on tracking system systems - derived from manually oriented files used for extrapolation using the ant-ruler
 BODYLENGTH_FILE <- paste(WORKDIR,"Mean_ant_length.txt",sep="")  # paste(WORKDIR,"Data","/Mean_ant_length_per_TrackingSystem.txt",sep="/")
 }

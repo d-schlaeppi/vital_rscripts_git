@@ -5,7 +5,7 @@ rm(list=ls())
 gc()
 
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
-#### 1. ANT RULER  #### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 1. ANT RULER  #### 
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
 
 #### INFORMATION ####
@@ -21,24 +21,26 @@ library(FortMyrmidon) # R bindings
 
 # set and save working directory
 ### set directory of data and myrmidon files
-# dir_data <- '/media/gw20248/gismo_hd2/vital/fc2/'
-dir_data <- "/home/gw20248/Documents/data_copy_for_trials/"
-setwd(dir_data)
+# directory <- '/media/gw20248/gismo_hd2/vital/fc2/'
+# directory <- "/home/gw20248/Documents/data_copy_for_trials/"
+directory <-  '/media/gw20248/gismo_hd5/trophy_data/' 
+setwd(directory)
+list.files()
 
 # List of files for which you would like the mean ant size (they need to be manually oriented because thats how the head-tail measurement is made)
 files <- list(
-  paste(dir_data,"vital_fc2_guillam_c03_DS_AntsCreated_ManuallyOriented.myrmidon",sep=''), 
-  paste(dir_data,"vital_fc2_trojan_c27_DS_AntsCreated_ManuallyOriented.myrmidon",sep=''),
-  paste(dir_data,"vital_fc2_prideaux_c02_DS_AntsCreated_ManuallyOriented.myrmidon",sep=''), 
-  paste(dir_data,"vital_fc2_esterhase_c02_feeding_DS_AntsCreated_ManuallyOriented.myrmidon",sep=''),
-  paste(dir_data,"vital_fc2_guillam_c12_feeding_DS_AntsCreated_ManuallyOriented.myrmidon",sep=''),
-  paste(dir_data,"vital_fc2_guillam_c27_feeding_DS_AntsCreated_ManuallyOriented.myrmidon",sep='')
+  paste(directory,"trophy_01_ants_oriented_old.myrmidon",sep='')
+  # paste(dir_data,"vital_fc2_guillam_c03_DS_AntsCreated_ManuallyOriented.myrmidon",sep=''), 
+  # paste(dir_data,"vital_fc2_trojan_c27_DS_AntsCreated_ManuallyOriented.myrmidon",sep=''),
+  # paste(dir_data,"vital_fc2_prideaux_c02_DS_AntsCreated_ManuallyOriented.myrmidon",sep=''), 
+  # paste(dir_data,"vital_fc2_esterhase_c02_feeding_DS_AntsCreated_ManuallyOriented.myrmidon",sep=''),
+  # paste(dir_data,"vital_fc2_guillam_c12_feeding_DS_AntsCreated_ManuallyOriented.myrmidon",sep=''),
+  # paste(dir_data,"vital_fc2_guillam_c27_feeding_DS_AntsCreated_ManuallyOriented.myrmidon",sep='')
 )
 
 #### ANT-RULER ####
 
-output_name <- file.path(paste0(dir_data,"Mean_ant_length_colonies_new.txt")) # define the name of the text file containing your measurements
-
+output_name <- file.path(directory, paste0("Mean_ant_length_trophy_", format(Sys.time(), "%Y%m%d_%H%M"), ".txt"))
 for (element in files) {
   # get tracking data
   ant_measurements <- NULL
@@ -57,17 +59,23 @@ for (element in files) {
   ant_measurements <- ant_measurements[which(ant_measurements$length_px>=outlier_bounds[1]&ant_measurements$length_px<=outlier_bounds[2]),]
   # printing and saving of the means from the dataframes without the queen
   print(element)  
-  print(mean(ant_measurements$length_px, na.rm=TRUE))
-  print(mean(ant_measurements$length_mm, na.rm=TRUE))
+  mean_length_px <- mean(ant_measurements$length_px, na.rm=TRUE)
+  mean_length_mm <- mean(ant_measurements$length_mm, na.rm=TRUE)
+  print(mean_length_px)
+  print(mean_length_mm)
   table <- NULL
-  table <- rbind(table, data.frame(mean(ant_measurements$length_px, na.rm=TRUE),
-                                   mean(ant_measurements$length_mm, na.rm=TRUE),
-                                   element, 
-                                   stringsAsFactors = F))
+  table <- rbind(table, data.frame("[pixels]" = mean_length_px,
+                                   "[mm]" = mean_length_mm,
+                                   "file" = element, 
+                                   stringsAsFactors = FALSE))
   if (file.exists(output_name)){
-    write.table(table,file=output_name,append=T,col.names=F,row.names=F,quote=T,sep=",")
-  }else{
-    write.table(table,file=output_name,append=F,col.names=T,row.names=F,quote=T,sep=",")
+    write.table(table, file = output_name, append = TRUE, col.names = FALSE, row.names = FALSE, quote = TRUE, sep = ",")
+  } else {
+    write.table(table, file = output_name, append = FALSE, col.names = TRUE, row.names = FALSE, quote = TRUE, sep = ",")
   }
 }
+
+
+
+
 

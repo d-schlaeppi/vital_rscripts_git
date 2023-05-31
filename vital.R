@@ -28,7 +28,7 @@
 # used tracking systems Daniel: Main tracking - trojan, prideaux, guillam ; feeding sessions - guillam, esterhase 
 
 # Step by step processing your tracking data:
-# Step 1: For each tracking system setting (typically 1 per tracking system) used select one exemplary colony get mean worker size
+# Step 1: For each tracking system setting used (typically 1 per tracking system) select one exemplary colony to get mean worker size
 #   Step 1.1 Create base myrmidon files
 #   Step 1.2 Automatically generate the ants for the selected tracking files using the "ant_generator"
 #   Step 1.3 Manually orient files in fort myrmidon
@@ -124,7 +124,6 @@ setwd(directory)
 
 #### Step 1 ####
 # Step 1: For each tracking system setting (typically 1 per tracking system) used select one exemplary colony get mean worker size
-
 # select the tracking files you selected for size extraction 
 
 #### 1.1 Create base myrmidon files ####  
@@ -174,39 +173,39 @@ files <- list(
 
 #### ANT-RULER ####
 
-output_name <- file.path(paste0(dir_data,"Mean_ant_length_colonies_new.txt")) # define the name of the textfile containing your measurements
-
-for (element in files) {
-  # get tracking data
-  ant_measurements <- NULL
-  tracking_data <- fmExperimentOpen(element) 
-  ants <- tracking_data$ants
-  for (ant in ants){ # for each ant get the mean size and put it in a dataframe
-    ant_length_px <- mean(fmQueryComputeMeasurementFor(tracking_data,antID=ant$ID)$length_px)
-    ant_length_mm <- mean(fmQueryComputeMeasurementFor(tracking_data,antID=ant$ID)$length_mm)
-    ant_measurements <- rbind(ant_measurements, data.frame(length_px = ant_length_px,
-                                                           length_mm = ant_length_mm,
-                                                           stringsAsFactors = F))
-  }
-  # queen exclusion from the dataframe
-  interquartile_range <- quantile(ant_measurements$length_px,probs=c(0.25,0.75), na.rm =TRUE)
-  outlier_bounds      <- c(interquartile_range[1]-1.5*(interquartile_range[2]-interquartile_range[1]),interquartile_range[2]+1.5*(interquartile_range[2]-interquartile_range[1]))
-  ant_measurements <- ant_measurements[which(ant_measurements$length_px>=outlier_bounds[1]&ant_measurements$length_px<=outlier_bounds[2]),]
-  # printing and saving of the means from the dataframes without the queen
-  print(element)  
-  print(mean(ant_measurements$length_px, na.rm=TRUE))
-  print(mean(ant_measurements$length_mm, na.rm=TRUE))
-  table <- NULL
-  table <- rbind(table, data.frame(mean(ant_measurements$length_px, na.rm=TRUE),
-                                   mean(ant_measurements$length_mm, na.rm=TRUE),
-                                   element, 
-                                   stringsAsFactors = F))
-  if (file.exists(output_name)){
-    write.table(table,file=output_name,append=T,col.names=F,row.names=F,quote=T,sep=",")
-  }else{
-    write.table(table,file=output_name,append=F,col.names=T,row.names=F,quote=T,sep=",")
-  }
-}
+# check independent ant_ruler.R script for a slightly updated version
+# output_name <- file.path(paste0(dir_data,"Mean_ant_length_colonies_new.txt")) # define the name of the textfile containing your measurements
+# for (element in files) {
+#   # get tracking data
+#   ant_measurements <- NULL
+#   tracking_data <- fmExperimentOpen(element) 
+#   ants <- tracking_data$ants
+#   for (ant in ants){ # for each ant get the mean size and put it in a dataframe
+#     ant_length_px <- mean(fmQueryComputeMeasurementFor(tracking_data,antID=ant$ID)$length_px)
+#     ant_length_mm <- mean(fmQueryComputeMeasurementFor(tracking_data,antID=ant$ID)$length_mm)
+#     ant_measurements <- rbind(ant_measurements, data.frame(length_px = ant_length_px,
+#                                                            length_mm = ant_length_mm,
+#                                                            stringsAsFactors = F))
+#   }
+#   # queen exclusion from the dataframe
+#   interquartile_range <- quantile(ant_measurements$length_px,probs=c(0.25,0.75), na.rm =TRUE)
+#   outlier_bounds      <- c(interquartile_range[1]-1.5*(interquartile_range[2]-interquartile_range[1]),interquartile_range[2]+1.5*(interquartile_range[2]-interquartile_range[1]))
+#   ant_measurements <- ant_measurements[which(ant_measurements$length_px>=outlier_bounds[1]&ant_measurements$length_px<=outlier_bounds[2]),]
+#   # printing and saving of the means from the dataframes without the queen
+#   print(element)  
+#   print(mean(ant_measurements$length_px, na.rm=TRUE))
+#   print(mean(ant_measurements$length_mm, na.rm=TRUE))
+#   table <- NULL
+#   table <- rbind(table, data.frame(mean(ant_measurements$length_px, na.rm=TRUE),
+#                                    mean(ant_measurements$length_mm, na.rm=TRUE),
+#                                    element, 
+#                                    stringsAsFactors = F))
+#   if (file.exists(output_name)){
+#     write.table(table,file=output_name,append=T,col.names=F,row.names=F,quote=T,sep=",")
+#   }else{
+#     write.table(table,file=output_name,append=F,col.names=T,row.names=F,quote=T,sep=",")
+#   }
+# }
 
 #### Data extrapolation ####
 # Run data extrapolation for all the data based on the mean body size of each tracking system (Nathalie's script on the computer in her office)
@@ -225,7 +224,6 @@ for (element in files) {
 # set working directory to the new directory containing the extrapolated tracking data
 directory <- '/media/gw20248/gismo_hd2/vital/fc2/' 
 setwd(directory)
-
 
 # get a list of all folders in the directory and compile them as a list containing only folders with the tracking data
 list.files(path=directory, pattern=NULL, all.files=FALSE, full.name=FALSE)
@@ -355,7 +353,8 @@ for (i in 1:nrow(data_collection)) {
 # Manually adjust the myrmidon file according to adrianos post processing guide
 # https://uob.sharepoint.com/:w:/r/teams/grp-AntsEpidemiologyLab/_layouts/15/Doc.aspx?sourcedoc=%7B2562631B-A6E5-4289-907F-89502F6C27E6%7D&file=pre-processing_Adriano_June2022.docx&action=default&mobileredirect=true&cid=5b8c1184-40b2-4f60-8bd7-e5801d42d6f5
 # And do the rest of the manual post processing and meta data creation... e.g. Dead workers, Zones 
-# for the ants that got a new tag also update the meta variable tag_reoriented = true so they will be skipped in the auto orientation just like the queen. 
+# for the ants that got a new tag also update the meta variable tag_reoriented = true so they will be skipped in the auto orientation just like the queen
+
 
 #### Ant Orient Express ####
 #### Ant Orient Express Part 1 ####
@@ -527,8 +526,8 @@ fwrite(list(to_orient_manually), file = paste(Sys.Date(), "",format(Sys.time(), 
    # 3 - manually copy capsules for re tagged ants: open the myrmidon files for all colonies with re tagged ants. Select an ant with capsules, clone shape, select no scaling and no overwriting - done
    # 4 - run the code to copy queen capsules form a source file and adjust tag size of queens automatically
 
-# Manually create a queen capsule source file from an average sized queen - > Select the most average sized queen from my data set. 
 
+# Manually create a queen capsule source file from an average sized queen - > Select the most average sized queen from my data set. 
 # step 1 use the ant ruler to select the most medium size queen. 
 # get mean size of all queens
 # select the queen with the smallest difference to the mean. 
@@ -638,56 +637,60 @@ for (no_capsule_file in no_capsule_list) {
   rm(list=(c("tracking_data")))
 }
 
+
+#### renaming some files for a better overview in the folder ####
+# not necessary for most users... was just me trying to organise my stuff.
+# file_list <- list.files(directory)
+# for (file_name in file_list) {
+#   if (grepl("^c\\d{2}_[fm]_[^\\.]+\\.myrmidon$", file_name)) { # Check if the file name matches the desired pattern
+#     num <- str_extract(file_name, "\\d{2}") # Extract the number and letter from the file name
+#     letter <- str_extract(file_name, "[fm]") 
+#     string <- substr(str_extract(file_name, "(?<=_)[^\\.]+"), 3, nchar(str_extract(file_name, "(?<=_)[^\\.]+"))) # Extract the string from the file name
+#     new_file_name <- paste0(letter, "_", string, "_c", num, ".myrmidon")     # Construct the new file name
+#     # Display the old and new file names and prompt the user to confirm
+#     cat(paste0("Old name: ", file_name, "\n"))
+#     cat(paste0("New name: ", new_file_name, "\n"))
+#     confirm <- readline(prompt="Rename this file? (y/n): ")
+#     if (tolower(confirm) == "y") {  # If the user confirms, rename the file
+#       file.rename(file.path(directory, file_name), file.path(directory, new_file_name))
+#       cat(paste0("Renamed file ", file_name, " to ", new_file_name, "\n")) # Print a message to indicate the file has been renamed
+#     } 
+#   }
+# }
+
+
+
 #### Next steps ####
-  ### Manually apply the zones of the feeding area.
 
-# Unfortunately the zone workspace does not allow us to have a screenshot of different times. Thus we have to modify the images used to display in the zone workspace. 
-# First we copy the relevant images "frame_XXXX.png" into a new folder 
-# Then we take a screenshot of the feeding that contains the food and use inkscape to overlay the new image on the original and safe it with the same original name in a new folder. 
-# Last we copy all the files back into their respective folder
-# the next time we open fort we should be able to see the newly created image in the zoning workspace
+# 1 Implement the ant pose cloner (check if scaling is needed) - Aim: get orientation and capsules for the feeding tracking from the already processed main tracking. 
+# 2 Extract the coordinates of the feeding zones
+# 3 Come up with a solution to that gives tells us which ants were feeding in the treatments and create a rule to define which colonies to include in the analyses.
 
-# get a list with the latest myrmidon file with manually oriented queens
-files <- list.files(path=directory, pattern=NULL, all.files=FALSE, full.name=FALSE) # all files
-files <- grep(files, pattern = "_feeding_DS.00", invert = FALSE, value = TRUE)
-# Extract the replication numbers from the file names
-rep_nums <- as.numeric(gsub(".*\\.(\\d+)$", "\\1", files))
-# Identify and remove duplicates based on the file names without the replication numbers
-unique_files <- files[!duplicated(gsub("\\.\\d+$", "", files), fromLast = TRUE)]
+# 1-3 are no longer needed because we manually annotated the feeding behaviour as there would be too many obstacles to overcome to do it automatically
 
-for (file in unique_files) {
-  folderpath <- paste0(directory, file, "/ants/")
-  files <- list.files(folderpath)
-  files <- grep(files, pattern = "frame", invert = FALSE, value = TRUE)
-  numbers <- as.integer(sub("^.*_(\\d+)\\.png$", "\\1", files))# Extract the numbers from the file names using regular expressions
-  smallest_file <- files[which.min(numbers)]  # Find the file with the smallest number
-  dest_path <- paste0(directory, "/screenshots/original_frame_pictures/", sub(".*(c[0-9]+).*", "\\1", file), "/")
-  file.copy(file.path(folderpath, smallest_file), dest_path, overwrite = TRUE)
-}
-
-#### renaming some files for a better overview in the folder #### 
-file_list <- list.files(directory)
-for (file_name in file_list) {
-  if (grepl("^c\\d{2}_[fm]_[^\\.]+\\.myrmidon$", file_name)) { # Check if the file name matches the desired pattern
-    num <- str_extract(file_name, "\\d{2}") # Extract the number and letter from the file name
-    letter <- str_extract(file_name, "[fm]") 
-    string <- substr(str_extract(file_name, "(?<=_)[^\\.]+"), 3, nchar(str_extract(file_name, "(?<=_)[^\\.]+"))) # Extract the string from the file name
-    new_file_name <- paste0(letter, "_", string, "_c", num, ".myrmidon")     # Construct the new file name
-    # Display the old and new file names and prompt the user to confirm
-    cat(paste0("Old name: ", file_name, "\n"))
-    cat(paste0("New name: ", new_file_name, "\n"))
-    confirm <- readline(prompt="Rename this file? (y/n): ")
-    if (tolower(confirm) == "y") {  # If the user confirms, rename the file
-      file.rename(file.path(directory, file_name), file.path(directory, new_file_name))
-      cat(paste0("Renamed file ", file_name, " to ", new_file_name, "\n")) # Print a message to indicate the file has been renamed
-    } 
-  }
-}
+### create the final myrmidon files for the behavior classifier
+# Apply mean worker size to manually oriented and retagged ants (but not the queen) and automatically apply the capsules onto these ants.
+# Apply queen capsules and with that automatically adjust queen tag size (see above if we maybe did this already)
+# Make sure all the files have the same lable structure: cXX_final_capsuleDef01.myrmidon^
 
 
-   ### Implement the ant pose cloner (check if scaling is needed) - Aim: get orientation and capsules for the feeding tracking from the already processed main tracking. 
-   ### Extract the coordinates of the feeding zones
-   ### Come up with a solution to that gives tells us which ants were feeding in the treatments and create a rule to define which colonies to include in the analyses. 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
