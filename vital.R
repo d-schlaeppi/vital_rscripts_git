@@ -671,7 +671,7 @@ for (no_capsule_file in no_capsule_list) {
 ### create the final myrmidon files for the behavior classifier
 # Apply mean worker size to manually oriented and retagged ants (but not the queen) and automatically apply the capsules onto these ants.
 # Apply queen capsules and with that automatically adjust queen tag size (see above if we maybe did this already)
-# Make sure all the files have the same lable structure: cXX_final_capsuleDef01.myrmidon^
+# Make sure all the files have the same label structure: cXX_final_capsuleDef01.myrmidon^
 
 
 
