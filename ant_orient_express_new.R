@@ -3,9 +3,6 @@ rm(list=ls())
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
 #### 1. ANT ORIENT EXPRESS ####
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
-
-
-
 #"https://formicidae-tracker.github.io/myrmidon/latest/index.html"
 
 #### prerequisites ####
@@ -156,7 +153,7 @@ for (file in files) {
       positions$trajectories_summary[which(positions$trajectories_summary$antID==ants[[i]]$ID),"x_tag_coord"] <- x_tag_coord
       positions$trajectories_summary[which(positions$trajectories_summary$antID==ants[[i]]$ID),"y_tag_coord"] <- y_tag_coord
       # finally, for each ant, add capsules using mean_ant_length and capsule_list
-      for (caps in 1:length(capsule_list)){
+      for (caps in 1:length(capsule_list)){ ####!!!!!This section needs to be updated --> see the slight differences with capsule number in the capsule cloner and adrianos script
         capsule_ratios <- capsule_list[[caps]]; names(capsule_ratios) <- gsub("_ratio","",names(capsule_ratios))
         capsule_coords <- mean_worker_length_px*capsule_ratios
         ants[[i]]$addCapsule(caps, fmCapsuleCreate(c1 = c(capsule_coords["c1_x"],capsule_coords["c1_y"]), c2 = c(capsule_coords["c2_x"],capsule_coords["c2_y"]), r1 = capsule_coords["r1"], r2 = capsule_coords["r2"] ) )

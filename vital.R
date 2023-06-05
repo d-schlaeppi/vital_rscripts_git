@@ -77,6 +77,12 @@ library(data.table)   # used to save files fwrite(list(myVector), file = "myFile
 library(stringr)
 
 
+# directories
+directory_scripts <- "/home/gw20248/Documents/vital_rscripts_git/" # directory with the R scripts linked with github
+directory_data    <- '/media/gw20248/gismo_hd2/vital/fc2/'  # directory with extrapolated data and the myrmidon files
+
+
+### update the part below to access the data via a separate R script by calling source and making a differentiation between the script directory and the data directory
 
 ### read in table that contains a collection of information on the experiments and each colony, and create a data frame containing all the useful things for the myrmidon files
 setwd("/home/gw20248/Documents/vital_rscripts_git/")

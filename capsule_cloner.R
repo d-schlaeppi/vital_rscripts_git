@@ -10,10 +10,15 @@
 # The function takes as arguments 
 # a list of source myrmidon files containting the capsule definitions "capsule_source_files_list"
 # a list of destination myrmidon files which will get the new capsules
-# Note: the queens are excluded here due to the size difference and will need a separate capsul
+# a metadata table containing at least the unique identifier specific and mean ant length in pixel
+# Notes: the queens are excluded here due to the size difference and will need a separate capsule
+
 
 # for more informations go to the vital main script 
 # "https://formicidae-tracker.github.io/myrmidon/latest/index.html"
+
+# this script was written for data for which pre-processing was completed -> files should have Queen infos  overwritten (tag size, manual orientation, manual capsules).
+
 
 #### prerequisites, i.e. things required to run this function ####
 
@@ -22,10 +27,17 @@ library(FortMyrmidon) ####R bindings
 library(Rcpp) # contains sourceCpp
 library(circular) # contains circular function
 library(R.utils)
+library(reader)
+library(stringr)
 
-# set directory to where you have your myrmidon files and assosciated data 
-directory <- '/media/gw20248/gismo_hd2/vital/fc2/'
+
+directory_scripts <- "/home/gw20248/Documents/vital_rscripts_git/" # directory with the R scripts linked with github
+# set directory to where you have your myrmidon files and assosciated data
+directory_data <- '/media/gw20248/gismo_hd2/vital/fc2/'
 setwd(directory)
+
+# load the meta data dataframe 
+source(paste0(directory_scripts,"vital_meta_data.R")) # will add the meta data dataframe to your environment so it can be accessed within this script
 
 # list of myrmidon files containing the capsule definitions to be applied/cloned to the destination files (for the capsule definition you need to start with a manually oriented colony)
 # save your source myrmidon files like this: filename_CapsuleDefXX.myrmidon 
@@ -43,14 +55,18 @@ capsule_source_files_list <- lapply(capsule_source_files_list, add_directory)
 # List of remaining manually oriented files without capsules
 capsule_destination_files_list <- list.files()
 capsule_destination_files_list <- grep(capsule_destination_files_list, pattern = 'final', invert = FALSE, value = TRUE)
-add_directory <- function(filename) {# Function to add directory path to each filename
-  paste0(directory, filename)
-}
+capsule_destination_files_list <- grep(capsule_destination_files_list, pattern = 'CapsuleDef', invert = TRUE, value = TRUE)
 capsule_destination_files_list <- lapply(capsule_destination_files_list, add_directory)
 
 
+
+
 #### capsule cloner function ####
-clone_capsules <- function(capsule_source_files_list, capsule_destination_files_list) {
+# function that in step 1 will extract the information about AntPose and Capsules
+#               in step 2 will apply this information (extracted capsules) to new myrmidon files (destination files)
+###############C CHECK if this should be done as well! # then, get the corresponding queen capsule and apply it as well 
+# Step 1:
+clone_capsules <- function(capsule_source_files_list, capsule_destination_files_list, meta_data) {
   for (source_file in capsule_source_files_list){
     oriented_metadata <- NULL
     capsule_list <- list()
@@ -113,70 +129,62 @@ clone_capsules <- function(capsule_source_files_list, capsule_destination_files_
   for (caps in 1:length(capsule_list)){ # Finally, get information on each capsule
     capsule_list[[caps]] <- colMeans(capsule_list[[caps]][,which(grepl("ratio",names(capsule_list[[caps]])))])
   }
-  
-  
-  
-  # Next apply the extracted capsules to all workers of all destination files
-  # then, get the corresponding queen capsule and apply it as well 
-  # finally, save each myrmidon file before moving on to the next set of capsule definitions.
+
+  # Step 2 apply capsules to destination files
   for (destination_file in capsule_destination_files_list) {
-    tracking_data <-fmExperimentOpen(paste0(directory, destination_file))
-    for (caps in 1:length(capsule_list)) {#add the caps from the source file above
-      tracking_data$createAntShapeType(names(capsule_list)[caps])
-    }
-    ant_length_px <- 163# get mean worker length for each colony from a vector
-    queen_length_px <- y# get queen length from a vector
+    tracking_data <-fmExperimentOpen(destination_file)
+    identifier <- sub(".*_(c\\d{2}).*", "\\1", destination_file) # extract the colony identifier from the destination file
+    mean_worker_length_px <- meta_data$mean_ant_lenght_px[meta_data$colony_id == identifier]
+    queen_length_px <- NULL #update later (might be easier to just save in meta data)
     ants <- tracking_data$ants
-    for (i in 1:length(ants)) {
-      if(length(tracking_data$ants[[i]]$identifications) == 0) {
+    for (i in 1:length(ants)) { # skip potential errors due to missing ants (i.e. a lost tag that was miss-identified as an ant and then removed during manual post processing results in a missing ant-id)
+      if(length(tracking_data$ants[[i]]$identifications) == 0) { #####CHECK IF I NEED TO RUN THIS EARLIER BEFORE CLEARING CAPSULES 
         print(paste(destination_file, i, "no ant", sep = " -> "))
         next
       }
-      if (tracking_data$ants[[i]]$identifications[[1]]$tagValue==0) {next} # skip the queen  ----------- <- <- <- <- <- <- <-  here apply a different function to assign the queen? 
-      ants[[i]]$clearCapsules() # clear previous capsules 
-      if (length(tracking_data$antShapeTypeNames)>0) {# delete the capsule shapes IF PRESENT
-        for (caps in 1:length(tracking_data$antShapeTypeNames)){
-          tracking_data$deleteAntShapeType(caps)
-        }
-      }
-      
-      
-      ####### continue here!!!!!!!
-      for (caps in 1:length(capsule_list)){
-        capsule_ratios <- capsule_list[[caps]]; names(capsule_ratios) <- gsub("_ratio","",names(capsule_ratios))
-        capsule_coords <- ant_length_px*capsule_ratios
-        ants[[i]]$addCapsule(caps, fmCapsuleCreate(c1 = c(capsule_coords["c1_x"],capsule_coords["c1_y"]), c2 = c(capsule_coords["c2_x"],capsule_coords["c2_y"]), r1 = capsule_coords["r1"], r2 = capsule_coords["r2"] ) )
+      if (tracking_data$ants[[i]]$identifications[[1]]$tagValue==0) {next} # FOR NOW skip the queen  ----------- <- <- <- <- <- <- <-  here apply a different function to assign the queen? 
+      ants[[i]]$clearCapsules()  # delete/clear individuals' capsule data and capsule shapes in general (if present)
+    }
+    if (length(tracking_data$antShapeTypeNames)>0) {
+      for (caps in 1:length(tracking_data$antShapeTypeNames)){
+        tracking_data$deleteAntShapeType(caps)
       }
     }
-    tracking_data$save(paste0(substr(destination_file, 0  , nchar(destination_file)-9), substr(source_file, nchar(source_file)-21, nchar(source_file))))
-
-      }
-
-      
+    for (caps in 1:length(capsule_list)){# recreate the ant shapes in the destination file by calling and applying the new names from the source files
+      tracking_data$createAntShapeType(names(capsule_list)[caps])
     }
-    
-
+    for (i in 1:length(ants)) { # skip potential errors due to missing ants (i.e. a lost tag that was miss-identified as an ant and then removed during manual post processing results in a missing ant-id)
+      if(length(tracking_data$ants[[i]]$identifications) == 0) {
+        next
+      }
+      if (tracking_data$ants[[i]]$identifications[[1]]$tagValue==0) {next} # FOR NOW skip the queen  ----------- <- <- <- <- <- <- <-  here apply a different function to assign the queen? 
+      capsule_number <- 0
+      for (capsule_name in unlist(tracking_data$antShapeTypeNames)) {
+         capsule_number <- capsule_number +1
+         capsule_ratios <- capsule_list[[capsule_number]]; names(capsule_ratios) <- gsub("_ratio","",names(capsule_ratios))
+         capsule_coords <- mean_worker_length_px*capsule_ratios
+         ants[[i]]$addCapsule(capsule_number, fmCapsuleCreate(c1 = c(capsule_coords["c1_x"],capsule_coords["c1_y"]), c2 = c(capsule_coords["c2_x"],capsule_coords["c2_y"]), r1 = capsule_coords["r1"], r2 = capsule_coords["r2"] ) )
+      }
+    }
   }
-
-
+  # finally, save each myrmidon file before moving on to the next set of capsule definitions.
+  tracking_data$save(paste0(substr(destination_file, 0  , nchar(destination_file)-9), substr(source_file, nchar(source_file)-21, nchar(source_file))))
   
 }
 
+      
+clone_capsules(capsule_source_files_list, capsule_destination_files_list, meta_data)
+    
+# adjust vital main script to source this function!
+# and include a cloner for the queen capsule
+# ideally queen size is based on the average queen size in the dataset and then the rest scaled accordingly, so that we can define the queen in the same source file and copy it to the rest.
+# Ask adriano what he did about the queen capsule? did he just leave it away in the main script?
 
-
-
-
-
-       
-
-
-
-
-
+#### Tell adriano that there might be a slight mistake in the manuscript that he might want to correct !!!!! 
 
 
 #### queen capsule cloner ####
 
 #### run the function on your data ####
 
-clone_capsules(capsule_source_files_list, capsule_destination_files_list)
+
