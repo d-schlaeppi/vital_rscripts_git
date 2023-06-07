@@ -29,7 +29,7 @@ for(i in 1:nrow(dat)) {
   mean_ant_lenght_px    <- dat[i, "mean_ant_length_px"] # mean lenght in pixcel of the ants based on a manually oriented colony recorded with the same tracking system & setup (assuming that worker size is consistent accros colonies)
   
   # combine variables to a data frame  
-  meta_data <-  rbind(vital_meta_data, data.frame(nr,
+  meta_data <-  rbind(meta_data, data.frame            (nr,
                                                         experiment, 
                                                         colony_id,
                                                         block, 
