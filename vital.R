@@ -511,8 +511,8 @@ fwrite(list(to_orient_manually), file = paste(Sys.Date(), "",format(Sys.time(), 
    # 4 - run the code to copy queen capsules form a source file and adjust tag size of queens automatically
 
 #### 3.7 Queen capsule ####
-# not really required anymore because it is implemented within the capsule_cloner.R
 
+# not really required anymore because it is implemented within the capsule_cloner.R
 # old way of doing it: 
 # Manually create a queen capsule source file from an average sized queen - > Select the most average sized queen from your data set. (not required anymore because queens have size assigned manually anyways)
 # step 1 use the ant ruler to select the most medium size queen:
@@ -644,10 +644,10 @@ fwrite(list(to_orient_manually), file = paste(Sys.Date(), "",format(Sys.time(), 
 
 
 
-
 #### Capsule cloning for behaviour inferral ####
 
 # Step 1 Manually define different types of capsules on manually oriented source file (1 file per definition is enough, define queen and worker)
+# Safe the the myrmidon with the defined capsules in data_directory using the following structure: filename_CapsuleDefXX_source.myrmidon 
 
 # Step 2 Run the capsule_cloner function to get all the final files
 
@@ -672,6 +672,7 @@ source(paste0(directory_scripts,"capsule_cloner.R")) # this will load the code f
 
 # 1 if meta data is not loaded load it now
 source(paste0(directory_scripts,"vital_meta_data.R"))
+setwd(directory_data)
 
 # 2 get  list of all filenames (with path form directory) containting the capsule definitions
 add_directory <- function(filename) { # Function to add directory path to each filename
@@ -691,16 +692,13 @@ capsule_destination_files_list <- lapply(capsule_destination_files_list, add_dir
 # run the function 
 clone_capsules(capsule_source_files_list, capsule_destination_files_list, meta_data)
 
+# I created 9 different capsule definitions CapsuleDef00-CapsuleDef08
+# check if all the newly created files look alright with the capsule definitions look alright.
 
-#### Next steps ####
-### check if all the newly created files look alright.
-### create 6 more capsule definitions
+# doublcheck if the ant measurements used for extrapolation were alright. 
 
 
-### create the final myrmidon files for the behavior classifier
-# 
 
-# Make sure all the files have the same label structure: cXX_final_capsuleDef01.myrmidon^
 
 
 

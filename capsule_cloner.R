@@ -215,7 +215,7 @@ clone_capsules <- function(capsule_source_files_list, capsule_destination_files_
       }
     
     # finally, save each myrmidon file before moving on to the next set of capsule definitions.
-    tracking_data$save(paste0(substr(basename(destination_file), 7, nchar(basename(destination_file))-9), "_", substr(source_file, nchar(source_file)-27, nchar(source_file)-16), ".myrmidon"))
+    tracking_data$save(paste0(directory_data, substr(basename(destination_file), 0, nchar(basename(destination_file))-9), "_", substr(source_file, nchar(source_file)-27, nchar(source_file)-16), ".myrmidon"))
     print(paste0(destination_file, " -> done  ", "\U0001F60A", "\U0001F44D"))
     }
     print(paste0(source_file, " -> done  ", "\U0001F60A", "\U0001F44D"))

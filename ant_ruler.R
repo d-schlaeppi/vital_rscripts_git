@@ -21,18 +21,19 @@ library(FortMyrmidon) # R bindings
 
 # set and save working directory
 ### set directory of data and myrmidon files
-# directory <- '/media/gw20248/gismo_hd2/vital/fc2/'
-# directory <- "/home/gw20248/Documents/data_copy_for_trials/"
-directory <-  '/media/gw20248/gismo_hd5/trophy_data/' 
-setwd(directory)
+dir_data <- '/media/gw20248/gismo_hd2/vital/fc2/'
+# dir_data <- "/home/gw20248/Documents/data_copy_for_trials/"
+directory <-  '/media/gw20248/gismo_hd5/trophy_data/'
+
+setwd(dir_data)
 list.files()
 
 # List of files for which you would like the mean ant size (they need to be manually oriented because thats how the head-tail measurement is made)
 files <- list(
-  paste(directory,"trophy_01_ants_oriented_old.myrmidon",sep='')
-  # paste(dir_data,"vital_fc2_guillam_c03_DS_AntsCreated_ManuallyOriented.myrmidon",sep=''), 
-  # paste(dir_data,"vital_fc2_trojan_c27_DS_AntsCreated_ManuallyOriented.myrmidon",sep=''),
-  # paste(dir_data,"vital_fc2_prideaux_c02_DS_AntsCreated_ManuallyOriented.myrmidon",sep=''), 
+  paste(directory,"trophy_01_ants_oriented_old.myrmidon",sep=''),
+  paste(dir_data,"vital_fc2_guillam_c03_DS_AntsCreated_ManuallyOriented.myrmidon",sep=''),
+  paste(dir_data,"vital_fc2_trojan_c27_DS_AntsCreated_ManuallyOriented.myrmidon",sep=''),
+  paste(dir_data,"vital_fc2_prideaux_c02_DS_AntsCreated_ManuallyOriented.myrmidon",sep='')
   # paste(dir_data,"vital_fc2_esterhase_c02_feeding_DS_AntsCreated_ManuallyOriented.myrmidon",sep=''),
   # paste(dir_data,"vital_fc2_guillam_c12_feeding_DS_AntsCreated_ManuallyOriented.myrmidon",sep=''),
   # paste(dir_data,"vital_fc2_guillam_c27_feeding_DS_AntsCreated_ManuallyOriented.myrmidon",sep='')
@@ -40,7 +41,11 @@ files <- list(
 
 #### ANT-RULER ####
 
-output_name <- file.path(directory, paste0("Mean_ant_length_trophy_", format(Sys.time(), "%Y%m%d_%H%M"), ".txt"))
+paste(dir_data,"vital_fc2_guillam_c03_DS_AntsCreated_ManuallyOriented.myrmidon",sep='')
+
+
+output_name <- paste0(dir_data, "Mean_ant_length_doublecheck_", format(Sys.time(), "%Y%m%d_%H%M"), ".txt") #adjust based on how you want your file to be named. 
+
 for (element in files) {
   # get tracking data
   ant_measurements <- NULL
