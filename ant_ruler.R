@@ -39,6 +39,7 @@ files <- list(
   # paste(dir_data,"vital_fc2_guillam_c27_feeding_DS_AntsCreated_ManuallyOriented.myrmidon",sep='')
 )
 
+
 #### ANT-RULER ####
 
 paste(dir_data,"vital_fc2_guillam_c03_DS_AntsCreated_ManuallyOriented.myrmidon",sep='')
@@ -79,8 +80,6 @@ for (element in files) {
     write.table(table, file = output_name, append = FALSE, col.names = TRUE, row.names = FALSE, quote = TRUE, sep = ",")
   }
 }
-
-
 
 
 

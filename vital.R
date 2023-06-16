@@ -307,12 +307,13 @@ for (i in 1:nrow(data_collection)) {
     for (y in 1:length(fort_data$ants)) {
       fort_data$ants[[y]]$setValue(key="meta_ID", value = c(fort_data$ants[[y]]$identifications[[1]]$targetAntID), time = fmTimeSinceEver())
     }
-    treatment_data <- fmExperimentOpen(paste0(data_collection[i,"colony_nr"], "_f_AntsCreated.myrmidon"))     # create vector of the treated ants
+    
+    treatment_data <- fmExperimentOpen(paste0(data_collection[i,"colony_nr"], "_f_AntsCreated.myrmidon"))     # create vector of the treated ants (separately recorded, separate myrmidon file)
     treated_ants <- treatment_data$ants
     tag_value_vector <- NULL
     tag_values <- NULL
-    for (z in treated_ants) {
-      tag_values <- z$identifications[[1]]$tagValue
+    for (z in treated_ants) { #go through every ant of the separately recorded individuals
+      tag_values <- z$identifications[[1]]$tagValue #extract tag value
       tag_value_vector <- rbind(tag_value_vector, data.frame(tag_values))
     }
     ants <- fort_data$ants  # for each ant adjust the meta data if it is the queen or a treated worker
