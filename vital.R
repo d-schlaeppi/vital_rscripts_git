@@ -45,7 +45,11 @@
 # Step 3.5: Automatically orient all ants in all extrapolated data using the ant_orient express (Includes capsule generation)
 # Step 3.6: Post processing of queen meta data (Manual)
 
-# Step 4: Data analysis 
+# Step 4 Data analyses
+# Step 4.1 Define and apply different capsules for train a trophallaxis classifier
+# Step 4.2 Train behaviour (Trophallaxis) classifier using Nathalies script ant computer
+# Step 4.3 General data analyses
+
 
 ### ### ### ### ###
 ### Useful links ##
@@ -645,7 +649,7 @@ fwrite(list(to_orient_manually), file = paste(Sys.Date(), "",format(Sys.time(), 
 
 
 
-#### Capsule cloning for behaviour inferral ####
+#### 4.1 Capsule cloning for behaviour inferral ####
 
 # Step 1 Manually define different types of capsules on manually oriented source file (1 file per definition is enough, define queen and worker)
 # Safe the the myrmidon with the defined capsules in data_directory using the following structure: filename_CapsuleDefXX_source.myrmidon 
