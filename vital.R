@@ -89,7 +89,7 @@ directory_data    <- '/media/gw20248/gismo_hd2/vital/fc2/'  # directory with ext
 
 # load your meta data 
 source(paste0(directory_scripts,"vital_meta_data.R")) # will add the meta data dataframe to your environment so it can be accessed within this script
-head(meta_data)
+head(colony_metadata)
 
 
 # set working directory for the myrmidon files (before the extrapolation)
@@ -695,7 +695,7 @@ capsule_destination_files_list <- grep(capsule_destination_files_list, pattern =
 capsule_destination_files_list <- lapply(capsule_destination_files_list, add_directory)
 
 # run the function 
-clone_capsules(capsule_source_files_list, capsule_destination_files_list, meta_data)
+clone_capsules(capsule_source_files_list, capsule_destination_files_list, colony_metadata) # check if this still works because meta_data was changed to colony_metadata
 
 # I created 9 different capsule definitions CapsuleDef00-CapsuleDef08
 # check if all the newly created files look alright with the capsule definitions look alright.
@@ -703,8 +703,9 @@ clone_capsules(capsule_source_files_list, capsule_destination_files_list, meta_d
 # doublcheck if the ant measurements used for extrapolation were alright. 
 
 
+#### Base Analysis ####
 
-
+# Work line by line through EXP1_base_analysis 
 
 
 

@@ -8,9 +8,9 @@
 # source(paste0(directory_scripts,"vital_meta_data.R"))
 #"https://formicidae-tracker.github.io/myrmidon/latest/index.html"
 
-
+directory_scripts <- "/home/gw20248/Documents/vital_rscripts_git/" # directory with the R scripts linked with github
 dat <- read.csv(paste0(directory_scripts,"fc2_overview_data.csv"), header = TRUE, stringsAsFactors = F)
-meta_data <- NULL
+colony_metadata <- NULL
 for(i in 1:nrow(dat)) {
   # collect variables
   nr                    <- i
@@ -24,12 +24,13 @@ for(i in 1:nrow(dat)) {
   food_position_2       <- dat[i, "food_position_2"]
   tracking_system_main  <- dat[i, "tracking_system_main"]
   tracking_system_feeding <- dat[i, "tracking_system_feeding"]
+  time_treatment_start  <- dat[i, "treatment_starting_time"]
   annotation_start      <- dat[i, "annotation_start_time"] 
   annotation_stop       <- dat[i, "annotation_stop_time"]
   mean_ant_lenght_px    <- dat[i, "mean_ant_length_px"] # mean lenght in pixcel of the ants based on a manually oriented colony recorded with the same tracking system & setup (assuming that worker size is consistent accros colonies)
   
   # combine variables to a data frame  
-  meta_data <-  rbind(meta_data, data.frame            (nr,
+  colony_metadata <-  rbind(colony_metadata, data.frame            (nr,
                                                         experiment, 
                                                         colony_id,
                                                         block, 
@@ -40,6 +41,7 @@ for(i in 1:nrow(dat)) {
                                                         food_position_2,
                                                         tracking_system_main,
                                                         tracking_system_feeding,
+                                                        time_treatment_start,
                                                         annotation_start, 
                                                         annotation_stop,
                                                         mean_ant_lenght_px,

@@ -1,24 +1,53 @@
 rm(list = ls())
-gc()
-Sys.sleep(3)
-mallinfo::malloc.trim(0L) # forced memory cleaning after every gc() | # install in terminal: > sudo apt-get install libtcmalloc-minimal4
-                          # and in R: > install.packages("mallinfo", repos = "http://www.rforge.net/") | and run the following after gc(): > mallinfo::malloc.trim(0L)
+gc() #cleaning memory cache
+Sys.sleep(3) #Suspend execution of R expressions for a specified time interval (in sec)
+mallinfo::malloc.trim(0L)
 
-### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
-### ### ###   BASE ANALYSES ### ### ### ### ### ### ### ### ### ### ### ### ###
-### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
+# NOTE ON DIFFERENCES FROM SCIENCE 2018 PAPER:
+# period is ("pre","post"), not ("after","before")
+# treatment is ("Pathogen","Sham"), not ("pathogen","sham")
+# status is linked to size of the colony, not ("treated","untreated") ant
 
+# to do in MARCH 2023
+# - proportion_time_active
+# - average_bout_speed_pixpersec
+# total_distance_travelled_pix
 
-#### READ ME ####
-# This is Script is based on Adrianos, Tom & Nathalies Exp1_base_analysis script and got adjusted to the data structure and needs of Daniel 
+# ------------------------------------
+# DONE in NETWORK OUTPUT:
+# COLUMNS:
+# colony    colony_size x
+# treatment (two values: pathogen and control)  x
+# tag    (only include treated workers) x
+# age    x
+# status    ( replace the content of the "status" column with either "large" or "small" (rather than "treated" or "untreated") ) x
+# period    ( pre/post chunks corresponding to the same time of day should have the same value in column "time_of_day") x
+# time_hours    x
+# time_of_day x
 
-#### To Do's ####
+##############################################################################
+################### IMPORTANT THINGS TO MODIFY ###############################
 
-# work through the whole script line by line starting with directories
-# get the exact end time for each of the experiments
-# UPDATE all parts of the script that try to access BODYLENGTH_FILE by changing the code in a way that it refers to size in pixels based on colonies instead of tracking systems
+# UNIFORM Plot_Grooming_Pre-Post.R to the output of this script and the sourced functions
+# AGGREGATE SPACE USE FUNCTION FOR tag_hex_ID (we want 1 row per ant!)
 
-#### LIBRARIES #### 
+# ########### DEFINE ZONES PROPERLY - DEFINED INSIDE THE ANT TASKS FUNCTION, SHOULD DO SAME FOR NEST USE
+# #### EXPAND THIS TO EXTRACT ALL ZONES (WATER, SUGAR, ETC)
+# zones <- e$spaces[[1]]$zones #function to show the Zones present in the Space
+# zones_tab <- data.frame(ID =c(zones[[1]]$ID, zones[[2]]$ID), name=c(zones[[1]]$name, zones[[2]]$name))
+# foraging_zone <- zones_tab[which(grepl("forag",zones_tab$name)),"ID"]##fool-proofing - this way we are sure to always select the right zone
+# nest_zone <- zones_tab[which(grepl("nest",zones_tab$name)),"ID"]##fool-proofing - this way we are sure to always select the right zone
+# print(paste("Foraging zone = zone",foraging_zone, "& Nest zone = zone",nest_zone))
+
+# change window_shift to actual date? As per Grooming (new exact data info to be gathered)
+# THE EXACT DATE IS IN /home/cf19810/Documents/scriptsR/EXP1_base_analysis/Data/Grooming_Classifier_CrossVal_Adriano2022_RETURN_EXP_TIME_ZULU.csv
+
+##############################################################################
+##############################################################################
+# "https://formicidae-tracker.github.io/myrmidon/latest/index.html"
+
+##### LIBRARIES 
+#L: all installed
 library(data.table)
 library(lubridate)
 library(pals)
@@ -33,68 +62,53 @@ library(gtools)
 library(Rcpp)
 library(survival)
 
-#### starting parameters ####
+# starting params
+# USER <- "2A13_Office" # Nath_office 
+USER <- "linda"
 
-USER <- "2A13_Office_Daniel"  # Replace with the desired USER option: Nath_office, 2A13_Office_Adriano, 2A13_Office_Daniel, AEL-laptop
-HD <- "Nathalie" # alternative values "Daniel"
 
-setUserAndHD <- function(USER, HD) {
-  usr <- NULL  # Default value in case of an unrecognized USER option
-  if (USER == "Nath_office") {
-    usr <- "bzniks"
-  } else if (USER == "2A13_Office_Adriano") {
-    usr <- "cf19810"
-  } else if (USER == "2A13_Office_Daniel") {
-    usr <- "gw20248"
-  } else if (USER == "AEL-laptop") {
-    usr <- "ael"
-  }
-  if (!is.null(usr)) {print(usr)} else {print("define new user if necessary")}
-  hd <- NULL
-  if (HD == "Nathalie") {
-    hd <- "/DISK_B"
-  } else if (HD == "Daniel") {
-    hd <- "/gismo_hd5"
-  }
-  if (!is.null(hd)) {print(hd)} else {print("define new hd if necessary")}
-  assign("hd", hd, envir = .GlobalEnv)  # Assign hd to the global environment
+if (USER == "2A13_Office") {
+  usr <- "cf19810"
+} else {
+  usr <- "lsartori"
 }
-setUserAndHD(USER, HD)
-
-#### create the directories #### 
-WORKDIR <- paste("/media/",usr, hd, "/vital/fc2",sep="")
-DATADIR <- paste(WORKDIR, sep = "/")
-SAVEDIR <- paste("/media/",usr, hd,"/vital/fc2/EXP1_base_analysis/EXP_summary_data",sep="") # where to save the interactions in the same structure as for Science 2018; check adrionos guide on how to copy the structure
-INTDIR <- paste("/media/",usr, hd, "/vital/fc2/vital_experiment/main_experiment/intermediary_analysis_steps",sep="")
-BEHDIR <- paste("/media/",usr, hd, "/vital/fc2/vital_experiment/main_experiment/processed_data/individual_behaviour",sep="")
-SCRIPTDIR <- paste("/home/",usr,"/Documents/vital_rscripts_git",sep="") #SCRIPTDIR <- paste("/media/",usr, hd, "/vital/fc2/Documents/EXP1_base_analysis/EXP1_analysis_scripts", sep="")
-BEH_FUNCTIONS <-  paste(SCRIPTDIR, "/Behavioural_Inference_DS",sep="")
-
-
-#### load metadata ####
-
-source(paste0(SCRIPTDIR,"/vital_meta_data.R")) # will add colony_metadata data frame to the environment so it can be accessed within this script
-# BODYLENGTH_FILE <- paste(BEH_FUNCTIONS,"Mean_ant_length_per_TrackingSystem.txt", sep = "/")
-
-#### I am here... 
-# to do create metadata (for individuals)
-# -> modify metadata extraction script!
-
-metadata <- read.table(paste(DATADIR, "/Metadata_Exp1_2021_2023-02-27.txt", sep = ""), header = T, stringsAsFactors = F, sep = ",") # contains return time for each colony and end of experiment time! 
-
-# when creating the meta data for each ant add an additional thing to refer to the ants status 
-# metadata$status_ant <- NA
-# metadata$status_ant <-ifelse(metadata$Expose==TRUE,"treated","untreated")
-
-
-
   
+SAVEDIR <- paste("/media/",usr,"/LS_1/circadian_rhythm_2022_experiment/EXP1_base_analysis/EXP_summary_data",sep="")
+#where to save the interactions in the same structure as for Science 2018
+#I copied the folder structure from Nathalie, ideally one should create it via the terminal:
+# use the file /media/cf19810/DISK4/Lasius-Bristol_pathogen_experiment/dirs.txt
+# and in the terminal use: xargs mkdir -p < dirs.txt
+INTDIR <- paste("/media/",usr,"/LS_1/circadian_rhythm_2022_experiment/Lasius-Bristol_pathogen_experiment/main_experiment/intermediary_analysis_steps",sep="")
+BEHDIR <- paste("/media/",usr,"/LS_1/circadian_rhythm_2022_experiment/Lasius-Bristol_pathogen_experiment/main_experiment/processed_data/individual_behaviour",sep="")
+WORKDIR <- paste("/media",usr,"LS_1/circadian_rhythm_2022_experiment",sep="/")
+DATADIR <- paste(WORKDIR, "tracking", sep = "/")
+SCRIPTDIR <- paste("/media",usr,"LS_1/circadian_rhythm_2022_experiment/EXP1_base_analysis/EXP1_analysis_scripts",sep="/") # "/home/cf19810/Documents/scriptsR/EXP1_base_analysis/EXP1_analysis scripts"
+BEH_FUNCTIONS <-  paste(SCRIPTDIR,"Behavioural_Inference",sep="/")
+BODYLENGTH_FILE <- paste(BEH_FUNCTIONS,"Mean_ant_length_per_TrackingSystem.txt", sep = "/")
 
+metadata_colonies <- read.csv(paste(WORKDIR,"EXP1_base_analysis/metadata_replicates_for_R_test.csv",sep = "/"), sep = ",")
 
-  
+  ####L: update the following lines ####
+  #use the script Extract_Metadata_v082.R
+  metadata <- read.table(paste(DATADIR, "/Metadata_Exp1_2021_2023-02-27.txt", sep = ""), header = T, stringsAsFactors = F, sep = ",")
+  # metadata_info         <- read.csv(paste(DATADIR,"Grooming_Classifier_CrossVal_RETURN_EXP_TIME_ZULU_All_colonies.csv",sep = "/"), sep = ",")
 
+##metadata
+  metadata$status_ant <- NA
+  metadata$status_ant <-ifelse(metadata$Expose==TRUE,"treated","untreated")
   
-  
+# #### ACCESS FILES
+# if (USER == "Adriano") {
+#   WORKDIR <- "/media/cf19810/DISK4/ADRIANO"
+#   DATADIR <- paste(WORKDIR, "EXPERIMENT_DATA", sep = "/")
+#   SCRIPTDIR <- "/home/cf19810/Documents/scriptsR/EXP1_base_analysis/EXP1_analysis scripts"
+#   metadata <- read.table(paste(DATADIR, "/Metadata_Exp1_2021_2022-10-20.txt", sep = ""), header = T, stringsAsFactors = F, sep = ",")
+#   warning("METADATA MISSING FOR R9SS AND R9BS")
+#   BEH_FUNCTIONS <- "/home/cf19810/Documents/scriptsR/Ants_behaviour_analysis/ScriptsR"
+#   BODYLENGTH_FILE <- paste(BEH_FUNCTIONS,"Mean_ant_length_per_TrackingSystem.txt", sep = "/")
+#   metadata_info         <- read.csv(paste(DATADIR,"Grooming_Classifier_CrossVal_RETURN_EXP_TIME_ZULU_All_colonies.csv",sep = "/"), sep = ",")
+#   
+# }
 
 ### source function scripts
 print("Loading functions and libraries...")
@@ -159,7 +173,7 @@ SPACE_USE_PRE <-  file.path(BEHDIR,"pre_treatment","network_position_vs_time_out
 
 #### FLAGS
 RUN_INTERACT     <- TRUE
-RUN_SPACEUSE     <- FALSE
+RUN_SPACEUSE     <- TRUE
 RUN_NETWORKS     <- FALSE
 warning(paste("RUN_INTERACT is set to:",RUN_INTERACT,
               "\nRUN_SPACEUSE is set to:",RUN_SPACEUSE,
@@ -192,15 +206,17 @@ loop_start_time <- Sys.time()
 ###create object that will contain time limits for annotations_all (contains all annotations for all behaviour so true time limit for period analysed)
 # time_window_all        <- merge(aggregate(T_start_UNIX ~ PERIOD + REPLICATE, FUN=min, data=annotations_all),aggregate(T_stop_UNIX  ~ PERIOD + REPLICATE, FUN=max, data=annotations_all))
 # names(time_window_all) <- c("PERIOD","REPLICATE","time_start","time_stop")
-time_window_all        <- data.frame(
-  PERIOD = "all"
-  ,REPLICATE = metadata_info$REP_treat
-  ,return_time = metadata_info$ReturnExposed_time #time_start
-)
 # 
-time_window_all$return_time <- as.POSIXct(time_window_all$return_time, format = "%Y-%m-%dT%H:%M:%OSZ",  origin="1970-01-01", tz="GMT" )
-time_window_all$time_start <- time_window_all$return_time - 27*60*60 #(24h + 3h gap)
-time_window_all$time_stop  <- time_window_all$return_time + 24*60*60
+# 
+# time_window_all        <- data.frame(
+#   PERIOD = "all"
+#   ,REPLICATE = metadata_info$REP_treat
+#   ,return_time = metadata_info$ReturnExposed_time #time_start
+# )
+# # 
+# time_window_all$return_time <- as.POSIXct(time_window_all$return_time, format = "%Y-%m-%dT%H:%M:%OSZ",  origin="1970-01-01", tz="GMT" )
+# time_window_all$time_start <- time_window_all$return_time - 27*60*60 #(24h + 3h gap)
+# time_window_all$time_stop  <- time_window_all$return_time + 24*60*60
 # 
 
 #### define to_keep variables to keep clearing memory between runs
@@ -260,7 +276,7 @@ for (REP.n in 1:length(files_list)) {
     
     #####
     # end time is return time + 24h
-    exp_end <- time_window_all[which(time_window_all$REPLICATE==REP_TREAT),"return_time"] + 60*60*24 # 24h
+    # exp_end <- time_window_all[which(time_window_all$REPLICATE==REP_TREAT),"return_time"] + 60*60*24 # 24h
     #exp_end <- fmQueryGetDataInformations(e)$end - window_shift
     
 #     if (RUN_NETWORKS) {
@@ -343,17 +359,20 @@ for (REP.n in 1:length(files_list)) {
     ### PERFORM THE FULL INTERACTION AND NETWORK ANALYSIS OUTSIDE OF THE HOURLY LOOP #########################
     
     # # # Extract the minimum "From" time and maximum "To" time for each PERIOD
-    Period_windows <- data.frame(Period = c("pre","post")
-                                 , From = c(time_window_all[which(time_window_all$REPLICATE==REP_TREAT),"time_start"], #skip 3h gap
-                                            time_window_all[which(time_window_all$REPLICATE==REP_TREAT),"return_time"]
-                                 ))
-    Period_windows$To <-   Period_windows$From + 24*60*60
+    # Period_windows <- data.frame(Period = c("pre","post")
+    #                              , From = c(time_window_all[which(time_window_all$REPLICATE==REP_TREAT),"time_start"], #skip 3h gap
+    #                                         time_window_all[which(time_window_all$REPLICATE==REP_TREAT),"return_time"]
+    #                              ))
+    # Period_windows$To <-   Period_windows$From + 24*60*60
     
     
     for (PERIOD in c("pre","post")) {
-    
-      #segment the time dictionary
-      Time_dictionary_PERIOD <- Time_dictionary[which(Time_dictionary$period==PERIOD),]
+      
+      if (DAY/NIGHT){
+        #segment the time dictionary
+        Time_dictionary_PERIOD <- Time_dictionary_DAY/NIGHT[which(Time_dictionary$period==PERIOD),]
+        
+      }
       #conform naming to science2018
       # colony code
       REP_NUM           <- substring(REP_TREAT, 2, nchar(REP_TREAT))
@@ -369,9 +388,24 @@ for (REP.n in 1:length(files_list)) {
       
       # Select the full PERIOD (24h)
       cat(paste("#######","period:", PERIOD, sep= " "))
-      #time_start <- as.numeric(Period_windows[which(Period_windows$Period==PERIOD),"From"]) # time_stop minus 48 hours plus incremental time
-      time_start <- fmTimeCreate(offset = Period_windows[which(Period_windows$Period==PERIOD),"From"]) # time_stop minus 48 hours plus incremental time
-      time_stop <- fmTimeCreate(offset = Period_windows[which(Period_windows$Period==PERIOD),"To"]) # time_stop minus 45 hours plus incremental time
+      
+      if (PERIOD=="pre"){
+        ###extract start and end of pre-treatment period from metadata to define the period on which ant tasks will be determined
+        time_start <- metadata_colonies[    which   (     grepl(   unlist(  strsplit(REP.FILES,split="/"))[1] ,  metadata_colonies$treat_TS_colony   )      )     ,   "pre_start"     ]
+        time_end <- metadata_colonies[    which   (     grepl(   unlist(  strsplit(REP.FILES,split="/"))[1] ,  metadata_colonies$treat_TS_colony   )      )     ,   "middle_end"     ]
+      }else{
+        ###extract start and end of pre-treatment period from metadata to define the period on which ant tasks will be determined
+        time_start <- metadata_colonies[    which   (     grepl(   unlist(  strsplit(REP.FILES,split="/"))[1] ,  metadata_colonies$treat_TS_colony   )      )     ,   "post_start"     ]
+        time_end <- metadata_colonies[    which   (     grepl(   unlist(  strsplit(REP.FILES,split="/"))[1] ,  metadata_colonies$treat_TS_colony   )      )     ,   "post_end"     ]
+      }
+      
+      ###turn time_start and time_end from character strings to time obkects that R understands
+      time_start <- as.POSIXct(time_start, format = "%Y-%m-%dT%H:%M:%OSZ",  origin="1970-01-01", tz="GMT" )
+      time_end   <- as.POSIXct(time_end, format = "%Y-%m-%dT%H:%M:%OSZ",  origin="1970-01-01", tz="GMT" )
+      ###turn time_start and time_end from R time objects to FortMyrmidon time objects 
+      time_start <- fmTimeCreate(time_start)
+      time_end  <- fmTimeCreate(time_end)
+
       ##TEMP TIME STOP
       # warning("using tiny time window for testing")
       # time_stop <- fmTimeCreate(offset = Period_windows[which(Period_windows$Period==PERIOD),"From"] + 2*60)
@@ -402,13 +436,56 @@ for (REP.n in 1:length(files_list)) {
       Interactions$time_of_day  <- NA
       # TIME_HOURS zero is the moment of exposed ants return
       warning("interaction binning loop should be fixed as done later for the SpaceUse, see TIME_HOURS ")
-      for (TIME_HOURS in Time_dictionary$time_hours[seq(1, length(Time_dictionary$time_hours), 3)]) { ## increments by 3 hours for 48 hours
+      for (TIME_HOURS in Time_dictionary_PERIOD$time_hours) { ## increments by 3 hours for 48 hours
         
         # TIME_OF_DAY
-        TIME_OF_DAY <- Time_dictionary[which(Time_dictionary$time_hours == TIME_HOURS), "time_of_day"]
+        TIME_OF_DAY <- Time_dictionary_PERIOD[which(Time_dictionary_PERIOD$time_hours == TIME_HOURS), "time_of_day"]
+        
+        if (TIME_HOURS==-24){
+          chunk_time_start <- metadata_colonies[    which   (     grepl(   unlist(  strsplit(REP.FILES,split="/"))[1] ,  metadata_colonies$treat_TS_colony   )      )     ,   "pre_start"     ]
+          chunk_time_start <- as.POSIXct(chunk_time_start, format = "%Y-%m-%dT%H:%M:%OSZ",  origin="1970-01-01", tz="GMT" )
+          
+        }else if(TIME_HOURS==-21){
+          chunk_time_start <- metadata_colonies[    which   (     grepl(   unlist(  strsplit(REP.FILES,split="/"))[1] ,  metadata_colonies$treat_TS_colony   )      )     ,   "pre_start"     ]
+          chunk_time_start <- as.POSIXct(chunk_time_start, format = "%Y-%m-%dT%H:%M:%OSZ",  origin="1970-01-01", tz="GMT" )
+          chunk_time_start <- chunk_time_start + 3*3600 
+        }else if(TIME_HOURS==-18){
+          chunk_time_start <- metadata_colonies[    which   (     grepl(   unlist(  strsplit(REP.FILES,split="/"))[1] ,  metadata_colonies$treat_TS_colony   )      )     ,   "pre_start"     ]
+          chunk_time_start <- as.POSIXct(chunk_time_start, format = "%Y-%m-%dT%H:%M:%OSZ",  origin="1970-01-01", tz="GMT" )
+          chunk_time_start <- chunk_time_start + 6*3600 
+          
+        }else if(TIME_HOURS==-12){
+          chunk_time_start <- metadata_colonies[    which   (     grepl(   unlist(  strsplit(REP.FILES,split="/"))[1] ,  metadata_colonies$treat_TS_colony   )      )     ,   "middle_start"     ]
+          chunk_time_start <- as.POSIXct(chunk_time_start, format = "%Y-%m-%dT%H:%M:%OSZ",  origin="1970-01-01", tz="GMT" )
+          
+        }else if(TIME_HOURS==-9){
+          chunk_time_start <- metadata_colonies[    which   (     grepl(   unlist(  strsplit(REP.FILES,split="/"))[1] ,  metadata_colonies$treat_TS_colony   )      )     ,   "middle_start"     ]
+          chunk_time_start <- as.POSIXct(chunk_time_start, format = "%Y-%m-%dT%H:%M:%OSZ",  origin="1970-01-01", tz="GMT" )
+          chunk_time_start <- chunk_time_start + 3*3600 
+          
+        }else if (TIME_HOURS==-6){
+          chunk_time_start <- metadata_colonies[    which   (     grepl(   unlist(  strsplit(REP.FILES,split="/"))[1] ,  metadata_colonies$treat_TS_colony   )      )     ,   "middle_start"     ]
+          chunk_time_start <- as.POSIXct(chunk_time_start, format = "%Y-%m-%dT%H:%M:%OSZ",  origin="1970-01-01", tz="GMT" )
+          chunk_time_start <- chunk_time_start + 6*3600 
+          
+        }else if(TIME_HOURS==0){
+          chunk_time_start <- metadata_colonies[    which   (     grepl(   unlist(  strsplit(REP.FILES,split="/"))[1] ,  metadata_colonies$treat_TS_colony   )      )     ,   "post_start"     ]
+          chunk_time_start <- as.POSIXct(chunk_time_start, format = "%Y-%m-%dT%H:%M:%OSZ",  origin="1970-01-01", tz="GMT" )
+          
+        }else if(TIME_HOURS==3){
+          chunk_time_start <- metadata_colonies[    which   (     grepl(   unlist(  strsplit(REP.FILES,split="/"))[1] ,  metadata_colonies$treat_TS_colony   )      )     ,   "post_start"     ]
+          chunk_time_start <- as.POSIXct(chunk_time_start, format = "%Y-%m-%dT%H:%M:%OSZ",  origin="1970-01-01", tz="GMT" )
+          chunk_time_start <- chunk_time_start + 3*3600      
+        }else if(TIME_HOURS==6){
+          chunk_time_start <- metadata_colonies[    which   (     grepl(   unlist(  strsplit(REP.FILES,split="/"))[1] ,  metadata_colonies$treat_TS_colony   )      )     ,   "post_start"     ]
+          chunk_time_start <- as.POSIXct(chunk_time_start, format = "%Y-%m-%dT%H:%M:%OSZ",  origin="1970-01-01", tz="GMT" )
+          chunk_time_start <- chunk_time_start + 6*3600 
+        }
+        chunk_time_stop <- chunk_time_start + 3*3600     
+        
         #time windows
-        From_TIME_HOURS <- as.numeric((time_window_all[time_window_all$REPLICATE==REP_TREAT,"time_stop"] + (TIME_HOURS - 24) * TimeWind),N_DECIMALS)
-        To_TIME_HOURS <- as.numeric((time_window_all[time_window_all$REPLICATE==REP_TREAT,"time_stop"] + (TIME_HOURS - 21) * TimeWind),N_DECIMALS)
+        From_TIME_HOURS <- as.numeric(chunk_time_start,3)
+        To_TIME_HOURS <- as.numeric(chunk_time_stop,3)
         
         #assing time labels
         Interactions[which(Interactions$Starttime >= From_TIME_HOURS & Interactions$Starttime <= To_TIME_HOURS),"time_hours"]   <- TIME_HOURS
@@ -425,7 +502,7 @@ for (REP.n in 1:length(files_list)) {
       #"REP_treat","period","ant1.zones","ant2.zones","duration"
       Interactions <- Interactions[,c("Tag1","Tag2","Startframe","Stopframe","Starttime","Stoptime","Box","Xcoor1","Ycoor1","Angle1","Xcoor2","Ycoor2","Angle2","Direction","Detections","time_hours","time_of_day","colony","treatment","REP_treat","period","ant1.zones","ant2.zones","duration")]
       # remove extra -3h gap leftovers (few mins)
-      Interactions <- Interactions[which(Interactions$time_hours!=-3),] 
+      Interactions <- Interactions[which(Interactions$time_hours%in%Time_dictionary_PERIOD$time_hours),] 
       ## Interactions save (saved INSIDE the Network_analysis folder)
       #if (file.exists(INTERACTIONS_FULL)) {
       #  write.table(Interactions, file = INTERACTIONS_FULL, append = T, col.names = F, row.names = F, quote = F, sep = ",")
@@ -470,7 +547,7 @@ for (REP.n in 1:length(files_list)) {
                 \n -parallelisation of ant computation greatly improve speed. Before parallelisation of SpaceUse calculations: 2.1 sec per ant per 3h chunk (70h), after 0.21 sec with 10 cores. this includes only the summary stats computations (traj stitching excluded)")
         SpaceUse_loop_start_time <- Sys.time()
         # TIME_HOURS zero is the moment of exposed ants return
-        for (TIME_HOURS in Time_dictionary_PERIOD$time_hours[seq(1, length(Time_dictionary_PERIOD$time_hours), 3)]) { ## increments by 3 hours for 48 hours
+        for (TIME_HOURS in Time_dictionary_PERIOD$time_hours) { ## increments by 3 hours for 48 hours
           
           # TIME_OF_DAY
           TIME_OF_DAY <- Time_dictionary[which(Time_dictionary$time_hours == TIME_HOURS), "time_of_day"]
@@ -480,9 +557,9 @@ for (REP.n in 1:length(files_list)) {
                       }else{
                         print(paste("TIME_HOURS", TIME_HOURS,"TIME_OF_DAY", TIME_OF_DAY,"PERIOD",PERIOD,sep=" "))
                         
-          #time windows
-          time_start_h <- fmTimeCreate(offset = (time_window_all[time_window_all$REPLICATE==REP_TREAT,"time_stop"] + (TIME_HOURS - 24) * TimeWind)) # time_stop minus 48 hours plus incremental time
-          time_stop_h  <- fmTimeCreate(offset = (time_window_all[time_window_all$REPLICATE==REP_TREAT,"time_stop"] + (TIME_HOURS - 21) * TimeWind)) # time_stop minus 45 hours plus incremental time
+          #time windows LINDA REDEFINE AS ABOVE WITH THE NASTY SERIES OF IF STATEMENTS
+          chunk_time_start <- fmTimeCreate(offset = (time_window_all[time_window_all$REPLICATE==REP_TREAT,"time_stop"] + (TIME_HOURS - 24) * TimeWind)) # time_stop minus 48 hours plus incremental time
+          chunk_time_stop  <- fmTimeCreate(offset = (time_window_all[time_window_all$REPLICATE==REP_TREAT,"time_stop"] + (TIME_HOURS - 21) * TimeWind)) # time_stop minus 45 hours plus incremental time
           ##TEMP TIME STOP
           # warning("using tiny time window for testing")
           #time_stop_h <-  fmTimeCreate(offset = (time_window_all[time_window_all$REPLICATE==REP_TREAT,"time_stop"] + (TIME_HOURS - 24) * TimeWind + 40*60) ) 
@@ -490,7 +567,7 @@ for (REP.n in 1:length(files_list)) {
          
           ############ SPACE USE ##########################
           # SPACE USAGE
-          SpaceUsage <- SpaceUse(e = e, start = time_start_h, end = time_stop_h)
+          SpaceUsage <- SpaceUse(e = e, start = chunk_time_start, end = chunk_time_stop)
           
           SpaceUsage <- dplyr::left_join(SpaceUsage, metadata[which(metadata$REP_treat==REP_TREAT),c("status_ant", "antID","IsAlive")], by = "antID") # Apply left_join dplyr function
           colnames(SpaceUsage)[which(colnames(SpaceUsage)=="antID")] <- "tag"

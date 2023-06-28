@@ -1,0 +1,247 @@
+# Metadata extraction file
+rm(list=ls())
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+### METADATA EXTRACTION FROM MYRMIDON FILES ADJUSTED FOR DANIEL ### ### ### ### ###
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+ 
+# Run this to extract ant metadata from all your myrmidon files of interest to create the metadata table required for the rest of the analysis
+# It will create a file as an output that is saved into your data directory so it can be accessed in EXP1_base_analysis_DS.R
+
+#### TO DO ####
+
+# Get all the information needed to identify the ants that were feeders 
+
+#### LIBRARIES ####
+library(FortMyrmidon) #R bindings
+library(mallinfo)
+library(MALDIquant)
+
+#### Directories ####
+USER <- "2A13_Office_Daniel"  # Replace with the desired USER option: Nath_office, 2A13_Office_Adriano, 2A13_Office_Daniel, AEL-laptop
+HD <- "Nathalie" # alternative values "Daniel"
+setUserAndHD <- function(USER, HD) {
+  usr <- NULL  # Default value in case of an unrecognized USER option
+  if (USER == "Nath_office") {
+    usr <- "bzniks"
+  } else if (USER == "2A13_Office_Adriano") {
+    usr <- "cf19810"
+  } else if (USER == "2A13_Office_Daniel") {
+    usr <- "gw20248"
+  } else if (USER == "AEL-laptop") {
+    usr <- "ael"
+  }
+  if (!is.null(usr)) {print(usr)} else {print("define new user if necessary")}
+  assign("usr", usr, envir = .GlobalEnv)
+  hd <- NULL
+  if (HD == "Nathalie") {
+    hd <- "/DISK_B"
+  } else if (HD == "Daniel") {
+    hd <- "/gismo_hd5"
+  }
+  if (!is.null(hd)) {print(hd)} else {print("define new hd if necessary")}
+  assign("hd", hd, envir = .GlobalEnv)  # Assign hd to the global environment
+}
+setUserAndHD(USER, HD)
+
+
+#### create the directories #### 
+WORKDIR <- paste("/media/",usr, hd, "/vital/fc2",sep="")
+DATADIR <- paste(WORKDIR, sep = "/")
+SAVEDIR <- paste("/media/",usr, hd,"/vital/fc2/EXP1_base_analysis/EXP_summary_data",sep="") # where to save the interactions in the same structure as for Science 2018; check adrionos guide on how to copy the structure
+INTDIR <- paste("/media/",usr, hd, "/vital/fc2/vital_experiment/main_experiment/intermediary_analysis_steps",sep="")
+BEHDIR <- paste("/media/",usr, hd, "/vital/fc2/vital_experiment/main_experiment/processed_data/individual_behaviour",sep="")
+SCRIPTDIR <- paste("/home/",usr,"/Documents/vital_rscripts_git",sep="") #SCRIPTDIR <- paste("/media/",usr, hd, "/vital/fc2/Documents/EXP1_base_analysis/EXP1_analysis_scripts", sep="")
+BEH_FUNCTIONS <-  paste(SCRIPTDIR, "/Behavioural_Inference_DS",sep="")
+
+#### Required ressources ####
+FRAME_RATE <- 6
+source(paste0(SCRIPTDIR,"/vital_meta_data.R")) # will add colony_metadata data frame to the environment so it can be accessed within this and other script
+source(paste(BEH_FUNCTIONS,"trajectory_extraction.R",sep="/")) # Ant Tasks to define functions
+source(paste(SCRIPTDIR,"AntTasks_v082_DS.R",sep="/"))
+
+Metadata_Exp1 <- file.path(DATADIR, paste0("Metadata_vital_", Sys.Date(), ".txt")) # define an output file path
+
+
+
+head(colony_metadata)
+
+
+
+
+#### List of myrmidon files ####
+
+# create a list off all myrmidon files for which you want the worker metadata
+setwd(DATADIR)
+# 2 get  list of all filenames (with path form directory) containting the capsule definitions
+add_directory <- function(filename) { # Function to add directory path to each filename
+  paste0(DATADIR,"/", filename)
+}
+meta_files <- list.files()
+meta_files <- grep(meta_files, pattern = 'final', invert = FALSE, value = TRUE) 
+meta_files <- grep(meta_files, pattern = 'CapsuleDef', invert = TRUE, value = TRUE) 
+meta_files <- lapply(meta_files, add_directory)
+
+file <- meta_files[[1]] #remove later
+
+####  Define food source and bead_color for each of the treated ants at some stage (some help might be found in the whatever script)
+
+#### Define GET METADATA FUNCTION ####
+get_metadata <- function() {
+  print(file)
+  e <- fmExperimentOpen(file)  #open experiment
+  exp.Ants  <- e$ants
+  
+  # exp_end   <- fmQueryGetDataInformations(e)$end # will load time when the tracking was stopped  -> might be better to use end time of colony_metadata instead
+  # exp_start <- fmQueryGetDataInformations(e)$start # will load time when tracking was started (likely incl acclimatization) -> might be better to use an official start time instead?
+ 
+  # COMPUTE THE ANT TASKS
+  print(paste0("Computing Ant Tasks and Zone Uses for", file))
+  AntTasks <- AntTasks_DS(e=e, file=file)
+  
+  # CREATE BASE FILE
+  metadata <- NULL
+  for (ant in exp.Ants){
+    for (id in ant$identifications){
+      metadata <- rbind(metadata,data.frame(colony_id        = colony_id,
+                                            treatment        = treatment,
+                                            treatment_simple = treatment_simple,
+                                            antID            = ant$ID,
+                                            tagIDdecimal     = id$tagValue,
+                                            tagID            = sprintf("0x%03x", id$tagValue),
+                                            identifStart     = capture.output(print(id$start)), 
+                                            identifEnd       = capture.output(print(id$end)), 
+                                            AntTask1perc     = AntTasks[which(AntTasks$antID==ant$ID),"AntTask"],
+                                            prop_time_outside= round(AntTasks[which(AntTasks$antID==ant$ID),"prop_time_outside"],3),
+                                            box              = e$spaces[[1]]$name, # tracking system
+                                            stringsAsFactors = F))
+      }
+    }
+  metadata[grepl("∞", metadata$identifEnd),"identifEnd"] <- NA
+  metadata[grepl("∞", metadata$identifStart),"identifStart"] <- NA
+  metadata$identifEnd <- as.POSIXct( metadata$identifEnd , format = "%Y-%m-%dT%H:%M:%OSZ",  origin="1970-01-01", tz="GMT" )   #transform time in GMT
+  #colony-wide metadata
+  metadata$colony_size <- length(unique(metadata$antID))
+  
+  #empty metadata columns
+  metadata$comment     <- NA
+  metadata$IsTreated   <- NA # if an ant got selected as a feeder
+  metadata$IsAlive     <- NA 
+  metadata$IsQueen     <- NA 
+  metadata$surviv_time <- NA # time of death or end of exp
+  metadata$position    <- NA # if an ant was a feeder on which position was it feeding  
+  metadata$food_source <- NA # if an ant was a feeder - what food did it get "virus" or "control" (ants from control treatments will always have control and for the virus treatment half of the treated ants will have virus and the other half control)
+  metadata$bead_colour <- NA # if an ant was a feeder - what colour were the beads that were in its food source
+  metadata$feeding_duration  <- NA # if an ant was a feeder - how long was it feeding for
+  metadata$feeding_exclusion <- NA # some ants drowned themselves or similar and were no longer responsive afterwards and should thus be excluded for the Analyses "TRUE" if the ant is to be excluded, else set as "FALSE" which is the default for ants that are feeding
+  
+  # Fill empty columns: METADATA KEYS AND VALUES to be assigned to the empty columns
+  list_keys <- list() 
+  for (KEY in   1:length(e$metaDataKeys)) { # create a list that contains all the meta data keys from the fort-myrmidon file
+    key <- names(e$metaDataKeys[KEY])
+    list_keys <- c(list_keys,key)
+  }
+  
+  
+   #### CONTINUE HERE WITH THE SCRIPT AND THE META DATA STUFF
+  # assign metadata values 
+  for (ant in exp.Ants){
+    individual  <- ant$ID
+    #extract metadata info per key
+    for (METADATA_KEY in list_keys) {
+      #for more than one row, always last row will be picked (the relevant one if there is a timed change or the default one if there is not)
+      for(ROW in 1:nrow(ant$getValues(METADATA_KEY))) {
+        #assign metadata_key value when ID corresponds
+        metadata[which(metadata$antID==ant$ID),METADATA_KEY] <- ant$getValues(METADATA_KEY)[ROW,"values"]
+        #if the ant died
+        if (METADATA_KEY=="IsAlive") {
+          if (ant$getValues("IsAlive")[ROW,"values"]==FALSE) {
+            metadata[which(metadata$antID==ant$ID),"surviv_time"] <- ant$getValues("IsAlive")[ROW,"times"]
+            # if didn't die    
+          }else if (ant$getValues("IsAlive")[ROW,"values"]==TRUE) {
+            metadata[which(metadata$antID==ant$ID),"surviv_time"] <- as.POSIXct( exp_end,format = "%Y-%m-%d %H:%M:%OS",  origin="1970-01-01", tz="GMT" )
+          }} # IsAlive check
+      } # ROW
+    } #METADATA_KEY
+  }#ant
+  
+  metadata$surviv_time <- as.POSIXct(metadata$surviv_time, origin="1970-01-01", tz="GMT") #transform times into objects the 
+  
+  # N_exposed in the colony
+  metadata$N_treated <- sum(metadata$IsTreated) # eventually add number of feeders for each food source with and without excluder (but this can also be done at a later stage)
+  
+  #### HERE OR PROBABLY IN THE LOOP ABOVE WE NEED TO INCLUDE THE INDIVIDUAL INFORATION ON THE FEEDERS (WHERE WHEN WHAT)
+
+  
+  
+  #add relevant times
+  for (time in c("exp_start","exp_end","pre_start","pre_end","middle_start","middle_end","post_start","post_end")){
+    metadata[,time]  <-    as.POSIXct( metadata_colonies[    which   (     grepl(   unlist(  strsplit(REP.FILES,split="/"))[1] ,  metadata_colonies$treat_TS_colony   )      )     ,   time     ], format = "%Y-%m-%dT%H:%M:%OSZ",  origin="1970-01-01", tz="GMT" )
+    attr(metadata[,time],"tzone") <- "GMT"
+    
+  }  
+  
+  
+  
+  
+  # save
+  if (file.exists(Metadata_Exp1)){
+    write.table(metadata,file=Metadata_Exp1,append=T,col.names=F,row.names=F,quote=T,sep=",")
+  }else{
+    write.table(metadata,file=Metadata_Exp1,append=F,col.names=T,row.names=F,quote=T,sep=",")
+  }
+  gc()
+  #remove experiment and all
+  #clean up
+  rm(list=ls()[which(!ls()%in%c("REP.folder","REP.files","REP.filefolder","files_list","Metadata_Exp1","SCRIPTDIR","WORKDIR","DATADIR","list.dirs.depth.n","AntTasks"))]) #close experiment 
+  ### make sure that this is also adjusted to the needs of Daniel 
+  ### and make sure that the forced cleaning in the ANTTASK FUNCTION DOES NOT DELETE TOO MANY THINGS? 
+}# get metadata
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#### Run function ####
+
+# loop it for each file... 
+
+# for each file get some information replicate file
+for (file in meta_files) {
+  colony_id <- sub(".*/final_(c\\d{2})\\.myrmidon", "\\1", file) # get unique colony identifier (Adriano had Rep_name)
+  treatment <- colony_metadata[which (grepl(paste0(colony_id) ,colony_metadata$colony_id)), "treatment" ]# get treatment from meta data table (Adriano had Rap_treatment)
+  treatment_simple <- colony_metadata[which (grepl(paste0(colony_id) ,colony_metadata$colony_id)), "treatment_simple" ] #Adriano had Rep_ts
+  tracking_system_main <- colony_metadata[which (grepl(paste0(colony_id) ,colony_metadata$colony_id)), "tracking_system_main" ]# get tracking system from meta data 
+  tracking_system_feeding <- colony_metadata[which (grepl(paste0(colony_id) ,colony_metadata$colony_id)), "tracking_system_feeding" ]
+  # check if the metadata file exists and if the colony has already been recorded: 
+  if(file.exists(file.path(Metadata_Exp1))) { 
+    metadata_present <- read.table(file.path(Metadata_Exp1),header=T,stringsAsFactors = F, sep=",")
+    if (colony_id %in% unique(metadata_present$colony_id)) {
+      print(paste0(colony_id," already present in metadata, skip"))
+    } else {
+      get_metadata() # if not present run the get_metadata() function 
+    }
+  } else {
+    get_metadata() # if the file does not exist yet run the get_metadata() function 
+  }
+} 
+
+
+
+
+
+
+
+      
+
+
+
