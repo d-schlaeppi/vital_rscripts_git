@@ -3,9 +3,12 @@
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
 
 #### READ ME ####
+
 # Quick script to read in some of the essential data from the vital tracking experiment and safe it in a data frame to be accessed in other scripts
+# you will get a dataframe containing a row for each colony from the vital tracking tracking experiment
+
 # to load the data frame in another script just run the following line 
-# source(paste0(directory_scripts,"vital_meta_data.R"))
+# source(paste0(directory,"vital_meta_data.R"))
 #"https://formicidae-tracker.github.io/myrmidon/latest/index.html"
 
 directory_scripts <- "/home/gw20248/Documents/vital_rscripts_git/" # directory with the R scripts linked with github
@@ -48,4 +51,4 @@ for(i in 1:nrow(dat)) {
                                                         stringsAsFactors = F))
 }
 
-# eventually to be updated with the complete meta data as adriano did with ant individual level data
+

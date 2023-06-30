@@ -59,6 +59,7 @@ merge_trajectory_segments <- function(positions,IF_frames){
   return(new_positions)
 }
 
+
 extract_trajectories <- function (e, start ,end , maximumGap ,computeZones=TRUE,showProgress = FALSE, IF_frames){
   ###to avoid crashes, perform queries by chunks of 12 hours
   absolute_end   <- end ###store the absolute end time so we know when to end
@@ -73,9 +74,31 @@ extract_trajectories <- function (e, start ,end , maximumGap ,computeZones=TRUE,
   # last_extracted_frame <-NA
   ###while extraction is not complete, keep querying for 12 hours segments
   while (!extraction_complete){
+    
+    #########################################3
+    # if (!is.unsorted(as.numeric(IF_frames$time))) {
+    #   print("The vector is sorted")
+    # } else {
+    #   print("The vector is not sorted") # The vector is not sorted
+    # }
+    # 
+    # if (anyNA(as.numeric(IF_frames$time))) {
+    #   print("The vector contains NAs")
+    # } else {
+    #   print("The vector does not contains NAs")
+    # }
+    # 
+    # time_vector <- as.numeric(IF_frames$time)
+    # is_sorted <- time_vector == sort(time_vector)
+    # not_sorted_elements <- which(!is_sorted)
+    # time_vector[not_sorted_elements]
+    # time_vector[6854:6859]
+    # IF_frames[6853:6860,]
+    ###################################################
+    
     ###get IF_frames for start and end
     frame_start <-   IF_frames[ match.closest(x = as.numeric(as.POSIXct(capture.output(print(start)), format = "%Y-%m-%dT%H:%M:%OSZ",  origin="1970-01-01", tz="GMT" )), table = as.numeric(IF_frames$time)),"frame_num"]
-    frame_end   <-   IF_frames[ match.closest(x = as.numeric(as.POSIXct(capture.output(print(end)), format = "%Y-%m-%dT%H:%M:%OSZ",  origin="1970-01-01", tz="GMT" )), table = as.numeric(IF_frames$time)),"frame_num"]
+    frame_end   <-   IF_frames[ match.closest(x = as.numeric(as.POSIXct(capture.output(print(  end)), format = "%Y-%m-%dT%H:%M:%OSZ",  origin="1970-01-01", tz="GMT" )), table = as.numeric(IF_frames$time)),"frame_num"]
     
     ###test if remaining time is superior to 12 hours
     if (as.numeric(as.POSIXct(capture.output(print(end)), format = "%Y-%m-%dT%H:%M:%OSZ",  origin="1970-01-01", tz="GMT" ) ) -   as.numeric(as.POSIXct(capture.output(print(start)), format = "%Y-%m-%dT%H:%M:%OSZ",  origin="1970-01-01", tz="GMT" ) ) > 6 * 60 * 60){

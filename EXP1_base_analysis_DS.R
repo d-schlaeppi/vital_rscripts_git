@@ -72,16 +72,15 @@ BEH_FUNCTIONS <-  paste(SCRIPTDIR, "/Behavioural_Inference_DS",sep="")
 
 
 #### load metadata ####
-
 source(paste0(SCRIPTDIR,"/vital_meta_data.R")) # will add colony_metadata data frame to the environment so it can be accessed within this script
+
 # BODYLENGTH_FILE <- paste(BEH_FUNCTIONS,"Mean_ant_length_per_TrackingSystem.txt", sep = "/")
 
-#### I am here... 
-# to do create metadata (for individuals)
-# -> modify metadata extraction script!
+
 
 metadata <- read.table(paste(DATADIR, "/Metadata_Exp1_2021_2023-02-27.txt", sep = ""), header = T, stringsAsFactors = F, sep = ",") # contains return time for each colony and end of experiment time! 
 
+#### Run only 
 # when creating the meta data for each ant add an additional thing to refer to the ants status 
 # metadata$status_ant <- NA
 # metadata$status_ant <-ifelse(metadata$Expose==TRUE,"treated","untreated")

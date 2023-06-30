@@ -15,6 +15,10 @@
 
 # Note colony_metadata should be loaded. however that should already be the case as it was loaded in extract_metadata
 
+# 
+# file <- "/media/gw20248/DISK_B/vital/fc2/final_c03.myrmidon"
+# e <- fmExperimentOpen(file)  
+
 AntTasks_DS <- function(e, file){
   print(paste0("Computing AntTasks based on 24h time-window before exposure for", file)) # in my case I always removed ants for the feeding treatment at 09:00 and thus ant task is calculated for the 24h windo before that
   #access zones: 1 = nest and 2 = arena  (Could be expanded to other EXPAND THIS TO EXTRACT ALL ZONES (WATER, SUGAR, ETC)
@@ -41,7 +45,7 @@ AntTasks_DS <- function(e, file){
   time_treatment_start <- colony_metadata[which (grepl(paste0(colony_id) ,colony_metadata$colony_id)), "time_treatment_start" ] # get treatment start time 
   time_treatment_start <- as.POSIXct(time_treatment_start, format = "%Y-%m-%dT%H:%M:%OSZ",  origin="1970-01-01", tz="GMT" ) # transform it into time R understands
   # time_exp_end <- time_treatment_start + 3*3600
-  time_start_taskdef <- time_treatment_start -24*3600 # get the start time for the task definition 24 h before the treatment (after acclimatization period)
+  time_start_taskdef <- time_treatment_start -26*3600 # get the start time for the task definition 24 h before the treatment (after acclimatization period)
   time_stop_taskdef <- time_treatment_start -2*3600 # get the stop for time for task definition (just before workers get removed for treatment)
   # transform back into time objects for FortMyrmidon
   time_start <- fmTimeCreate(time_start_taskdef)
@@ -50,8 +54,14 @@ AntTasks_DS <- function(e, file){
   # get information on frames
   IdentifyFrames      <- fmQueryIdentifyFrames(e,start=time_start, end=time_end,showProgress = FALSE)
   IF_frames           <- IdentifyFrames$frames
+  IF_frames           <- IF_frames[order(IF_frames$time), ] ####### I Inserted this line because for some reason there were issues with the ordering of the object created by fmQueryIdentifyFrames... times not strictly increasing...
   IF_frames$frame_num <- as.numeric(seq.int(nrow(IF_frames))) # Assign a frame to each time since start and use it as baseline for all matching and computation
   IF_frames$time_sec <- round(as.numeric(IF_frames$time),3) # assign a time in sec to match annotation time (UNIX hard to use for class mismatch)
+  
+  ##########################################
+  # IF_frames$time_mili <-  format(IF_frames$time, "%Y-%m-%d %H:%M:%OS3")
+  # IF_frames[6853:6860,]
+  ##########################################
   
   # extract trajectories in the selected time period (for me 22h) using Nathalie's function
   positions <- extract_trajectories(e = e,
@@ -112,14 +122,12 @@ AntTasks_DS <- function(e, file){
   AntTasks <- AntTasks[order(AntTasks$antID),]
   AntTasks <- merge(AntTasks,AntID_list,all.x=T) 
   
-  rm(list=ls()[which(!ls()%in%c("positions_summaries_list","positions_SUMS","e","foraging_zone","AntID_list","AntTasks"))]) #close experiment
+  rm(list=ls()[which(!ls()%in%c("positions_summaries_list","positions_SUMS","e","foraging_zone","AntID_list","AntTasks", "colony_metadata", "WORKDIR", "DATADIR", "SCRIPTDIR", "metadata_feeders", "meta_files","Metadata_Exp1", "ants_to_check"))]) #close experiment
   gc()
   mallinfo::malloc.trim(0L)
-  
-  return(AntTasks)  ##RETURN OUTPUT
+  return(AntTasks)  # return output
   
 } 
-
 
 
 
