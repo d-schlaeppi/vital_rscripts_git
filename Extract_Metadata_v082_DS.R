@@ -9,7 +9,11 @@ rm(list=ls())
 # It will create a file as an output that is saved into your data directory so it can be accessed in EXP1_base_analysis_DS.R
 
 #### TO DO ####
-
+# Currently c29 which is the trophallaxis colony is not included. 
+# Maybe adjust its post processing according to the other files (i.e. the same meta data)
+# After finishing this current run check the generated meta_data file and ants_to_check before continuing! !!!!!!!
+# Safe ants to check somewhere. 
+# continue exp1 base analysis script
 
 #### LIBRARIES ####
 {
@@ -67,7 +71,7 @@ source(paste0(SCRIPTDIR,"/vital_metadata_feeders.R")) # will add metadata for th
 source(paste(BEH_FUNCTIONS,"trajectory_extraction.R",sep="/")) # Ant Tasks to define functions
 source(paste(SCRIPTDIR,"AntTasks_v082_DS.R",sep="/"))
 Metadata_Exp1 <- file.path(DATADIR, paste0("Metadata_vital_", Sys.Date(), ".txt")) # define an output file path
-ants_to_check <- data.frame(antID = character(), unique_ant_id = character(), filename = character(), stringsAsFactors = FALSE)
+ants_to_check <- data.frame(antID = character(), unique_ant_ID = character(),  filename = character(), stringsAsFactors = FALSE)
 
 
 
@@ -84,6 +88,7 @@ ants_to_check <- data.frame(antID = character(), unique_ant_id = character(), fi
   meta_files <- list.files()
   meta_files <- grep(meta_files, pattern = 'final', invert = FALSE, value = TRUE) 
   meta_files <- grep(meta_files, pattern = 'CapsuleDef', invert = TRUE, value = TRUE) 
+  meta_files <- grep(meta_files, pattern = 'c29', invert = TRUE, value = TRUE)
   meta_files <- lapply(meta_files, add_directory)
 
 }
@@ -168,12 +173,12 @@ get_metadata <- function() {
     print(missing_ants)
     # ants_to_check <- c(ants_to_check, paste("Missing ant:", missing_ants, "in file:", file)) # break got replaced 
     for (i in 1:length(missing_ants)) {
-      ants_to_check <- rbind(ants_to_check, data.frame(antID = missing_ants[i], unique_ant_id = metadata$unique_ant_ID[metadata$tagID == missing_ants[i]], filename = file))
+      ants_to_check <- rbind(ants_to_check, data.frame(antID = missing_ants[i], unique_ant_ID = paste(colony_id, missing_ants[i], sep="_") , filename = file)) 
     }
-    
   } else {
     print(paste0("All treated ants in metadata occur in metadata_feeders ", "\U0001F44D"))
   }
+  
   
   is_treated <- logical(nrow(colony_feeders)) # Create a logical vector to store the results
   missing_ants <- NULL
@@ -190,7 +195,7 @@ get_metadata <- function() {
     print(missing_ants)
     # ants_to_check <- c(ants_to_check, paste("Missing ant:", missing_ants, "in file:", file)) # break got replaced
     for (i in 1:length(missing_ants)) {
-      ants_to_check <- rbind(ants_to_check, data.frame(antID = missing_ants[i], unique_ant_id = metadata$unique_ant_ID[metadata$tagID == missing_ants[i]], filename = file))
+      ants_to_check <- rbind(ants_to_check, data.frame(antID = missing_ants[i], unique_ant_ID = paste(colony_id, missing_ants[i], sep="_") , filename = file)) 
     }
   } else {
     print(paste0("All ants in colony_feeders have IsTreated = TRUE in metadata. ", "\U0001F44D"))
@@ -202,7 +207,7 @@ get_metadata <- function() {
       metadata$surviv_time[i] <- as.POSIXct( time_treatment_start, format = "%Y-%m-%dT%H:%M:%OSZ",  origin="1970-01-01", tz="GMT")+3*3600
     }
     if (metadata$IsTreated[i] == TRUE) {
-      if (metadata$unique_ant_ID[i] %in% ants_to_check$unique_ant_id) {
+      if (metadata$unique_ant_ID[i] %in% ants_to_check$unique_ant_ID) {
         next  # Skip the current iteration of the loop
       }
       metadata$status_ant[i] <- "treated"
@@ -227,6 +232,7 @@ get_metadata <- function() {
   gc()
   #clean up
   rm(list=ls()[which(!ls()%in%c("meta_files","colony_metadata","metadata_feeders","Metadata_Exp1","SCRIPTDIR","WORKDIR","DATADIR","AntTasks", "ants_to_check"))]) 
+  return(ants_to_check) 
 }
 
 
