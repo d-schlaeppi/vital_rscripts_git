@@ -71,7 +71,9 @@ source(paste0(SCRIPTDIR,"/vital_metadata_feeders.R")) # will add metadata for th
 source(paste(BEH_FUNCTIONS,"trajectory_extraction.R",sep="/")) # Ant Tasks to define functions
 source(paste(SCRIPTDIR,"AntTasks_v082_DS.R",sep="/"))
 Metadata_Exp1 <- file.path(DATADIR, paste0("Metadata_vital_", Sys.Date(), ".txt")) # define an output file path
-ants_to_check <- data.frame(antID = character(), unique_ant_ID = character(),  filename = character(), stringsAsFactors = FALSE)
+ants_to_check <- data.frame(antID = character(), unique_ant_ID = character(), filename = character(), stringsAsFactors = FALSE)
+
+
 
 
 
@@ -90,7 +92,7 @@ ants_to_check <- data.frame(antID = character(), unique_ant_ID = character(),  f
   meta_files <- grep(meta_files, pattern = 'CapsuleDef', invert = TRUE, value = TRUE) 
   meta_files <- grep(meta_files, pattern = 'c29', invert = TRUE, value = TRUE)
   meta_files <- lapply(meta_files, add_directory)
-
+  #meta_files <- meta_files[c(12, 17)]
 }
 
 #### Define GET METADATA FUNCTION ####
@@ -173,7 +175,7 @@ get_metadata <- function() {
     print(missing_ants)
     # ants_to_check <- c(ants_to_check, paste("Missing ant:", missing_ants, "in file:", file)) # break got replaced 
     for (i in 1:length(missing_ants)) {
-      ants_to_check <- rbind(ants_to_check, data.frame(antID = missing_ants[i], unique_ant_ID = paste(colony_id, missing_ants[i], sep="_") , filename = file)) 
+      ants_to_check <<- rbind(ants_to_check, data.frame(antID = missing_ants[i], unique_ant_ID = paste(colony_id, missing_ants[i], sep="_") , filename = file)) 
     }
   } else {
     print(paste0("All treated ants in metadata occur in metadata_feeders ", "\U0001F44D"))
@@ -195,7 +197,7 @@ get_metadata <- function() {
     print(missing_ants)
     # ants_to_check <- c(ants_to_check, paste("Missing ant:", missing_ants, "in file:", file)) # break got replaced
     for (i in 1:length(missing_ants)) {
-      ants_to_check <- rbind(ants_to_check, data.frame(antID = missing_ants[i], unique_ant_ID = paste(colony_id, missing_ants[i], sep="_") , filename = file)) 
+      ants_to_check <<- rbind(ants_to_check, data.frame(antID = missing_ants[i], unique_ant_ID = paste(colony_id, missing_ants[i], sep="_") , filename = file)) 
     }
   } else {
     print(paste0("All ants in colony_feeders have IsTreated = TRUE in metadata. ", "\U0001F44D"))
@@ -232,7 +234,6 @@ get_metadata <- function() {
   gc()
   #clean up
   rm(list=ls()[which(!ls()%in%c("meta_files","colony_metadata","metadata_feeders","Metadata_Exp1","SCRIPTDIR","WORKDIR","DATADIR","AntTasks", "ants_to_check"))]) 
-  return(ants_to_check) 
 }
 
 
@@ -259,18 +260,45 @@ for (file in meta_files) {
       print(paste0(colony_id," already present in metadata, skip"))
     } else {
       get_metadata() # if not present run the get_metadata() function 
+      ants_to_check <- ants_to_check
     }
   } else {
-    get_metadata() # if the file does not exist yet run the get_metadata() function 
+    get_metadata() # if the file does not exist yet run the get_metadata() function
+    ants_to_check <- ants_to_check
   }
 } 
 
+# ants_to_check <- c("c12_0x644",  "c17_0x25e", "c17_0x768", "c18_0x62c", "c25_0x103", "c25_0x013")
+
+
+#### TEST #### 
+# ants_to_check <- data.frame(antID = character(), unique_ant_ID = character(), filename = character(), stringsAsFactors = FALSE) 
+# colony_ids <- c("c01", "c02")
+# 
+# test_function <- function() {
+#   for (i in 1:3) {
+#     ants_to_check <<- rbind(ants_to_check, data.frame(antID = paste("missing_ant", i,sep="_"), unique_ant_ID = paste(colony_id, "missing_ant", i, sep="_") , filename = colony_id)) 
+#   }
+# }
+#       
+# for (colony_id in colony_ids ) {
+#   cat(crayon::yellow$bold("Start new colony\n"))
+#   print(colony)
+#   test_function()
+# }
+# 
+# i <- 1
+# colony_id <- colony_ids[1]
 
 
 
 
 
-      
-
-
-
+# > ants_to_check 
+# antID unique_ant_ID                                           filename
+# 1 0x644     c12_0x644 /media/gw20248/DISK_B/vital/fc2/final_c12.myrmidon
+# 2 0x25e     c16_0x25e /media/gw20248/DISK_B/vital/fc2/final_c16.myrmidon
+# 3 0x768     c16_0x768 /media/gw20248/DISK_B/vital/fc2/final_c16.myrmidon
+# 4 0x62c     c18_0x62c /media/gw20248/DISK_B/vital/fc2/final_c18.myrmidon
+# 5 0x103     c25_0x103 /media/gw20248/DISK_B/vital/fc2/final_c25.myrmidon
+# 6 0x013     c25_0x013 /media/gw20248/DISK_B/vital/fc2/final_c25.myrmidon
