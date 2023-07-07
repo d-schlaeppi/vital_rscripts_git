@@ -21,7 +21,7 @@
 
 # This will be the script containing all the analyses from the Flupyradifurone Fungus (Metharhizium brunneum) trial 
 
-# this script (will) contain all the code for the second SNF proposal on fungus and neonic coexposure of ants
+# this script (will) contain all the code for the second SNF project on fungus and neonic coexposure of ants
 
 # 1. prerequisites
 # 2. Fluorescin Feeding trial
@@ -31,7 +31,7 @@
 #### 1.  prerequisites ####
 rm(list=ls())
 #load required libraries functions and code
-
+{
 library(survival)
 library(coxme)
 library(scales)
@@ -53,26 +53,34 @@ library(broom)
 library(car) # Anova()
 library(blmeco) #compareqqnorm()
 library(survminer) # used in the analysis of the survival curves
+}
 
 
+#### 2.  Fluorescin Feeding trial ####
 
 # set general working directory and get data
 directory <- "/Users/gismo/Documents/GitHub/vital_rscripts_git/snf_2/"
 setwd(directory) # homeoffice mac github folder
 source('printme_coxme.R') # used in the analysis of the survival curves
 
-#### 2.  Fluorescin Feeding trial ####
+# load data
 files <- list.files()
 print(files)
 dat <- read.table("full_fluorescin_feeding_quantification.txt", header = TRUE)
 head(dat)
 
+
+
+
+###
 # fluorescence corrected for ant debris -> subtract values from ant-only wells
 # create new easy to work with data frame with fluorescence only
 
 mean_negative_ant_week1_run1 <- mean(dat$fluorescence_week1[dat$sample_type == "negative_ant" & dat$run == 1])
 mean_negative_ant_week2_run1 <- mean(dat$fluorescence_week2[dat$sample_type == "negative_ant" & dat$run == 1])
 mean_negative_ant_week1_run2  <- mean(dat$fluorescence_week1[dat$sample_type == "negative_ant" & dat$run == 2])
+
+#### 2.05 create an easy to work with data frame with corrected fluorescence values ####
 data <- NULL
 for(i in 1:nrow(dat)) {
   # collect variables
@@ -101,7 +109,7 @@ for(i in 1:nrow(dat)) {
 
 
 #### 2.1 Fluorescin decay ####
-# Is week one significantly different from week 2 #
+# Is week one significantly different from week 2 (only available for the first run) #
 # To test if there is a decay of the fluorescin signal if the samples are in the freezer at -80°C for a week we compare week 1 values with week2 values (repeated measures on the same samples)
 # modify data so we have a long table with fluorescence for week 1 and week 2 in one column
 data_long <- melt(data, id.vars=c("run", "nr", "colony", "petridish", "treatment", "sample_type", "concentration"))
@@ -179,6 +187,14 @@ wilcox.test(before, after, paired = TRUE)
 
 
 #### 2.2 Food consumption ####
+
+
+############################################ CONTINUE HERE TO DO THE ANALYSIS #######################
+
+
+
+
+
 #is there a significant difference between treatments regarding food consumption #
 # we no longer need week 2 --> create a subset of week1 only for both samples and standard curves
 data_samples <- subset(data_samples, week == "week_1")
@@ -194,7 +210,7 @@ group_by(data_samples, treatment) %>%
 boxplot(fluorescence ~ treatment, data = data_samples)
 # looks like high is lower and mid might be slightly lower as well...
 # to make sure it is not an artifact due to differences in the two runs we need to 
-# correct the two runs based on their respecitve standard curves for the calculations of consumed food volumes
+# correct the two runs based on their respective standard curves for the calculations of consumed food volumes
 # Also make the comparison between the full data set only vs. just round 2. 
 
 # Step 1 use standard curves to calculate micro liter of food instead of fluorescence
@@ -205,6 +221,7 @@ ggplot(data_stdcurves, aes(x = concentration, y = fluorescence, color = sample_t
   ylab("Fluorescence") + 
   ggtitle("Standard Curves") + 
   scale_color_viridis_d(name = "Run")
+
 # -> standard curves for the second run are flatter --> first and second run need different coefficients for food calculation
 # remove no ant standard curve, then calculate a mean std curve for the first and the second round and derive their coefficients for food consumption
 
@@ -312,6 +329,56 @@ summary(mod)
 Anova(mod)
 cld(emmeans(mod, pairwise ~ "treatment", adjust = "tukey"), Letters = letters)
 # a trend, but no significant differences
+
+
+# Find good data transformation: 
+# 0.5*smallest value that is not 0 in the data
+# constant<- 0.5*min(data_samples$consumed_volume_0[data_samples$consumed_volume_0 != 0])
+# 
+# data_samples$meal <- data_samples$consumed_volume_0
+# data_samples$meal_log10 <- log10(data_samples$consumed_volume_0+constant)
+# data_samples$meal_log   <- log(data_samples$consumed_volume_0+constant)
+# data_samples$meal_sqrt  <- sqrt(data_samples$consumed_volume_0)
+# data_samples$meal_recip <- 1/(data_samples$consumed_volume_0+constant)
+# summary(p1 <- powerTransform((data_samples$consumed_volume_0+constant) ~ data_samples$treatment))
+# coef(p1, round=TRUE)
+# data_samples$meal_power <- bcPower((data_samples$consumed_volume_0+constant), p1$roundlam)
+# 
+# variable_transformation_list <- c("meal", "meal_log10", "meal_log", "meal_sqrt", "meal_recip", "meal_power")
+# 
+# for (variable in variable_transformation_list) {
+#   print(variable)
+#   hist(data_samples[[variable]], breaks = 20)
+#   }
+# 
+# for (variable in variable_transformation_list) {
+#   model_name <- paste0("mod_", variable)
+#   assign(model_name, lmer(paste0(variable, " ~ treatment + (1|colony) + (1|petridish) + (1|run)"), data = data_samples))
+#   qqnorm(resid(get(model_name)), main = paste0(variable, " normal QQ-plot, residuals"))
+#   qqline(resid(get(model_name)))  # QQ line of residuals
+# }
+# # square root might be good... lets try... 
+# 
+# mod <- lmer(meal_sqrt ~ treatment + (1|colony) + (1|petridish) + (1|run), data = data_samples)
+# hist(data_samples$meal_sqrt)
+# 
+# 
+# # test model assumtions
+# compareqqnorm(mod)
+# par(mfrow=c(2,2))
+# leveneTest(mod) #non-significant = ok #homogenity of variance (plot(mod,1))
+# aov_residuals <- residuals(object = mod)
+# shapiro.test(x = aov_residuals) #non significant --> assumption of normally distributed residuals is ok ##plot(mod, 2)#normality
+# bptest(mod) #non significant --> assumtions of heteroskedasticity not violated ok 
+# plot(mod)
+# scatter.smooth(fitted(mod),resid(mod)); abline(h=0, lty=2)  # residuals vs. fitted
+# title("Tukey-Anscombe Plot")
+# qqnorm(resid(mod), main="normal QQ-plot, residuals") 
+# qqline(resid(mod))  # qq of residuals
+# scatter.smooth(fitted(mod), sqrt(abs(resid(mod))))  # homogeneity of variance
+# par(mfrow=c(1,1))
+
+
 
 
 
