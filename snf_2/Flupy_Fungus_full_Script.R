@@ -331,6 +331,56 @@ cld(emmeans(mod, pairwise ~ "treatment", adjust = "tukey"), Letters = letters)
 # a trend, but no significant differences
 
 
+# Find good data transformation: 
+# 0.5*smallest value that is not 0 in the data
+# constant<- 0.5*min(data_samples$consumed_volume_0[data_samples$consumed_volume_0 != 0])
+# 
+# data_samples$meal <- data_samples$consumed_volume_0
+# data_samples$meal_log10 <- log10(data_samples$consumed_volume_0+constant)
+# data_samples$meal_log   <- log(data_samples$consumed_volume_0+constant)
+# data_samples$meal_sqrt  <- sqrt(data_samples$consumed_volume_0)
+# data_samples$meal_recip <- 1/(data_samples$consumed_volume_0+constant)
+# summary(p1 <- powerTransform((data_samples$consumed_volume_0+constant) ~ data_samples$treatment))
+# coef(p1, round=TRUE)
+# data_samples$meal_power <- bcPower((data_samples$consumed_volume_0+constant), p1$roundlam)
+# 
+# variable_transformation_list <- c("meal", "meal_log10", "meal_log", "meal_sqrt", "meal_recip", "meal_power")
+# 
+# for (variable in variable_transformation_list) {
+#   print(variable)
+#   hist(data_samples[[variable]], breaks = 20)
+#   }
+# 
+# for (variable in variable_transformation_list) {
+#   model_name <- paste0("mod_", variable)
+#   assign(model_name, lmer(paste0(variable, " ~ treatment + (1|colony) + (1|petridish) + (1|run)"), data = data_samples))
+#   qqnorm(resid(get(model_name)), main = paste0(variable, " normal QQ-plot, residuals"))
+#   qqline(resid(get(model_name)))  # QQ line of residuals
+# }
+# # square root might be good... lets try... 
+# 
+# mod <- lmer(meal_sqrt ~ treatment + (1|colony) + (1|petridish) + (1|run), data = data_samples)
+# hist(data_samples$meal_sqrt)
+# 
+# 
+# # test model assumtions
+# compareqqnorm(mod)
+# par(mfrow=c(2,2))
+# leveneTest(mod) #non-significant = ok #homogenity of variance (plot(mod,1))
+# aov_residuals <- residuals(object = mod)
+# shapiro.test(x = aov_residuals) #non significant --> assumption of normally distributed residuals is ok ##plot(mod, 2)#normality
+# bptest(mod) #non significant --> assumtions of heteroskedasticity not violated ok 
+# plot(mod)
+# scatter.smooth(fitted(mod),resid(mod)); abline(h=0, lty=2)  # residuals vs. fitted
+# title("Tukey-Anscombe Plot")
+# qqnorm(resid(mod), main="normal QQ-plot, residuals") 
+# qqline(resid(mod))  # qq of residuals
+# scatter.smooth(fitted(mod), sqrt(abs(resid(mod))))  # homogeneity of variance
+# par(mfrow=c(1,1))
+
+
+
+
 
 #### 3.  Neonic only survival analysis ####
 
