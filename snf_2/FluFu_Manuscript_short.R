@@ -167,7 +167,14 @@ ggplot(data_samples, aes(x = treatment, y = consumed_volume_0)) +
   geom_text(data = labels_df, aes(label = label, x = x, y = y, fontface = "bold"),
             hjust = -0.2, vjust = 0.5, size = 5)
 
-
+group_by(data_samples, treatment) %>%
+  summarise(
+    count = n(),
+    mean = mean(consumed_volume_0, na.rm = TRUE),
+    sd = sd(consumed_volume_0, na.rm = TRUE),
+    min = min(consumed_volume_0, na.rm = TRUE), 
+    max = max(consumed_volume_0, na.rm = TRUE)
+  )
 
 
 #### 2.4 Fluoprescin Stats ####
