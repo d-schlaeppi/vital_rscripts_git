@@ -155,9 +155,9 @@ labels_df <- data.frame(treatment = c("high", "mid", "control", "low"),
                         label = c("a", "ab", "ab", "b"),
                         x = c(1, 2, 3, 4),
                         y = c(0.8, 0.8, 0.8, 0.8))
-# Plot with labels
+# Plot with labels (exported as )
 ggplot(data_samples, aes(x = treatment, y = consumed_volume_0)) +
-  geom_boxplot(fill = alpha("grey", 0.5), color = "black", notch = TRUE) +
+  geom_boxplot(fill = alpha("grey", 0.5), color = "black", notch = TRUE, outlier.shape = NA) +
   geom_jitter(width = 0.2, height = 0, alpha = 0.2, color = viridis(1)[1]) +
   labs(x = "Treatments", y = "Sugarwater Consumption [μL]", title = "") +
   theme(panel.background = element_rect(fill = "white", color = "black"),
@@ -285,8 +285,12 @@ interaction_model_f <- coxme ( Surv (time = survival_14, event = censor_14) ~ 1 
 anova(null_model, flupy_model_f, fungus_model_f, interaction_model_f)
 }
 
-summary(interaction_model_f)
-summary(glht(interaction_model_f, test=adjusted("BH")))
+anova(fungus_model_f, interaction_model_f)
+Anova(interaction_model_f)
+
+
+
+
 
 # pairwise comparison
 em_means <- emmeans(interaction_model_f, ~ concentration_factor * fungus)
