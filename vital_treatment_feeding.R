@@ -433,9 +433,11 @@ x <- table(vector)
 sort(x, decreasing = TRUE)
 
 ### ### ###
-colonies_to_analyse_certain  <- names(sort(x, decreasing = TRUE)[1:13])
+colonies_to_analyse_certain  <- names(sort(x, decreasing = TRUE)[1:12])
 #select between based on treatment and bead colors 
 target_colonies <- c("c02", "c04", "c11")
+# we need to select two of the target colonies so to have the best ones + to make sure we have an even balance between colours and treatments
+
 ### ### ###
 
 
@@ -472,11 +474,11 @@ for(i in 1:nrow(experiment_data)) {
 data_selected_colonies  <- data_collection[data_collection$colony %in% colonies_to_analyse_certain, ]
 # check it the selected colonies are balanced across treatments 
 table(data_selected_colonies$treatment)
-# this is not perfect, there is one control missing -> choose a colony from the target colonies which is control
+# there is one control missing and we can choose one of the two virus ones irrespective of color from the three target colonies
 data_addon_colonies  <- data_collection[data_collection$colony %in% target_colonies, ]
 
-# -> c11 is control and thus will be added as 14th colony to the selected colonies.
-colonies_to_analyse_final <- c(colonies_to_analyse_certain, "c11")
+# -> c11 is control and thus will be added as 14th colony to the selected colonies and we add C02 because it seems to be doing better on the threshold counts
+colonies_to_analyse_final <- c(colonies_to_analyse_certain, "c02", "c11")
 
 
 

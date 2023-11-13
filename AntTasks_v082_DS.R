@@ -54,7 +54,6 @@ AntTasks_DS <- function(e, file){
   # get information on frames
   IdentifyFrames      <- fmQueryIdentifyFrames(e,start=time_start, end=time_end,showProgress = FALSE)
   IF_frames           <- IdentifyFrames$frames
-  IF_frames           <- IF_frames[order(IF_frames$time), ] ####### I Inserted this line because for some reason there were issues with the ordering of the object created by fmQueryIdentifyFrames... times not strictly increasing...
   IF_frames$frame_num <- as.numeric(seq.int(nrow(IF_frames))) # Assign a frame to each time since start and use it as baseline for all matching and computation
   IF_frames$time_sec <- round(as.numeric(IF_frames$time),3) # assign a time in sec to match annotation time (UNIX hard to use for class mismatch)
   

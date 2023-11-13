@@ -14,9 +14,13 @@ mallinfo::malloc.trim(0L) # forced memory cleaning after every gc() | # install 
 
 #### To Do's ####
 
-# work through the whole script line by line starting with directories
+# work through the whole script line by line
 # get the exact end time for each of the experiments
 # UPDATE all parts of the script that try to access BODYLENGTH_FILE by changing the code in a way that it refers to size in pixels based on colonies instead of tracking systems
+# introduce all the fixes suggested via email:
+# make sure everthing can run on laptop and uni computer (starting if statement)
+# get a version of the myrmidon files with Nathalies 2018 capsule definitions for normal interactions. 
+# What ever I do with the interaction network, make sure to get the same things with the trophallaxis networks
 
 #### LIBRARIES #### 
 library(data.table)
@@ -35,8 +39,8 @@ library(survival)
 
 #### starting parameters ####
 
-USER <- "2A13_Office_Daniel"  # Replace with the desired USER option: Nath_office, 2A13_Office_Adriano, 2A13_Office_Daniel, AEL-laptop
-HD <- "Nathalie" # alternative values "Daniel"
+USER <- "AEL-laptop"  # Replace with the desired USER option: Nath_office, 2A13_Office_Adriano, 2A13_Office_Daniel, AEL-laptop
+HD <- "/gismo_hd2" # One of the harddrives with the vital extrapolated data: possible values > Nathalies hd "/DISK_B" ; Daniels hds >  "/gismo_hd5" or  "/gismo_hd2"
 
 setUserAndHD <- function(USER, HD) {
   usr <- NULL  # Default value in case of an unrecognized USER option
@@ -50,24 +54,21 @@ setUserAndHD <- function(USER, HD) {
     usr <- "ael"
   }
   if (!is.null(usr)) {print(usr)} else {print("define new user if necessary")}
+  assign("usr", usr, envir = .GlobalEnv)  # Assign hd to the global environment
   hd <- NULL
-  if (HD == "Nathalie") {
-    hd <- "/DISK_B"
-  } else if (HD == "Daniel") {
-    hd <- "/gismo_hd5"
-  }
+  hd <- HD
   if (!is.null(hd)) {print(hd)} else {print("define new hd if necessary")}
   assign("hd", hd, envir = .GlobalEnv)  # Assign hd to the global environment
 }
 setUserAndHD(USER, HD)
 
-#### create the directories #### 
-WORKDIR <- paste("/media/",usr, hd, "/vital/fc2",sep="")
-DATADIR <- paste(WORKDIR, sep = "/")
-SAVEDIR <- paste("/media/",usr, hd,"/vital/fc2/EXP1_base_analysis/EXP_summary_data",sep="") # where to save the interactions in the same structure as for Science 2018; check adrionos guide on how to copy the structure
-INTDIR <- paste("/media/",usr, hd, "/vital/fc2/vital_experiment/main_experiment/intermediary_analysis_steps",sep="")
+#### set directories #### 
+WORKDIR <- paste("/media/",usr, hd, "/vital/fc2",sep="") 
+DATADIR <- paste(WORKDIR, sep = "/") # working directory and directory where the tracking data is saved (was not the same for Adriano, but for me the same
+SAVEDIR <- paste("/media/",usr, hd,"/vital/fc2/vital_experiment/summary_data",sep="") # where to save the interactions - I added a folder to the vital
+INTDIR <- paste("/media/",usr, hd, "/vital/fc2/vital_experiment/main_experiment/intermediary_analysis_steps",sep="") # remember to use the same folder structure as as for Science 2018
 BEHDIR <- paste("/media/",usr, hd, "/vital/fc2/vital_experiment/main_experiment/processed_data/individual_behaviour",sep="")
-SCRIPTDIR <- paste("/home/",usr,"/Documents/vital_rscripts_git",sep="") #SCRIPTDIR <- paste("/media/",usr, hd, "/vital/fc2/Documents/EXP1_base_analysis/EXP1_analysis_scripts", sep="")
+SCRIPTDIR <- paste("/home/",usr,"/Documents/vital_rscripts_git",sep="") # place where the needed r scripts are stored
 BEH_FUNCTIONS <-  paste(SCRIPTDIR, "/Behavioural_Inference_DS",sep="")
 
 
@@ -89,10 +90,6 @@ metadata <- read.table(paste(DATADIR, "/Metadata_Exp1_2021_2023-02-27.txt", sep 
 
 
 
-  
-
-
-  
 
   
   
