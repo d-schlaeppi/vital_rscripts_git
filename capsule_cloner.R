@@ -24,7 +24,7 @@
 
 #### prerequisites, i.e. things required to run this function ####
 
-# prerequisites are behind an extra # so the function can be sourced from another script. 
+# prerequisites are behind an extra # so the function can be sourced from another script.
 
 # # load necessary libraries
 # library(FortMyrmidon) ####R bindings
@@ -33,19 +33,20 @@
 # library(R.utils)
 # library(reader)
 # library(stringr)
-
-
+# 
+# 
 # directory_scripts <- "/home/gw20248/Documents/vital_rscripts_git/" # directory with the R scripts linked with github
 # # set directory to where you have your myrmidon files and assosciated data
 # directory_data <- '/media/gw20248/gismo_hd2/vital/fc2/'
 # setwd(directory_data)
-
-# load the meta data dataframe
+# 
+# # load the meta data dataframe
 # source(paste0(directory_scripts,"vital_meta_data.R")) # will add the meta data dataframe to your environment so it can be accessed within this script
-# head(meta_data)
+# meta_data <- colony_metadata
+# head(colony_meta_data)
 # 
 # # list of myrmidon files containing the capsule definitions to be applied/cloned to the destination files (for the capsule definition you need to start with a manually oriented colony)
-# # save your source myrmidon files like this: filename_CapsuleDefXX_source.myrmidon 
+# # save your source myrmidon files like this: filename_CapsuleDefXX_source.myrmidon
 # # get the list of all the filenames (with path form directory) containting the capsule definition (listing it manually or getting it automatically from the directory)
 # add_directory <- function(filename) {# Function to add directory path to each filename
 #   paste0(directory_data, filename)
@@ -55,10 +56,12 @@
 # capsule_source_files_list <- grep(capsule_source_files_list, pattern = 'source', invert = FALSE, value = TRUE)
 # capsule_source_files_list <- grep(capsule_source_files_list, pattern = 'CapsuleDef', invert = FALSE, value = TRUE)
 # capsule_source_files_list <- lapply(capsule_source_files_list, add_directory)
-
-# get a list af all the filenames that shall have the capsule definitions (destination files)
-# save your destination myrmidon files like this: final_uniqueIdentifier.myrmidon # e.g. final_c01.myrmidon
-
+# 
+# ## capsule_source_files_list <- as.list("/media/gw20248/DISK4/ADRIANO/EXPERIMENT_DATA/REP1/CapsuleDef18_source.myrmidon")
+# 
+# # get a list af all the filenames that shall have the capsule definitions (destination files)
+# # save your destination myrmidon files like this: final_uniqueIdentifier.myrmidon # e.g. final_c01.myrmidon
+# 
 # capsule_destination_files_list <- list.files()
 # capsule_destination_files_list <- grep(capsule_destination_files_list, pattern = 'final', invert = FALSE, value = TRUE)
 # capsule_destination_files_list <- grep(capsule_destination_files_list, pattern = 'CapsuleDef', invert = TRUE, value = TRUE)
