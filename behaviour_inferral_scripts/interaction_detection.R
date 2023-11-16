@@ -107,7 +107,6 @@ interaction_detection <- function (e
   ###initialise an object that will store all successive collisions
   all_collisions <-  NULL
   
-  
   ###initialise argument for while
   extraction_complete <- F
   

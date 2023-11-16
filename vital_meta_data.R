@@ -11,8 +11,8 @@
 # source(paste0(directory,"vital_meta_data.R"))
 #"https://formicidae-tracker.github.io/myrmidon/latest/index.html"
 
-directory_scripts <- "/home/gw20248/Documents/vital_rscripts_git/" # directory with the R scripts linked with github
-dat <- read.csv(paste0(directory_scripts,"fc2_overview_data.csv"), header = TRUE, stringsAsFactors = F)
+# directory_scripts <- "/home/gw20248/Documents/vital_rscripts_git/" # directory with the R scripts linked with github
+dat <- read.csv(paste0(SCRIPTDIR,"/fc2_overview_data.csv"), header = TRUE, stringsAsFactors = F)
 colony_metadata <- NULL
 for(i in 1:nrow(dat)) {
   # collect variables
@@ -28,6 +28,7 @@ for(i in 1:nrow(dat)) {
   tracking_system_main  <- dat[i, "tracking_system_main"]
   tracking_system_feeding <- dat[i, "tracking_system_feeding"]
   time_treatment_start  <- dat[i, "treatment_starting_time"]
+  time_treatment_end    <- dat[i, "treatment_end_time"]
   annotation_start      <- dat[i, "annotation_start_time"] 
   annotation_stop       <- dat[i, "annotation_stop_time"]
   mean_ant_lenght_px    <- dat[i, "mean_ant_length_px"] # mean lenght in pixcel of the ants based on a manually oriented colony recorded with the same tracking system & setup (assuming that worker size is consistent accros colonies)
@@ -45,6 +46,7 @@ for(i in 1:nrow(dat)) {
                                                         tracking_system_main,
                                                         tracking_system_feeding,
                                                         time_treatment_start,
+                                                        time_treatment_end,
                                                         annotation_start, 
                                                         annotation_stop,
                                                         mean_ant_lenght_px,
