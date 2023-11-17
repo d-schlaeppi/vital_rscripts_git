@@ -17,6 +17,10 @@
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###  
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
 
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+### Tracking Analyses starting script - adjusted for Daniel     ### ### ### ### ###
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+
 #### Background information | Read me ####
 
 # Information before tracking
@@ -46,9 +50,9 @@
 # Step 3.6: Post processing of queen meta data (Manual)
 
 # Step 4 Data analyses
-# Step 4.1 Define and apply different capsules for train a trophallaxis classifier
+# Step 4.1 Define and apply different capsules to train the trophallaxis classifier
 # Step 4.2 Train behaviour (Trophallaxis) classifier using Nathalies script ant computer
-# Step 4.3 General data analyses
+# Step 4.3 General data analyses i.e. Base Analysis and Next steps 
 
 
 ### ### ### ### ###
@@ -699,13 +703,19 @@ clone_capsules(capsule_source_files_list, capsule_destination_files_list, colony
 
 # I created 9 different capsule definitions CapsuleDef00-CapsuleDef08
 # check if all the newly created files look alright with the capsule definitions look alright.
-
 # doublcheck if the ant measurements used for extrapolation were alright. 
 
 
-#### Base Analysis ####
+#### Step 4.2 Train behaviour (Trophallaxis) classifier using Nathalie's script and computer #### 
+# Was done by Nathalie using the good computer in her office.  
 
-# Work line by line through EXP1_base_analysis 
+#### Step 4.3 General data analyses i.e. Base Analysis and Next steps ####
+# Part of the next scripts, following Adrianos guidelines:
+# https://github.com/AdrianoWanderlingh/Ant_Tracking/tree/main/Scripts
+
+
+# Create Meta Data ala Adriano
+#  EXP1_base_analysis 
 
 
 

@@ -13,7 +13,7 @@ rm(list=ls())
 # Maybe adjust its post processing according to the other files (i.e. the same meta data)
 # After finishing this current run check the generated meta_data file and ants_to_check before continuing! !!!!!!!
 # Safe ants to check somewhere. 
-# continue exp1 base analysis script
+# after that continue exp1 base analysis script
 
 #### LIBRARIES ####
 {
