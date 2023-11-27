@@ -1,8 +1,7 @@
 rm(list = ls())
 gc()
 Sys.sleep(3)
-mallinfo::malloc.trim(0L) 
-
+mallinfo::malloc.trim(0L)
 
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
 ### VITAL MAIN ANALYSIS     ### ### ### ### ###
@@ -13,6 +12,7 @@ mallinfo::malloc.trim(0L)
 # Before starting this scrip, first start with the pre processing of the data following Vital.R and Adrianos guides 
 # Then extract the meta data for your colonies based on the Extract meta data script
 # Next do the base analyses (interactions and space use) in Vital_base_analysis.R 
+# Run Tables to match Stroeymeyt et al 2018 to get a couple more things in the right format for the following pipeline. 
 # Then continue here. 
 
 # This script contains:
@@ -36,8 +36,22 @@ mallinfo::malloc.trim(0L)
 
 #### Prerequisites ####
 
+# input parameters
 USER <- "2A13_Office_Daniel"  # Replace with the desired USER option: Nath_office, 2A13_Office_Adriano, 2A13_Office_Daniel, AEL-laptop
-HD <- "/DISK_B" # One of the harddrives with the vital extrapolated data: possible values > Nathalies hd "/DISK_B" ; Daniels hds >  "/gismo_hd5" or  "/gismo_hd2" | just make sure to put the name of your HD in here
+HD <- "/DISK_B"               # One of the harddrives with the vital extrapolated data: possible values > Nathalies hd "/DISK_B" ; Daniels hds >  "/gismo_hd5" or  "/gismo_hd2" | just make sure to put the name of your HD in here
+FRAME_RATE <- 6
+
+# Define which interactions to look at:                                                                                                  
+RUN_CLASSIC_INTERACTIONS           <- TRUE
+RUN_GROOMING_INTERACTIONS          <- FALSE
+RUN_TROPHALLACTIC_INTERACTIONS     <- FALSE
+
+
+# functions
+clean <- function(){
+  rm(list=ls(envir = .GlobalEnv)[!ls(envir = .GlobalEnv)%in%to_keep], envir = .GlobalEnv)
+  no_print <- gc(verbose=F)
+  Sys.sleep(1) }
 
 setUserAndHD <- function(USER, HD) {
   usr <- NULL  # Default value in case of an unrecognized USER option
@@ -57,47 +71,72 @@ setUserAndHD <- function(USER, HD) {
   assign("hd", hd, envir = .GlobalEnv)  # Assign to the global environment
   assign("usr", usr, envir = .GlobalEnv)  # Assign to the global environment
 }
-setUserAndHD(USER, HD)
-
 
 choose_data_path <- function() {
-  # Ask user which data they would like to process
-  choice <- as.character(readline(prompt = "Which data would you like to process?\nAll standard interactions (ala Stroeymeyt et al 2018)  (1)\nGrooming interactions (2)\ \nTrophallactic interactions (3)\n"))
-  # Set data_path depending on user's choice
-  if (choice == "1") {
-    data_path <- paste0("/media/",usr, hd, "/vital/fc2/vital_experiment/main_experiment")
-    print("ALL INTERACTIONS")
-  } else if (choice == "2") {
-    data_path <- paste0("/media/",usr, hd, "/vital/fc2/vital_experiment/main_experiment_grooming")
-    print("GROOMING INTERACTIONS")
-  } else if (choice == "3") {
-    data_path <- paste0("/media/",usr, hd, "/vital/fc2/vital_experiment/main_experiment_trophallaxis")
-    print("TROPHALLACTIC INTERACTIONS")
-  } else {
-    stop("Invalid choice entered. Please choose either '1, '2' or '3'.")
-  }
-  return(data_path)
+  list(
+    CLASSIC_INTERACTIONS = if (RUN_CLASSIC_INTERACTIONS) paste0("/media/", usr, hd, "/vital/fc2/vital_experiment/main_experiment") else NULL,
+    GROOMING_INTERACTIONS = if (RUN_GROOMING_INTERACTIONS) paste0("/media/", usr, hd, "/vital/fc2/vital_experiment/main_experiment_grooming") else NULL,
+    TROPHALLACTIC_INTERACTIONS = if (RUN_TROPHALLACTIC_INTERACTIONS) paste0("/media/", usr, hd, "/vital/fc2/vital_experiment/main_experiment_trophallaxis") else NULL
+  )
 }
 
-# Call the function to choose the data path
-data_path <- choose_data_path()
 
+# Call the functions to get the data and script paths as well as additional libraries and functions loaded: 
+setUserAndHD(USER, HD)
+code_path <- paste("/home/",usr,"/Documents/vital_rscripts_git/source_scripts",sep="") # place where the needed r scripts are stored
+data_paths <- choose_data_path()
+source(paste(code_path,"/libraries_DS.R",sep=""))
+source(paste(code_path,"/functions_and_parameters_DS.R",sep=""))
 
-code_path  <- "/home/cf19810/Ant_Tracking/Scripts/code_Social_Network_Plasticity_Exp_2018_AW/1_data_post_processing/source"
-executables_path <- "~/executables"
-FRAME_RATE <- 8 #AW
-
-
-########################################################################
-###   END INPUT ########################################################
-########################################################################
-
-source(paste(code_path,"/libraries.R",sep=""))
-source(paste(code_path,"/functions_and_parameters.R",sep=""))
-
+# executables_path <- "~/executables" # not clear what this is and where it is used. ?
 to_keep <- c(ls(),"to_keep")
 
-#####Run analysis programs ####
+
+
+
+
+#### Used analysis programs vital ####
+
+# create randomized interaction networks based on the observed interactions 
+
+# for (interaction_type in names(data_paths)) {
+#   data_path <- data_paths[[interaction_type]]
+#   if (!is.null(data_path)) {
+#     print(paste("Processing file for", interaction_type, "\U0001F91D"))
+#     source(paste(code_path,"/11_randomise_interactions_DS.R",sep=""))
+#     clean()
+#   }
+#  print(paste("ALL DONE", "\U0001F973"))
+# }
+
+
+# simulate transmission of an agent from a list of originally contaminated workers to the rest of the colony. 
+for (interaction_type in names(data_paths)) {
+  data_path <- data_paths[[interaction_type]]
+  #data_path <- data_paths[["TROPHALLACTIC_INTERACTIONS"]]
+  #data_path <- data_paths[["CLASSIC_INTERACTIONS"]]
+  if (!is.null(data_path)) {
+    print(paste("Processing files for", interaction_type, "\U0001F91D"))
+    source(paste(code_path,"/12_simulate_transmission_DS.R",sep=""))
+    clean()
+  }
+  print(paste("ALL DONE", "\U0001F973"))
+}
+
+
+source(paste(code_path,"/13_network_analysis.R",sep=""))
+clean()
+
+source(paste(code_path,"/14_summarise_interactions.R",sep=""))
+clean()
+
+source(paste(code_path,"/19_Facetnet_community_detection.R",sep=""))
+clean()
+
+
+
+
+#### All available analysis programs ####
 # source(paste(code_path,"/1_trackconverter.R",sep=""))
 # clean()
 # source(paste(code_path,"/2_define_deaths.R",sep=""))
@@ -128,7 +167,6 @@ to_keep <- c(ls(),"to_keep")
 # clean()
 # source(paste(code_path,"/14_summarise_interactions.R",sep=""))
 # clean()
-
 # source(paste(code_path,"/15_heatmaps_individual.R",sep=""))
 # clean()
 # source(paste(code_path,"/16_heatmaps_groups.R",sep=""))
@@ -136,4 +174,6 @@ to_keep <- c(ls(),"to_keep")
 # source(paste(code_path,"/17_brood_location.R",sep=""))
 # clean()
 # source(paste(code_path,"/18_process_heatmaps.R",sep=""))
+# clean()
+# source(paste(code_path,"/19_Facetnet_community_detection.R",sep=""))
 # clean()

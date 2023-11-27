@@ -71,7 +71,7 @@ SAVEDIR <- paste("/media/",usr, hd,"/vital/fc2/vital_experiment/summary_data",se
 INTDIR <- paste("/media/",usr, hd, "/vital/fc2/vital_experiment/main_experiment/intermediary_analysis_steps",sep="") # remember to use the same folder structure as as for Science 2018
 BEHDIR <- paste("/media/",usr, hd, "/vital/fc2/vital_experiment/main_experiment/processed_data/individual_behaviour",sep="")
 SCRIPTDIR <- paste("/home/",usr,"/Documents/vital_rscripts_git",sep="") # place where the needed r scripts are stored
-BEH_FUNCTIONS <-  paste(SCRIPTDIR, "/Trophallaxis_Classifier",sep="") # check if and where that is needed...?
+BEH_FUNCTIONS <-  paste(SCRIPTDIR, "/Trophallaxis_Classifier",sep="") 
 
 # source and set additional data (meta), functions, parameters and additional scripts
 source(paste0(SCRIPTDIR,"/vital_meta_data.R")) # will add colony_metadata data frame to the environment so it can be accessed within this script (in my case containing bodylenght information)

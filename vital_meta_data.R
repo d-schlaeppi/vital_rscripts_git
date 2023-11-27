@@ -53,5 +53,5 @@ for(i in 1:nrow(dat)) {
                                                         mean_ant_lenght_mm,
                                                         stringsAsFactors = F))
 }
-
+metadata_colonies <- colony_metadata
 
