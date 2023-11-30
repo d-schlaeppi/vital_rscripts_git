@@ -10,9 +10,10 @@ mallinfo::malloc.trim(0L)
 #### Background information | Read me ####
 
 # Before starting this scrip, first start with the pre processing of the data following Vital.R and Adrianos guides 
-# Then extract the meta data for your colonies based on the Extract meta data script
-# Next do the base analyses (interactions and space use) in Vital_base_analysis.R 
-# Run Tables to match Stroeymeyt et al 2018 to get a couple more things in the right format for the following pipeline. 
+# Then extract the meta data for your colonies and individuals based on the Extract meta data script
+# Next do the base analyses (interactions and space use) in Vital_base_analysis.R
+# Run Tables to match Stroeymeyt et al 2018 to get a couple more things in the right format for the following pipeline.
+# If not already done add the data on pathogen or spore load to each individual (e.g. by merging it with the meta data file)
 # Then continue here. 
 
 # This script contains:

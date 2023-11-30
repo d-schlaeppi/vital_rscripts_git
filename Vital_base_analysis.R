@@ -371,10 +371,12 @@ to_keep <- c(ls(), c("to_keep"))
   
 
 
+  
+  
 
 #### To dos #### 
 
-# next analysis script...
+# move on to the next analysis scripts i.e. vital_main_analysis
 
 # Dont forget to correct when going through the downstream pipeline:
 
@@ -408,12 +410,14 @@ to_keep <- c(ls(), c("to_keep"))
 #
 # for (input_folder in input_folders){
 
+  
 ### 
 # Note to myself keep updating the list of scripts used as part of this analysis pipeline.
 # if not specified differently, the script version used in the pipeline is in the top git hub folder or in the folder with trophallacis_classifier. 
 # previous version is either in the _old folder or in a folder referring to another persion e.g Adriano or Linda.
 # At some point make a cleaner github version of all this...
-# Further, what ever I do with the interactions, make sure to do the same things with the trophallaxis networks!
+# Further, what ever I do with the interactions, make sure to do the same things with the trophallaxis interactions
+  
 
 
 
