@@ -3,22 +3,23 @@
 #### Facetnet_community_detection.R ####
 ### ### ### ### ### ### ### ### ### ### ### ###
 
+#### Read me ####
+# Created by TO Richardson and Adriano Wanderlingh & adjusted by DS to the needs of Daniel Schläppi
+# Takes an interaction list as an input, builds a network to provide a continuous measure of workers' social maturity
+# and from social maturity creates the nurse and worker community. 
 
-### Takes an interaction list as an input, builds a network to provide a continuous measure of workers' social maturity
-
-### requires the following:
-### https://c4science.ch/source/facet_unil/
+# requires the following:
+# https://c4science.ch/source/facet_unil/
 # TO Richardson, T Kay, R Braunschweig, OA Journeau, M Rüegg, ... Ant behavioral maturation is mediated by a stochastic transition between two fundamental states. Current Biology 31, 1-8
 
-### Created by TO Richardson and Adriano Wanderlingh
+#### Prerequisites ####
+# Set up directories and parameters
 
-
-## FACENET community partition parameters
-m            <- 2   ## how many communities do we want to instruct FACETNET to search for...?
+# FACENET community partition parameters
+m            <- 2   ## how many communities do we want to instruct FACETNET to search for...? Nurses and Foragers so 2?
 alpha        <- 0.5 ## used for modulating the `memory` - how much the community structure @ time t influences that at t+1 - only matters when we ask facetnet to pay attention to this...
 t_step       <- 0   ## not important
 N_ITERATIONS <- 50
-#
 DISPLAY_RESULTS <- F
 
 

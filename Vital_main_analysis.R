@@ -7,40 +7,36 @@ mallinfo::malloc.trim(0L)
 ### VITAL MAIN ANALYSIS     ### ### ### ### ###
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
 
-#### Background information | Read me ####
-
+#### 1. Background information | Read me | ToDos ####
 # Before starting this scrip, first start with the pre processing of the data following Vital.R and Adrianos guides 
 # Then extract the meta data for your colonies and individuals based on the Extract meta data script
 # Next do the base analyses (interactions and space use) in Vital_base_analysis.R
 # Run Tables to match Stroeymeyt et al 2018 to get a couple more things in the right format for the following pipeline.
 # If not already done add the data on pathogen or spore load to each individual (e.g. by merging it with the meta data file) 
-# and when doing so also adjust 
+# and when doing so also adjust blanks
 # Then continue here. 
 
-# This script contains:
+# This script contains code to run separate analysis scripts from the stroeymeyt 2018 pipeline: 
 
-# Index
+### Index ###
+# 1. Read Me
+# 2. Prerequisites - Input to define by User
+# 3.  Analysis programs vital
+# 3.1 11_randomise_interactions_DS.R 
+# 3.2 12_simulate_transmission_DS.R
+# 3.3 13_network_analysis.R
+# 3.4 14_summarise_interactions.R 
+# 3.5 19_Facetnet_community_detection.R
+# 4. All available analysis programs 
 
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+####     2. Prerequisites - Input to define by User        ####
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
 
-# 1. Input definition 
+# Make sure the below is directing to you data folder, the code/script folder, and the c++ executables folder (source scipts)
 
+### input parameters:
 
-
-
-### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
-#### 1. INPUT TO DEFINE BY USER ####
-### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
-
-# Please fill in the path to the data folder, the code folder, and the c++ executables folder, as in the example below
-
-#### Todo ####
-# create the functions to run the user input super easily.
-
-#### Prerequisites ####
-
-# input parameters
-USER <- "2A13_Office_Daniel"  # Replace with the desired USER option: Nath_office, 2A13_Office_Adriano, 2A13_Office_Daniel, AEL-laptop
-HD <- "/DISK_B"               # One of the harddrives with the vital extrapolated data: possible values > Nathalies hd "/DISK_B" ; Daniels hds >  "/gismo_hd5" or  "/gismo_hd2" | just make sure to put the name of your HD in here
 FRAME_RATE <- 6
 
 # Define which interactions to look at:                                                                                                  
@@ -48,33 +44,17 @@ RUN_CLASSIC_INTERACTIONS           <- TRUE
 RUN_GROOMING_INTERACTIONS          <- FALSE
 RUN_TROPHALLACTIC_INTERACTIONS     <- FALSE
 
+# Define what analysis step to run: 
+{RUN_11_randomise_interactions_DS.R     <- FALSE
+RUN_12_simulate_transmission_DS.R      <- FALSE
+RUN_13_network_analysis.R              <- FALSE
+RUN_14_summarise_interactions.R        <- FALSE
+RUN_19_Facetnet_community_detection.R  <- FALSE}
 
-# functions
-clean <- function(){
-  rm(list=ls(envir = .GlobalEnv)[!ls(envir = .GlobalEnv)%in%to_keep], envir = .GlobalEnv)
-  no_print <- gc(verbose=F)
-  Sys.sleep(1) }
+setwd(tk_choose.dir(default = "~/", caption = "Select Working Directory")) # direct it to where you have config_user_and_hd.R (typically your scriptfolder)
+source("config_user_and_hd.R") # contains getUserOptions() that defines usr and hd and the clean() function
 
-setUserAndHD <- function(USER, HD) {
-  usr <- NULL  # Default value in case of an unrecognized USER option
-  if (USER == "Nath_office") {
-     usr <- "bzniks"
-  } else if (USER == "2A13_Office_Adriano") {
-     usr <- "cf19810"
-  } else if (USER == "2A13_Office_Daniel") {
-    usr <- "gw20248"
-  } else if (USER == "AEL-laptop") {
-     usr <- "ael"
-  }
-  if (!is.null(usr)) {print(usr)} else {print("define new user if necessary")}
-  hd <- NULL
-  hd <- HD
-  if (!is.null(hd)) {print(hd)} else {print("define new hd if necessary")}
-  assign("hd", hd, envir = .GlobalEnv)  # Assign to the global environment
-  assign("usr", usr, envir = .GlobalEnv)  # Assign to the global environment
-}
-
-choose_data_path <- function() {
+choose_data_path <- function() { # does not work on the mac. 
   list(
     CLASSIC_INTERACTIONS = if (RUN_CLASSIC_INTERACTIONS) paste0("/media/", usr, hd, "/vital/fc2/vital_experiment/main_experiment") else NULL,
     GROOMING_INTERACTIONS = if (RUN_GROOMING_INTERACTIONS) paste0("/media/", usr, hd, "/vital/fc2/vital_experiment/main_experiment_grooming") else NULL,
@@ -84,7 +64,6 @@ choose_data_path <- function() {
 
 
 # Call the functions to get the data and script paths as well as additional libraries and functions loaded: 
-setUserAndHD(USER, HD)
 code_path <- paste("/home/",usr,"/Documents/vital_rscripts_git/source_scripts",sep="") # place where the needed r scripts are stored
 data_paths <- choose_data_path()
 source(paste(code_path,"/libraries_DS.R",sep=""))
@@ -94,24 +73,30 @@ source(paste(code_path,"/functions_and_parameters_DS.R",sep=""))
 to_keep <- c(ls(),"to_keep")
 
 
+### ### ### ### ### ### ### ### ### ### ### ### 
+####     3.  Analysis programs vital       ####
+### ### ### ### ### ### ### ### ### ### ### ###
 
 
-
-#### Used analysis programs vital ####
+#### 3.1 11_randomise_interactions_DS.R ####
 
 # create randomized interaction networks based on the observed interactions 
+if (RUN_11_randomise_interactions_DS.R){
+  print("runnung 11_randomise_interactions_DS.R")
+  for (interaction_type in names(data_paths)) {
+    data_path <- data_paths[[interaction_type]]
+    if (!is.null(data_path)) {
+      print(paste("Processing file for", interaction_type, "\U0001F91D"))
+      source(paste(code_path,"/11_randomise_interactions_DS.R",sep=""))
+      clean()
+    }
+  print(paste("ALL DONE", "\U0001F973"))
+  }} else {
+  print("skipping 11_randomise_interactions_DS.R") 
+}
+  
 
-# for (interaction_type in names(data_paths)) {
-#   data_path <- data_paths[[interaction_type]]
-#   if (!is.null(data_path)) {
-#     print(paste("Processing file for", interaction_type, "\U0001F91D"))
-#     source(paste(code_path,"/11_randomise_interactions_DS.R",sep=""))
-#     clean()
-#   }
-#  print(paste("ALL DONE", "\U0001F973"))
-# }
-
-
+#### 3.2 12_simulate_transmission_DS.R ####
 # simulate transmission of an agent from a list of originally contaminated workers to the rest of the colony. 
 for (interaction_type in names(data_paths)) {
   data_path <- data_paths[[interaction_type]]
@@ -125,20 +110,29 @@ for (interaction_type in names(data_paths)) {
   print(paste("ALL DONE", "\U0001F973"))
 }
 
-
+#### 3.3 13_network_analysis.R ####
 source(paste(code_path,"/13_network_analysis.R",sep=""))
 clean()
 
+#### 3.4 14_summarise_interactions.R ####
 source(paste(code_path,"/14_summarise_interactions.R",sep=""))
 clean()
 
-source(paste(code_path,"/19_Facetnet_community_detection.R",sep=""))
-clean()
+
+#### 3.5 19_Facetnet_community_detection.R ####
+if (RUN_19_Facetnet_community_detection.R){
+  print("running 19_Facetnet_community_detection.R")
+  source(paste(code_path,"/19_Facetnet_community_detection.R",sep=""))
+  clean()
+  print(paste("ALL DONE", "\U0001F973"))
+    } else { print("skipping 19_Facetnet_community_detection.R")}
 
 
 
 
-#### All available analysis programs ####
+#### 4. All available analysis programs ####
+# check adrianos github for all the scripts should they be needed
+
 # source(paste(code_path,"/1_trackconverter.R",sep=""))
 # clean()
 # source(paste(code_path,"/2_define_deaths.R",sep=""))
