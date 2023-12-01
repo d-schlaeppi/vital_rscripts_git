@@ -23,7 +23,7 @@ library(FortMyrmidon)
 library(circular)
 
 FRAME_RATE <- 6
-USER <- "2A13_Office_Daniel"  # Replace with the desired USER option: Nath_office, 2A13_Office_Adriano, 2A13_Office_Daniel, AEL-laptop
+USER <- "AEL-laptop"  # Replace with the desired USER option: Nath_office, 2A13_Office_Adriano, 2A13_Office_Daniel, AEL-laptop
 HD <- "/DISK_B"               # One of the harddrives with the vital extrapolated data: possible values > Nathalies hd "/DISK_B" ; Daniels hds >  "/gismo_hd5" or  "/gismo_hd2" | just make sure to put the name of your HD in here
 
 setUserAndHD <- function(USER, HD) {
@@ -52,7 +52,7 @@ SAVEDIR   <- paste("/media/" , usr, hd,"/vital/fc2/vital_experiment/main_experim
 
 
 ### LOAD METADATA
-metadata_present <- read.table(paste(DATADIR, "/Metadata_vital_2023-07-04.txt", sep = ""), header = T, stringsAsFactors = F, sep = ",") 
+metadata_present <- read.table(paste(DATADIR, "/individual_metadata_vital.txt", sep = ""), header = T, stringsAsFactors = F, sep = ",") 
 names(metadata_present)
 source(paste0(SCRIPTDIR,"/vital_meta_data.R")) # will add colony_metadata data frame to the environment so it can be accessed within this script (in my case containing bodylenght information)
 
@@ -60,12 +60,16 @@ source(paste0(SCRIPTDIR,"/vital_meta_data.R")) # will add colony_metadata data f
 # adjustments so far
 # AntTask -> AntTask1perc     
 
-#### To dos ####
-# AT SOME POINT IT MIGHT BE NECESSARY TO CHANGE TO THE FACET NETWORK TASK DEFINITION VARIABLE!!!!
-# GET THE BEAD LOAD FORM LUKES COMPUTER. 
 
-#pathogen_load <- read.csv("/media/cf19810/DISK4/EXP1_base_analysis/Personal_Immunity/Pathogen_Quantification_Data/Adriano_qPCR_pathogen_load_MASTER_REPORT.csv")
-#bead_load <- read.csv("path to table containing the information of the beads for each individual: blue, yellow") ### UPDATE AS SOON AS POSSIBLE and also update the part below regarding the bead load. 
+#### To dos ####
+# AT SOME POINT IT MIGHT BE NECESSARY TO CHANGE TO THE FACET NETWORK TASK DEFINITION VARIABLE INSTEAD OF THE ONE BASED ON TIME
+# HOWEVER, THIS SCRIPT NEEDS TO BE RUN BEFORE THE FACET NET ONE
+# note, seed files etc are all calculated based on the old task definition which was based on the percentage of time spent inside or outside the nest. 
+
+# CHECK WHICH BELOW IS REFERRING TO BEAD LOAD AND ADJUST ADRIANOS PATHOGEN LOAD. 
+# pathogen_load <- read.csv("/media/cf19810/DISK4/EXP1_base_analysis/Personal_Immunity/Pathogen_Quantification_Data/Adriano_qPCR_pathogen_load_MASTER_REPORT.csv")
+# bead_load <- read.csv("path to table containing the information of the beads for each individual: blue, yellow") ### UPDATE AS SOON AS POSSIBLE and also update the part below regarding the bead load. 
+# Anything further down in the pipeline refering to the pathogen_load table eeds to be run with metadata instead.
 
 #remove dead ants
 metadata_present <- metadata_present[which(metadata_present$IsAlive==TRUE),]
@@ -83,11 +87,8 @@ metadata_present <- metadata_present %>% distinct()
 metadata_present[which(is.na(metadata_present$AntTask1perc)),"AntTask1perc"] <- "nurse"
 
 
-#### ADD EXTRA COLS TO METADATA ###
+### ADD EXTRA COLS TO METADATA ###
 # conform naming to science2018 
-
-# if needs must check adrianos and Lindas script again, but so far I should already have all that is needed. 
-
 
 # colony code
 metadata_present$colony <- metadata_present$colony_id
@@ -97,29 +98,10 @@ metadata_present$status_char       <- metadata_present$treatment_simple
 metadata_present$colony_status     <- metadata_present$treatment_simple
 
 
-#### ADD EXTRA COLS TO PATHOHEN LOAD DATA ####
-# as soon as I have the bead data I will add it to the meta data table so the following might not be. 
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+####              task_groups.txt                              ####
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
 
-# # colony code
-# pathogen_load$REP_NUM           <- substring(pathogen_load$Colony, 2, nchar(pathogen_load$Colony))
-# pathogen_load$N_CHAR            <-  4-nchar(pathogen_load$REP_NUM)
-# #rep function is unhappy if the reps are 0...
-# #paste("colony", paste(rep(0,N_CHAR),collapse=""), pathogen_load$REP_NUM,sep="")
-# pathogen_load[which(pathogen_load$N_CHAR==0),"colony"] <- paste("colony", pathogen_load[which(pathogen_load$N_CHAR==0),"REP_NUM"],sep="")
-# pathogen_load[which(pathogen_load$N_CHAR==1),"colony"] <- paste("colony", 0, pathogen_load[which(pathogen_load$N_CHAR!=0),"REP_NUM"],sep="")
-# # colony_status
-# pathogen_load$status_char       <- substr(pathogen_load$Colony, nchar(pathogen_load$Colony), nchar(pathogen_load$Colony))
-# pathogen_load$colony_status     <- ifelse(pathogen_load$status_char  == "P", "pathogen", ifelse(pathogen_load$status_char  == "S", "control", NA))
-# # treatment code
-# #period_code       <- ifelse(PERIOD == "pre", "PreTreatment", ifelse(PERIOD == "post", "PostTreatment", NA))
-# pathogen_load$size_char         <- substr(pathogen_load$Colony, nchar(pathogen_load$Colony)-1, nchar(pathogen_load$Colony)-1)
-# pathogen_load$size_status       <- ifelse(pathogen_load$size_char  == "S", "small", ifelse(pathogen_load$size_char  == "B", "big", NA))
-# pathogen_load$treatment_code    <- paste(pathogen_load$colony_status ,pathogen_load$size_status,sep=".")
-# 
-
-##################################################################
-##################     task_groups.txt    ########################
-##################################################################
 names(metadata_present)
 task_groups <- data.frame(colony = metadata_present$colony_id,
                           tag =  metadata_present$antID,
@@ -129,14 +111,9 @@ task_groups <- data.frame(colony = metadata_present$colony_id,
 write.table(task_groups, file = file.path(SAVEDIR,"task_groups.txt"), append = F, col.names = T, row.names = F, quote = F, sep = "\t")
 
 
-
-
-
-
-
-##################################################################
-##############     treated_worker_list.txt    ####################
-##################################################################
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+####              treated_worker_list.txt                      ####
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
 
 metadata_treated <- metadata_present[which(metadata_present$IsTreated==TRUE),]
 
@@ -149,41 +126,34 @@ treated_worker_list <- data.frame(colony = metadata_treated$colony_id,
 
 write.table(treated_worker_list, file = file.path(SAVEDIR,"treated_worker_list.txt"), append = F, col.names = T, row.names = F, quote = F, sep = "\t")
 
-##################################################################
-##############           seed files           ####################
-##################################################################
+
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+####                 seed files                                ####
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+
 
 # flag to determine if selecting 10% of the colony size (T) or the same N as the real exposed ants (F)
 select_fixed_N <- F
-
-!!!! that is something to think about: Do it once with the same number of workers that were in the treatment groups and once witht the same number of workers that I deem worth including! i.e. that did not drown themselves.
-
-
-
-
-
+# !!!! that is something to think about: Do it once with the same number of workers that were in the treatment groups and once witht the same number of workers that I deem worth including! i.e. that did not drown themselves.
 
 # same as above : treated_workers.txt
 # treated workers simulation is to compare effects with the observed post-exposure changes
 write.table(treated_worker_list, file = file.path(SAVEDIR,"seeds/treated_workers.txt"), append = F, col.names = T, row.names = F, quote = F, sep = "\t")
 
 # simulation of transmission
-# simulations on pre- and post-networks 
-#
+# simulations on pre- and post-networks
 # Pre networks:
 # - compare how transmission is compared to observed post (seed: treated workers). simulation shows what is the expected in the post-networks and it can be compared with the actual post-net qPCR data
 # - what would have happened if the exposed where the foragers/nurses/random_workers. This simulation is to study the effects in the pre-period (constitutive properties)
 
-
 # For simulations, ants where randomly selected from the pool of nurses, foragers or all of the workers, matching the number of exposed nurses in each colony.
-
 # select the N of EXPOSED ants that where alive (present in metadata_present)
 # Calculate N_exposed_alive as the number of Exposed per colony = TRUE
-metadata_present$N_exposed_alive <- ave(metadata_present$Exposed, metadata_present$colony, FUN = function(x) sum(x))
+metadata_present$N_exposed_alive <- ave(metadata_present$IsTreated, metadata_present$colony, FUN = function(x) sum(x))
 
-# Randomly select X rows per colony
-#selected_rows <- dataset[ave(seq_len(nrow(dataset)), dataset$colony, FUN = function(x) sample(x, size = unique(x$X))), ]
-
+# Randomly select X rows per colony 
+# selected_rows <- dataset[ave(seq_len(nrow(dataset)), dataset$colony, FUN = function(x) sample(x, size = unique(x$X))), ]
 
 for (GROUP in c("nurse","forager","random_worker")) {
   if (!(GROUP %in% c("nurse","forager"))) {
@@ -191,36 +161,43 @@ for (GROUP in c("nurse","forager","random_worker")) {
   }else{
     metadata_GROUP <- metadata_present[which(metadata_present$AntTask1perc==GROUP),]
   }
-  if (select_fixed_N) {
+  if (select_fixed_N) { # currently false so Daniel goes straight to the else statement
     # nurses.txt
     # Group the dataset by "colony" and sample rows based on "status"
-    metadata_GROUPs_seed <- metadata_GROUP %>%
-      group_by(colony) %>%
-      sample_n(ifelse(status == "Big", 18, 3)) %>% # replace FALSE means do not resample rows if threre are less than N to be sliced
-      ungroup()
+    # metadata_GROUPs_seed <- metadata_GROUP %>%
+    #   group_by(colony) %>%
+    #   sample_n(ifelse(status == "Big", 18, 3)) %>% # replace FALSE means do not resample rows if threre are less than N to be sliced
+    #   ungroup()
   }else{
     metadata_GROUPs_seed <- metadata_GROUP %>%
       group_by(colony) %>%
-      sample_n(first(N_exposed_alive)) %>%
+      sample_n(first(N_exposed_alive)) %>%  # wondering if it should be random or whether we are better of sampling the first rows?
       ungroup()
   }
   
-  metadata_GROUPs_seed <- metadata_GROUPs_seed[,c("colony","antID","treatment_code","REP_treat","AntTask1perc")]
-  names(metadata_GROUPs_seed)[which(names(metadata_GROUPs_seed)=="treatment_code")] <- "treatment"
-  names(metadata_GROUPs_seed)[which(names(metadata_GROUPs_seed)=="antID")] <- "tag"
+  metadata_GROUPs_seed <- metadata_GROUPs_seed[,c("colony_id","tagIDdecimal","treatment_simple","AntTask1perc")]
+  names(metadata_GROUPs_seed)[which(names(metadata_GROUPs_seed)=="colony_id")] <- "colony"
+  names(metadata_GROUPs_seed)[which(names(metadata_GROUPs_seed)=="treatment_simple")] <- "treatment"
+  names(metadata_GROUPs_seed)[which(names(metadata_GROUPs_seed)=="tagIDdecimal")] <- "tag"
+  metadata_GROUPs_seed <- metadata_GROUPs_seed %>%
+    mutate(REP_treat = paste0(colony, "_", treatment))
   
   write.table(metadata_GROUPs_seed, file = file.path(SAVEDIR,paste0("seeds/",GROUP,"s.txt")), append = F, col.names = T, row.names = F, quote = F, sep = "\t")
 }
 
-##################################################################
-#######################    info.txt    ###########################
-##################################################################
 
-metadata_colony <- metadata_present[,c("colony","treatment_code","box","colony_size","REP_treat")]
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+####                 info.txt                                  ####
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+
+metadata_colony <- metadata_present[,c("colony_id","treatment_simple","box","colony_size")]
 metadata_colony <- unique(metadata_colony)
+metadata_colony <- metadata_colony %>%
+  mutate(REP_treat = paste0(colony_id, "_", treatment_simple))
 
-info <- data.frame(colony = metadata_colony$colony,
-                   treatment = metadata_colony$treatment_code,
+info <- data.frame(colony = metadata_colony$colony_id,
+                   treatment = metadata_colony$treatment_simple,
                    box = metadata_colony$box,
                    colony_size = metadata_colony$colony_size,
                    Ynestmin = NA,
@@ -232,99 +209,119 @@ info <- data.frame(colony = metadata_colony$colony,
 
 write.table(info, file = file.path(SAVEDIR,"info.txt"), append = F, col.names = T, row.names = F, quote = F, sep = "\t")
 
-##################################################################
-#####################    qPCR_file.txt    ########################
-##################################################################
-
-head(pathogen_load[,c("colony","treatment_code","antID","Exposed","IsAlive","MbruDNA","above_detection_threshold", "Colony")])
-
-qPCR_file <- data.frame(colony = pathogen_load$colony,
-                        treatment = pathogen_load$treatment_code,
-                        tag =  pathogen_load$antID,
-                        age = NA,
-                        status = pathogen_load$Exposed,
-                        alive_at_sampling_time = pathogen_load$IsAlive,
-                        measured_load_ng_per_uL = pathogen_load$MbruDNA,
-                        above_detection_threshold = pathogen_load$above_detection_threshold,
-                        REP_treat= pathogen_load$Colony)
 
 
-write.table(qPCR_file, file = file.path(SAVEDIR,"qPCR","qPCR_file.txt"), append = F, col.names = T, row.names = F, quote = F, sep = "\t")
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+####                 bead_file.txt                             ####
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+
+# used to be called qPCR_file.txt and was based on Adrianos pathogen load file as I have the bead data included in the metadata file we just use the metadata file instead: 
+# head(pathogen_load[,c("colony","treatment_code","antID","Exposed","IsAlive","MbruDNA","above_detection_threshold", "Colony")])
+# qPCR_file <- data.frame(colony = pathogen_load$colony,
+#                         treatment = pathogen_load$treatment_code,
+#                         tag =  pathogen_load$antID,
+#                         age = NA,
+#                         status = pathogen_load$Exposed,
+#                         alive_at_sampling_time = pathogen_load$IsAlive,
+#                         measured_load_ng_per_uL = pathogen_load$MbruDNA,
+#                         above_detection_threshold = pathogen_load$above_detection_threshold,
+#                         REP_treat= pathogen_load$Colony)
+# write.table(qPCR_file, file = file.path(SAVEDIR,"qPCR","qPCR_file.txt"), append = F, col.names = T, row.names = F, quote = F, sep = "\t")
+
+bead_file <- metadata_present  %>% select(-treatment)
+names(bead_file)[which(names(bead_file)=="treatment_simple")] <- "treatment"
+names(bead_file)[which(names(bead_file)=="tagIDdecimal")] <- "tag"
+bead_file <- bead_file %>% mutate(REP_treat = paste0(colony, "_", treatment))
+bead_file <- bead_file %>% mutate(age = NA)
+bead_file <- bead_file %>% mutate(status = IsTreated)
+#save
+bead_file_path <- file.path(SAVEDIR, "beads", "bead_file.txt")
+if (!file.exists(dirname(bead_file_path))) {dir.create(dirname(bead_file_path), recursive = TRUE)}
+write.table(bead_file, file = bead_file_path, append = F, col.names = T, row.names = F, quote = F, sep = "\t")
+
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+####                 tag_files.txt                             ####
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+
+files_list <- list.files(DATADIR)
+files_list <- list.files(DATADIR, pattern="CapsuleDef2018.myrmidon")     
+files_list <- files_list[which(!grepl("c29",files_list))] # getting a list of each colony
+source(paste0(SCRIPTDIR,"/vital_meta_data.R")) # will add colony_metadata data frame to the environment so it can be accessed within this script (in my case containing bodylenght information)
+
+for (file in files_list) { # file <- files_list[1]
+  colony_id <- unlist(strsplit(file,split="_"))[grepl("c",unlist(strsplit(file,split="_")))]
+  colony <- colony_id
+  # get base info for this colony
+  treatment <- colony_metadata[which(colony_metadata$colony_id==colony_id),"treatment_simple"]
+  tracking_system <-colony_metadata[which(colony_metadata$colony_id==colony_id),"tracking_system_main"]
+  REP_treat <- paste(treatment, tracking_system, colony_id, sep="_") 
+  colony_status <- treatment
+  print(paste(REP_treat,colony,treatment,sep=" | "))
+  e <- fmExperimentOpen(paste(DATADIR,file, sep = "/"))
+  exp.Ants  <- e$ants
+  exp_end   <- colony_metadata[which(colony_metadata$colony_id==colony_id),"time_treatment_end"]#fmQueryGetDataInformations(e)$end
+  treatment_start <-  as.POSIXct(colony_metadata[which(colony_metadata$colony_id==colony_id),"time_treatment_start"], format="%Y-%m-%dT%H:%M:%OSZ",  origin="1970-01-01", tz="GMT" ) #fmQueryGetDataInformations(e)$start
+  exp_start <- fmTimeCreate(treatment_start-24*3600)
+  tag_stats <- fmQueryComputeTagStatistics(e)
+  
+  # create tag file
+  tag_file <- NULL
+  
+  for (ant in exp.Ants){  # ant <- exp.Ants[[1]]
+    if(all(ant$getValues("IsAlive")["values"]$values)){ #making just making sure there is no false, i.e. ant is alive
+      for (id in ant$identifications){ # id <- ant$identifications[[1]]
+        ### THIS EXCLUDES THE ANTS WITH ROTATED TAGS! if (capture.output(ant$identifications[[1]]$end)=="+∞") {      ### this was probably in andrianos but not needed by linda, kept for now so it could get back in should I need it?
+        tag_file <- rbind(tag_file,data.frame(tag =  ant$ID,
+                                              count = tag_stats[which(tag_stats$tagDecimalValue == id$tagValue),"count"],
+                                              # version 1:
+                                              last_det = 27*3600*FRAME_RATE #not entirely clear: simple like adriano: last_det = 51*60*60 * 8, #fixed= sll alive, so it is the n of frames for 51 hours.tag_stats[which(tag_stats$tagDecimalValue == id$tagValue),"lastSeen"],
+                                              # version 2: number of frames since official starting of tracking 24 h before treatment until last seen? 
+                                              last_det = round(as.numeric(difftime(tag_stats[which(tag_stats$tagDecimalValue == id$tagValue),"lastSeen"], treatment_start-24*3600, units="secs"))*FRAME_RATE),
+                                              # LS: last_det = round(as.numeric(difftime(tag_stats[which(tag_stats$tagDecimalValue == id$tagValue),"`lastSeen"],exp_start,units="secs"))*FRAME_RATE), #L: what duration should be used here? filming? pre + post? for now filming 24 h + (12 h - 1.5 h) = 34.5 h (plus buffer of 0.5 h in case filming was put on a bit earlier?) with 8 fps
+                                              
+                                              
+                                              
+                                              #continue here... 
+                                              
+                                              
+                                              
+                                              rot = round(deg(id$antAngle),3), # assumed to be the the relative angle of the ant to the tag
+                                              displacement_distance = 0, #id$antPosition one of the two measures
+                                              displacement_angle = 0,
+                                              antenna_reach = NA,
+                                              trapezoid_length = NA,
+                                              type = "N", #what does it mean?
+                                              size = 0 ,
+                                              headwidth = 0,
+                                              death = 0,  #all alive, dead not included
+                                              age = 0,
+                                              final_status = ifelse(metadata_present[which(metadata_present$tagIDdecimal == id$tagValue & metadata_present$REP_treat==REP_treat),"IsAlive"]==T,"alive","dead"),
+                                              group = metadata_present[which(metadata_present$tagIDdecimal == id$tagValue & metadata_present$REP_treat==REP_treat),"AntTask1perc"],
+                                              REP_treat = REP_treat,
+                                              stringsAsFactors = F))
+        #}
+      }
+    }
+}
+
 
 ##################################################################
 #####################    tag_files.txt    ########################
 ##################################################################
 
 ### GET EXP END TIME FOR EACH REP AND ASSIGN PRE-POST TIME!
-#list subdirectories in parent folder EXPERIMENT_DATA
-files_list <- list.dirs.depth.n(EXP_DATA, n = 1)
-#select REP folders
-#files_list <- files_list[grep("REP",files_list)]
+
 
 # replicate folder
 for (REP.n in 1:length(files_list)) {
-  #REP.n <- 1    #temp
-  REP.folder      <- files_list[REP.n]
-  REP.files       <- list.files(REP.folder, pattern = "CapsuleDef2018_metadata_deaths_q_zones.myrmidon") 
-  REP.filefolder  <- paste(REP.folder,REP.files,sep="/")
-  
-  #replicate file
-  #for (REP.FILES in REP.filefolder) {
-  #get substring in variable until R9BS_
-  # REP.FILES <- REP.filefolder[1]
-  REP.FILES <- REP.filefolder  
-  #REP_treat <- sub("\\_.*", "", basename(REP.FILES))
-  # base file info
-  REP_name <- unlist(strsplit(REP.FILES,split="/"))[length(unlist(strsplit(REP.FILES,split="/")))]
-  REP_treatment <- unlist(strsplit(REP_name,split="_"))[1]
-  REP_ts <- unlist(strsplit(REP_name,split="_"))[2]
-  REP_colony <- unlist(strsplit(REP_name,split="_"))[3]
-  REP_treat <- paste(REP_treatment, REP_ts, REP_colony, sep="_")
-  
-  colony            <- REP_colony 
-  status_char       <- substring(REP_treatment, 2)
-  colony_status     <- ifelse(status_char == "F", "pathogen", ifelse(status_char == "S", "control", NA))
-  # treatment code
-  # period_code       <- ifelse(PERIOD == "pre", "PreTreatment", ifelse(PERIOD == "post", "PostTreatment", NA))
-  time_char         <- substring(REP_treatment, 1, 1)
-  time_status       <- ifelse(time_char == "D", "day", ifelse(time_char == "N", "night", NA))
-  treatment_code    <- paste(colony_status,time_status,sep=".")
-  
-  #conform naming to science2018
-  # Adriano:
-  # colony code
-  # REP_NUM           <- substring(REP_treat, 2, nchar(REP_treat))
-  # colony            <- paste("colony", paste(rep(0,4-nchar(REP_NUM)),collapse=""), REP_NUM,sep="")
-  # colony_status
-  # status_char       <- substr(REP_treat, nchar(REP_treat), nchar(REP_treat))
-  # colony_status     <- ifelse(status_char == "P", "pathogen", ifelse(status_char == "S", "control", NA))
-  # treatment code
-  # size_char         <- substr(REP_treat, nchar(REP_treat)-1, nchar(REP_treat)-1)
-  # size_status       <- ifelse(size_char == "S", "small", ifelse(size_char == "B", "big", NA))
-  # treatment_code    <- paste(colony_status,size_status,sep=".")
-  
-  print(paste(REP_treat,colony,treatment_code,sep=" | ")) ##}}
-  #open experiment
-  e <- fmExperimentOpen(REP.FILES)
-  exp.Ants  <- e$ants
-  # L: might need to change the times here because my experiment did end before I ended the tracking but variables are not used anywhere else ####
-  exp_end   <- fmQueryGetDataInformations(e)$end
-  exp_start <- fmQueryGetDataInformations(e)$start
-  
-  tag_stats <- fmQueryComputeTagStatistics(e)
-  
-  ############# CREATE BASE FILE
-  tag_file <- NULL
-  
+
+
   for (ant in exp.Ants){
-    #ant <- exp.Ants[[1]] #temp
-    # FIX
-    if(all(ant$getValues("IsAlive")["values"]$values)){ # check if there is any false
-      #warning("do check that ants are assigned correctly, final_status will fail as the ant is present 2 times in the metadata")
+
       for (id in ant$identifications){
-        # id <- ant$identifications[[1]] #temp
-        #if the ant died, skip
-        ### THIS EXCLUDES THE ANTS WITH ROTATED TAGS! if (capture.output(ant$identifications[[1]]$end)=="+∞") { 
+
+        
         tag_file <- rbind(tag_file,data.frame(tag =  ant$ID,
                                               count = tag_stats[which(tag_stats$tagDecimalValue == id$tagValue),"count"], #count considers also the acclimation time, therefore it is always higher than the N of frames
                                               # L: this is also different for me ####
@@ -350,8 +347,6 @@ for (REP.n in 1:length(files_list)) {
         
         #identifEnd <- ifelse(capture.output(print(id$end))=="+∞",NA,ifelse(capture.output(print(id$end))))
         #fmQueryGetDataInformations(e)$end - 51*60*60
-        
-        
         # individual  <- ant$ID
         # #extract metadata info per key
         #   #for more than one row, always last row will be picked (the relevant one if there is a timed change or the default one if there is not)
