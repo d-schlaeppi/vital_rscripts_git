@@ -33,7 +33,7 @@ SpaceUse <- function(e, start, end){
   zones_tab <- data.frame(ID =c(zones[[1]]$ID, zones[[2]]$ID), name=c(zones[[1]]$name, zones[[2]]$name))
   
   
-  foraging_zone <- zones_tab[which(grepl("forag",zones_tab$name)),"ID"]##fool-proofing - this way we are sure to always select the right zone
+  foraging_zone <- zones_tab[which(grepl("forag|arena", zones_tab$name)),"ID"]  ##fool-proofing - this way we are sure to always select the right zone ### DS: updated to also include arena as I had different names than Adriano.
   nest_zone <- zones_tab[which(grepl("nest",zones_tab$name)),"ID"]##fool-proofing - this way we are sure to always select the right zone
   print(paste("Foraging zone = zone",foraging_zone, "& Nest zone = zone",nest_zone))
   

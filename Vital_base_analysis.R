@@ -42,7 +42,7 @@ library(MALDIquant)
 }
 #### 2. Starting parameters & directories ####
 {
-USER <- "2A13_Office_Daniel"  # Replace with the desired USER option: Nath_office, 2A13_Office_Adriano, 2A13_Office_Daniel, AEL-laptop
+USER <- "AEL-laptop"  # Replace with the desired USER option: Nath_office, 2A13_Office_Adriano, 2A13_Office_Daniel, AEL-laptop
 HD <- "/DISK_B" # One of the harddrives with the vital extrapolated data: possible values > Nathalies hd "/DISK_B" ; Daniels hds >  "/gismo_hd5" or  "/gismo_hd2" | just make sure to put the name of your HD in here
 setUserAndHD <- function(USER, HD) {
   usr <- NULL  # Default value in case of an unrecognized USER option
@@ -109,7 +109,7 @@ SPACE_USE_PRE <-  file.path(BEHDIR,"pre_treatment","network_position_vs_time_out
 
 
 # FLAGS                                                                                                     
-RUN_INTERACT     <- TRUE
+RUN_INTERACT     <- FALSE 
 RUN_SPACEUSE     <- TRUE
 RUN_NETWORKS     <- FALSE  # this part of the code seems is not up to date and behind #s
 warning(paste("RUN_INTERACT is set to:",RUN_INTERACT,

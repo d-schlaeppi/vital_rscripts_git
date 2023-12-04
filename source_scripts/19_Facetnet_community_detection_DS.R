@@ -12,6 +12,10 @@
 # https://c4science.ch/source/facet_unil/
 # TO Richardson, T Kay, R Braunschweig, OA Journeau, M Rüegg, ... Ant behavioral maturation is mediated by a stochastic transition between two fundamental states. Current Biology 31, 1-8
 
+#### TO DO's ####
+# Rerun the spaces use script to get correct proportion of time spent inside or outside.
+# Once that is done 
+
 #### Prerequisites ####
 # Set up directories and parameters
 
@@ -19,44 +23,22 @@
 m            <- 2   ## how many communities do we want to instruct FACETNET to search for...? Nurses and Foragers so 2?
 alpha        <- 0.5 ## used for modulating the `memory` - how much the community structure @ time t influences that at t+1 - only matters when we ask facetnet to pay attention to this...
 t_step       <- 0   ## not important
-N_ITERATIONS <- 50
-DISPLAY_RESULTS <- F
+N_ITERATIONS <- 69
+DISPLAY_RESULTS <- F   # optional plotting of results from the facet net thingy... 
+UPDATE_DATA <- F    ## as far as I can see optional updating of a variety of tables... Maybe not needed... or can maybe be changed and added to an updated metadata table at some point. 
 
-
-#define directories
-USER <- "2A13_Office_Daniel"  # Replace with the desired USER option: Nath_office, 2A13_Office_Adriano, 2A13_Office_Daniel, AEL-laptop
-HD <- "/DISK_B"               # One of the harddrives with the vital extrapolated data: possible values > Nathalies hd "/DISK_B" ; Daniels hds >  "/gismo_hd5" or  "/gismo_hd2" | just make sure to put the name of your HD in here
-setUserAndHD <- function(USER, HD) {
-  usr <- NULL  # Default value in case of an unrecognized USER option
-  if (USER == "Nath_office") {
-    usr <- "bzniks"
-  } else if (USER == "2A13_Office_Adriano") {
-    usr <- "cf19810"
-  } else if (USER == "2A13_Office_Daniel") {
-    usr <- "gw20248"
-  } else if (USER == "AEL-laptop") {
-    usr <- "ael"
-  }
-  if (!is.null(usr)) {print(usr)} else {print("define new user if necessary")}
-  hd <- NULL
-  hd <- HD
-  if (!is.null(hd)) {print(hd)} else {print("define new hd if necessary")}
-  assign("hd", hd, envir = .GlobalEnv)  # Assign to the global environment
-  assign("usr", usr, envir = .GlobalEnv)  # Assign to the global environment
-}
-setUserAndHD(USER, HD)
-
-DATADIR <- paste("/media/",usr, hd, "/vital/fc2",sep="") 
-SCRIPTDIR <- paste("/home/",usr,"/Documents/vital_rscripts_git",sep="")
+# set directories to match original version of script
+DATADIR <- paste("/media",usr, hd, "vital/fc2",sep="/") 
+SCRIPTDIR <- paste("/home",usr,"Documents/vital_rscripts_git",sep="/") #does not (yet) work on the mac
 
 # to match with the code below
 data_path <- paste0(DATADIR, "/vital_experiment/main_experiment")
-code_path  <- paste0(SCRIPTDIR, "/source_scripts")
-source(paste(code_path,"/functions_and_parameters_DS.R",sep=""))
+# code_path  <- paste0(SCRIPTDIR, "/source_scripts") # already exists due to running main script - if things run it can be deleted
+# source(paste(code_path,"/functions_and_parameters_DS.R",sep=""))  # so far I have not seen the use of this functions. Clean() already defined due to running main analysis
 
-FACETNET_DIR <- DATADIR  ## the Python script is here - can be anywhere, but this must point to it...
+FACETNET_DIR <- paste(DATADIR, "facetNet", sep = "/")  ## the Python script is here - can be anywhere, but this must point to it...
 
-# interaction lists
+# interaction lists (observed)
 input_path           <- paste(data_path,"/intermediary_analysis_steps/full_interaction_lists",sep="")
 setwd(input_path)  
 input_folders        <- list.dirs(recursive=T,path="PreTreatment",full.names=F)
@@ -65,92 +47,87 @@ input_folders        <- input_folders[which(input_folders!="random")]
 
 
 ## load the file containing the % time each ant spent outside
-TaskStats_File <- paste(data_path, "/processed_data/individual_behaviour/pre_treatment/network_position_vs_time_outside.dat", sep="/")
+TaskStats_File <- paste(data_path, "processed_data/individual_behaviour/pre_treatment/network_position_vs_time_outside.dat", sep="/")
 TaskStats_all      <- read.table(TaskStats_File , header=T, stringsAsFactors = F)
 
 #where scores are saved
-WORKDIR      <- paste(data_path,"/Soft_community_scores_duration",sep="")
-
+WORKDIR      <- paste(data_path,"Soft_community_scores_duration",sep="/")
 to_keep <- c(ls(),"to_keep","network_files","network_file","output_folders","output_folder")
-
 
 for (input_folder in input_folders){ # input_folder <- input_folders[1]
   print(input_folder)
   setwd(input_path)
   network_files <- list.files(path=paste("PreTreatment/",input_folder,sep=""),full.names=T)
-  
   output_folder <- file.path(WORKDIR, input_folder)
   if (!file.exists(output_folder)){dir.create(output_folder, recursive = TRUE)}
   
-  ## file in which queen community is not the same as the one where ants spend least time outside
-  #network_files <- network_files[!grepl("colony07SP_pathogen.small_PreTreatment",network_files)]
+  ## file in which queen community is not the same as the one where ants spend least time outside  ###these two lines were adriano specific and can probably be deleted.
+  # network_files <- network_files[!grepl("colony07SP_pathogen.small_PreTreatment",network_files)] 
   
   for (network_file in network_files){ # network_file <- network_files[1]
-    #### re-open the task_groups (where results are saved) as it gets updated at the end of the loop (the loaded version has to be the newest one)
+    
+    ### re-open the task_groups (where results are saved) as it gets updated at the end of the loop (the loaded version has to be the newest one)
     task_groups    <- read.table(paste(data_path,"original_data/task_groups.txt",sep="/"),header=T,stringsAsFactors = F)
     # Create new columns if they don't exist in 'task_groups'
     if(!"task_group_FACETNET_0.5" %in% names(task_groups)) {task_groups$task_group_FACETNET_0.5 <- NA}
     if(!"Forager_score" %in% names(task_groups)) {task_groups$Forager_score <- NA}
     
     
-    ####get file metadata
+    ### get file metadata
     root_name          <- gsub("_interactions.txt","",unlist(strsplit(network_file,split="/"))[grepl("interactions",unlist(strsplit(network_file,split="/")))]) # LS: replace grepl("colony", ...) with grepl("interactions")
     Cassette           <- paste(root_name,"_interactions", sep="")
-    components         <- unlist(strsplit(root_name,split="_"))
-    # colony             <- components[grepl("colony",components)]
-    colony             <- unlist(strsplit(root_name,split="_"))[1] # LS
-    treatment          <- info[which(info$colony==colony),"treatment"] #AW: no need for as.numeric() 
-    colony_size        <- info[which(info$colony==colony),"colony_size"]
+    #components         <- unlist(strsplit(root_name,split="_"))
+    colony             <- unlist(strsplit(root_name,split="_"))[1]
+    treatment          <- unlist(strsplit(root_name,split="_"))[2]
+    #colony_size        <- info[which(info$colony==colony),"colony_size"]
     period             <- "Pre"
     
     print(basename(root_name)) #"\r",
     
     #MAKE A FOLDER PER COLONY
     FACETNET_REP_folder <- file.path(output_folder, paste(root_name,"_FACETNET_iters",sep="")); if (!file.exists(FACETNET_REP_folder)){dir.create(FACETNET_REP_folder)}
-    Module_File        <- paste(FACETNET_REP_folder, paste(Cassette,"Modularities.txt",sep=""), sep="/")
+    Module_File        <- paste(FACETNET_REP_folder, paste(Cassette,"Modularities.txt",sep="_"), sep="/")
     
-    ####get appropriate task_group list, treated list and tag
-    tag <- read.tag(tag_list)
+    ### get appropriate task_group list, treated list and tag
+    tag <- read.table(paste0(data_path, "/original_data/tag_files/", colony, "_", treatment, ".txt") , header=T,stringsAsFactors = F)
     alive <- tag$tag #AW
     colony_task_group  <- task_groups[which(task_groups$colony==colony), c("tag","task_group")];   colony_task_group <- subset(colony_task_group, tag %in% alive)
     queenid            <- as.character(colony_task_group[which(colony_task_group$task_group=="queen"),"tag"])
     TaskStats          <- TaskStats_all[which(TaskStats_all$colony==colony),]
     TaskStats          <- subset(TaskStats, tag %in% alive)
     
-    ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### 
-    ##### PART 1: re-format the aggregated interactions list for facetnet soft community labelling  #####
-    ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### 
+    ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
+    ##### PART 1: re-format the aggregated interactions list for facetnet soft community labelling    #####
+    ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
     
     if (!file.exists("FACETNET_INPUT")){
-      ####read interactions
+      # read interactions & #remove dead ants from interactions list
       interactions       <- read.table(network_file,header=T,stringsAsFactors = F)
-      #remove dead ants from interactions list  #AW
       interactions <- subset(interactions, Tag1 %in% alive)
       interactions <- subset(interactions, Tag2 %in% alive)
       ## time-aggregated edge list
       #EdgeList              <- aggregate(Box ~ Tag1 + Tag2, FUN=length, data=interactions)  ; colnames(EdgeList)[ncol(EdgeList)] <- "Count"       ## pairwise contact count
-      EdgeList              <- aggregate(duration ~ Tag1 + Tag2, FUN=sum, data=interactions)  ; colnames(EdgeList)[ncol(EdgeList)] <- "duration"       ## pairwise contact count
-      
+      EdgeList              <- aggregate(duration ~ Tag1 + Tag2, FUN=sum, data=interactions)  ; colnames(EdgeList)[ncol(EdgeList)] <- "duration"       ## pairwise contact duration 
       EdgeList$duration <- round(EdgeList$duration)
       
-      ## DEFINE INPUT FILE - needs to be formatted for facetnet python to understand
+      ## DEFINE INPUT FILE - needs to be formatted for facetnet python to understand ---????? What do adriano and tom mean here? hopefully it is just right as is... 
       FACETNET_INPUT <- paste(FACETNET_REP_folder,"/",Cassette,"interactions_Time-aggregated_network,FACETNET_format.txt",sep="")
       
       ## Export the aggregated edge list
-      write.table(EdgeList, file=FACETNET_INPUT, row.names=F, col.names = F, quote=F)
+      write.table(EdgeList, file=`FACETNET_INPUT`, row.names=F, col.names = F, quote=F)
     }
     
-    ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### 
-    ##### PART 2: Repeatedly apply facetnet to generate a community partition ### ##### ##### ##### ##### ##### 
-    ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### 
+    ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
+    #### PART 2: Repeatedly apply facetnet to generate a community partition                           ####
+    ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
     
-    for (ITER in 1:N_ITERATIONS)  {  ## the modularity of the found solutions vary quite a bit... so repeat many times & select the highest-modularity solution 
+    for (ITER in 1:N_ITERATIONS)  {  # ITER <- 1 # the modularity of the found solutions vary quite a bit... so repeat many times & select the highest-modularity solution 
       ## create new subdirectory for community results with m
       FACETNET_REP_OUTPUT_DIR_M <- paste(FACETNET_REP_folder, paste(Cassette,",m=",m,",Iteration=",ITER,sep=""), sep="/"); if (!file.exists(FACETNET_REP_OUTPUT_DIR_M)){dir.create(FACETNET_REP_OUTPUT_DIR_M)}
       ## check if the outputs already exist
       if ( file.exists( paste(FACETNET_REP_OUTPUT_DIR_M, "soft_comm_step_alpha0.5_nw0.csv", sep="/") ))
       {cat(paste("Facetnet output exists for m=",m,"modules, up to iteration #",ITER),"\r")
-      }else{cat(paste("Facetnet output missing for m=",m, "modules, iteration #",ITER),"\r")
+      }else{cat(paste("Facetnet output missing for m =",m, "modules, iteration #",ITER),"\r")
         
         FACETNET_INPUT_brackers <- paste0("'",FACETNET_INPUT,"'") #make sure the command is not broken
         FACETNET_REP_OUTPUT_DIR_M_brackers <- paste0("'",FACETNET_REP_OUTPUT_DIR_M,"'")
@@ -183,17 +160,16 @@ for (input_folder in input_folders){ # input_folder <- input_folders[1]
       }
     }##ITER
     
+    ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+    #### PART 3: Find the top-modularity solution & assign biological labels to both communities       ####
+    ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
     
     if (input_folder=="observed") {
-      ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### 
-      ##### PART 3: Find the top-modularity solution & assign biological labels to both communities # ##### #####
-      ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### 
-      
-      ## reduce these files to the current colony, treatment,period
+      # reduce these files to the current colony, treatment,period
       TaskStats_ColTreatPer <- TaskStats[which(TaskStats$colony==colony & TaskStats$treatment==treatment & tolower(TaskStats$period)==tolower(period) ), c("tag","time_hours","prop_time_outside")]
       
-      ## **KEY STAGE** average the % time outside across the 3 hour pre-introduction bins
-      ## IS THIS RIGHT?
+      ## **KEY STAGE** average the % time outside across the 3 hour pre-introduction bins ## IS THIS RIGHT???
+      
       TaskStats_ColTreatPer_MEAN <- aggregate(prop_time_outside ~ tag, FUN=mean, na.rm=TRUE, na.action=NULL, TaskStats_ColTreatPer)
       if (nrow(TaskStats_ColTreatPer_MEAN) != nrow(colony_task_group)) {print("ERROR : the number of tags in TaskStats_ColTreatPer_MEAN is different from that in colony_task_group")}
       
@@ -273,12 +249,25 @@ for (input_folder in input_folders){ # input_folder <- input_folders[1]
 }
 
 
+
+
+
+
+
+
+
+
+##########################################################################################################################################
+# DS: Continue updating below.... not touched yet. 
+
+#### DISPLAY RESULTS  ####
+
 if(DISPLAY_RESULTS){
   library(dplyr)
   library(ggplot2)
-  ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### 
-  ##### ##### ##### #####  fetch best modularity values and save output   ##### ##### ##### ##### ##### #####
-  ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### 
+  ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
+  ####            fetch best modularity values and save output               ####
+  ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
   # # Define directory and patterns
   folder_pattern <- "FACETNET_iters"
   file_pattern <- "interactionsModularities.txt"
@@ -402,7 +391,16 @@ if(DISPLAY_RESULTS){
 # write.table(combined_data, file=output_path, row.names=FALSE, sep="\t", quote=FALSE)
 # 
 
-UPDATE_DATA <- F
+
+
+
+
+
+
+
+
+##############
+
 if(UPDATE_DATA){
   #add this info to all the relevant files
   combined_data <- read.table( "/media/cf19810/Seagate Portable Drive/Lasius-Bristol_pathogen_experiment/main_experiment/Soft_community_scores_duration_1ITER_0.5alpha_full.txt", header=TRUE, stringsAsFactors=FALSE)

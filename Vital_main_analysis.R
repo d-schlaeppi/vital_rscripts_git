@@ -36,7 +36,7 @@ mallinfo::malloc.trim(0L)
 # Make sure the below is directing to you data folder, the code/script folder, and the c++ executables folder (source scipts)
 
 ### input parameters:
-
+library(tcltk)
 FRAME_RATE <- 6
 
 # Define which interactions to look at:                                                                                                  
@@ -66,10 +66,10 @@ choose_data_path <- function() { # does not work on the mac.
 # Call the functions to get the data and script paths as well as additional libraries and functions loaded: 
 code_path <- paste("/home/",usr,"/Documents/vital_rscripts_git/source_scripts",sep="") # place where the needed r scripts are stored
 data_paths <- choose_data_path()
-source(paste(code_path,"/libraries_DS.R",sep=""))
-source(paste(code_path,"/functions_and_parameters_DS.R",sep=""))
-
+source(paste(code_path,"/libraries_DS.R",sep="")) #not much in these two scripts (libraries and functions) yet... if needed maybe include in the config script?
+source(paste(code_path,"/functions_and_parameters_DS.R",sep="")) # see line above
 # executables_path <- "~/executables" # not clear what this is and where it is used. ?
+
 to_keep <- c(ls(),"to_keep")
 
 
@@ -98,25 +98,32 @@ if (RUN_11_randomise_interactions_DS.R){
 
 #### 3.2 12_simulate_transmission_DS.R ####
 # simulate transmission of an agent from a list of originally contaminated workers to the rest of the colony. 
-for (interaction_type in names(data_paths)) {
-  data_path <- data_paths[[interaction_type]]
-  #data_path <- data_paths[["TROPHALLACTIC_INTERACTIONS"]]
-  #data_path <- data_paths[["CLASSIC_INTERACTIONS"]]
-  if (!is.null(data_path)) {
-    print(paste("Processing files for", interaction_type, "\U0001F91D"))
-    source(paste(code_path,"/12_simulate_transmission_DS.R",sep=""))
-    clean()
-  }
+# include the Run if thing here. 
+if (RUN_12_simulate_transmission_DS.R){
+ for (interaction_type in names(data_paths)) {
+   data_path <- data_paths[[interaction_type]]
+   #data_path <- data_paths[["TROPHALLACTIC_INTERACTIONS"]]
+   #data_path <- data_paths[["CLASSIC_INTERACTIONS"]]
+   if (!is.null(data_path)) {
+     print(paste("Processing files for", interaction_type, "\U0001F91D"))
+     source(paste(code_path,"/12_simulate_transmission_DS.R",sep=""))
+     clean()
+   }
   print(paste("ALL DONE", "\U0001F973"))
+ }} else {
+   print("skipping 12_simulate_transmission_DS.R") 
 }
 
+
+
+
 #### 3.3 13_network_analysis.R ####
-source(paste(code_path,"/13_network_analysis.R",sep=""))
-clean()
+# source(paste(code_path,"/13_network_analysis.R",sep=""))
+# clean()
 
 #### 3.4 14_summarise_interactions.R ####
-source(paste(code_path,"/14_summarise_interactions.R",sep=""))
-clean()
+# source(paste(code_path,"/14_summarise_interactions.R",sep=""))
+# clean()
 
 
 #### 3.5 19_Facetnet_community_detection.R ####
@@ -130,7 +137,7 @@ if (RUN_19_Facetnet_community_detection.R){
 
 
 
-#### 4. All available analysis programs ####
+`#### 4. All available analysis programs ####
 # check adrianos github for all the scripts should they be needed
 
 # source(paste(code_path,"/1_trackconverter.R",sep=""))
