@@ -40,16 +40,16 @@ library(tcltk)
 FRAME_RATE <- 6
 
 # Define which interactions to look at:                                                                                                  
-RUN_CLASSIC_INTERACTIONS           <- TRUE
+{RUN_CLASSIC_INTERACTIONS           <- TRUE
 RUN_GROOMING_INTERACTIONS          <- FALSE
 RUN_TROPHALLACTIC_INTERACTIONS     <- FALSE
 
 # Define what analysis step to run: 
-{RUN_11_randomise_interactions_DS.R     <- FALSE
+RUN_11_randomise_interactions_DS.R     <- FALSE
 RUN_12_simulate_transmission_DS.R      <- FALSE
 RUN_13_network_analysis.R              <- FALSE
 RUN_14_summarise_interactions.R        <- FALSE
-RUN_19_Facetnet_community_detection.R  <- FALSE}
+RUN_19_Facetnet_community_detection.R  <- TRUE}
 
 setwd(tk_choose.dir(default = "~/", caption = "Select Working Directory")) # direct it to where you have config_user_and_hd.R (typically your scriptfolder)
 source("config_user_and_hd.R") # contains getUserOptions() that defines usr and hd and the clean() function
@@ -129,15 +129,15 @@ if (RUN_12_simulate_transmission_DS.R){
 #### 3.5 19_Facetnet_community_detection.R ####
 if (RUN_19_Facetnet_community_detection.R){
   print("running 19_Facetnet_community_detection.R")
-  source(paste(code_path,"/19_Facetnet_community_detection.R",sep=""))
+  source(paste(code_path,"/19_Facetnet_community_detection_DS.R",sep=""))
   clean()
   print(paste("ALL DONE", "\U0001F973"))
-    } else { print("skipping 19_Facetnet_community_detection.R")}
+    } else { print("skipping 19_Facetnet_community_detection_DS.R")}
 
 
 
 
-`#### 4. All available analysis programs ####
+#### 4. All available analysis programs ####
 # check adrianos github for all the scripts should they be needed
 
 # source(paste(code_path,"/1_trackconverter.R",sep=""))

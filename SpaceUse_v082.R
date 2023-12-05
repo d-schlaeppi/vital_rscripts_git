@@ -28,7 +28,7 @@ SpaceUse <- function(e, start, end){
   }
   
   #define zones
-  #### EXPAND THIS TO EXTRACT ALL ZONES (WATER, SUGAR, ETC)
+  #### EXPAND THIS TO EXTRACT ALL ZONES (WATER, SUGAR, ETC) if necessary
   zones <- e$spaces[[1]]$zones #function to show the Zones present in the Space
   zones_tab <- data.frame(ID =c(zones[[1]]$ID, zones[[2]]$ID), name=c(zones[[1]]$name, zones[[2]]$name))
   

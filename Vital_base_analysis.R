@@ -108,9 +108,10 @@ SPACE_USE     <-  file.path(BEHDIR,"pre_vs_post_treatment","individual_behaviour
 SPACE_USE_PRE <-  file.path(BEHDIR,"pre_treatment","network_position_vs_time_outside.dat")
 
 
-# FLAGS                                                                                                     
+# FLAGS
+RUN_LOOP         <- TRUE
 RUN_INTERACT     <- FALSE 
-RUN_SPACEUSE     <- TRUE
+RUN_SPACEUSE     <- FALSE
 RUN_NETWORKS     <- FALSE  # this part of the code seems is not up to date and behind #s
 warning(paste("RUN_INTERACT is set to:",RUN_INTERACT,
               "\nRUN_SPACEUSE is set to:",RUN_SPACEUSE,
@@ -121,15 +122,14 @@ files_list <- list.files(DATADIR, pattern="CapsuleDef2018.myrmidon")
 files_list <- files_list[which(!grepl("c29",files_list))]
 
 
-# RUN TIME
-loop_start_time <- Sys.time()
 # create to_keep which will contain variables that should not be deleted when clearing memory between runs
-to_keep <- c(ls(), c("to_keep"))
+to_keep <- c(ls(), c("to_keep", "loop_start_time")) 
 }
 
 
 #### 3. Loop over each colony to calculate basic interactions and space use ####
-
+if (RUN_LOOP){
+  loop_start_time <- Sys.time() # to calculate run time
   for (REP.file in files_list) {                                                                        
       # REP.file <- files_list[1]                                                                         # TO DELETE ONCE WE GET TO THE END OF THE LOOP!!!!
       colony_id <- unlist(strsplit(REP.file,split="_"))[grepl("c",unlist(strsplit(REP.file,split="_")))]  # extract colony id
@@ -332,18 +332,16 @@ to_keep <- c(ls(), c("to_keep"))
         } # end for PERIOD
   
     # #### Run Netwworks ####
-    #   # is set to FALSE and not run here so we ignore this bit for now. 
+    # #DS  is set to FALSE and not run here so we ignore this bit for now (Networks will be calculated in a separate script)
     # if (RUN_NETWORKS) { 
     #   # add status (large, small) info to NetworkProp_collective
     #   NetworkProp_collective <- dplyr::left_join(NetworkProp_collective, unique(metadata[c("treatment", "treatment_simple", "colony_id")]), by = "colony_id") # Apply left_join dplyr function
     # 
     #   # add status (large, small) info to NetworkProp_individual
     #   NetworkProp_individual <- dplyr::left_join(NetworkProp_individual, unique(metadata[c("time_treat", "status", "treatment", "REP_treat")]), by = "REP_treat") # Apply left_join dplyr function
-    # 
-    #   ########################################
-    #   ##### SAVE FILES IN FOLDER #############
-    # 
-    #   ## Network properties Collective save (saved INSIDE the Network_analysis folder)
+    #   
+    #   ### SAVE FILES IN FOLDER
+    #   # Network properties Collective save (saved INSIDE the Network_analysis folder)
     #   if (file.exists(NET_properties_collective)) {
     #     write.table(NetworkProp_collective, file = NET_properties_collective, append = T, col.names = F, row.names = F, quote = F, sep = "\t")
     #   } else {
@@ -358,7 +356,6 @@ to_keep <- c(ls(), c("to_keep"))
     #   }
     # } # end of RUN NETWORKS
       
-      
       # cleaning
       rm(list = ls()[which(!ls() %in% to_keep)])
       gc()
@@ -367,8 +364,9 @@ to_keep <- c(ls(), c("to_keep"))
   } # end of the loop -> next colony
   
   loop_end_time <- Sys.time()
+  print(paste("ALL DONE", "\U0001F973"))
   print(paste("loop took ", as.numeric(difftime(loop_end_time, loop_start_time, units = "mins")), " minutes to complete"))
-  
+}  
 
 
   

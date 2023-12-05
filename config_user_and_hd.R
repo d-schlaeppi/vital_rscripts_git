@@ -40,11 +40,14 @@ getUserOptions <- function() {
   assign("hd", hd, envir = .GlobalEnv)
 }
 
+
+
+getUserOptions()
+
+#### functions #### 
 clean <- function(){
   rm(list=ls(envir = .GlobalEnv)[!ls(envir = .GlobalEnv)%in%to_keep], envir = .GlobalEnv)
   no_print <- gc(verbose=F)
   Sys.sleep(1) }
-
-getUserOptions()
 
 
