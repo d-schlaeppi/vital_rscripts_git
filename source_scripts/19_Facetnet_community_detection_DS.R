@@ -91,7 +91,7 @@ for (input_folder in input_folders){ # input_folder <- input_folders[1]
     ### get appropriate task_group list, treated list and tag
     tag <- read.table(paste0(data_path, "/original_data/tag_files/", colony, "_", treatment, ".txt") , header=T,stringsAsFactors = F)
     alive <- tag$tag #AW
-    colony_task_group  <- task_groups[which(task_groups$colony==colony), c("tag","task_group")];   colony_task_group <- subset(colony_task_group, tag %in% alive)
+    colony_task_group  <- task_groups[which(task_groups$colony==colony), c("tag","task_group_prop")];   colony_task_group <- subset(colony_task_group, tag %in% alive)
     queenid            <- as.character(colony_task_group[which(colony_task_group$task_group=="queen"),"tag"])
     TaskStats          <- TaskStats_all[which(TaskStats_all$colony==colony),]
     TaskStats          <- subset(TaskStats, tag %in% alive)
@@ -150,11 +150,11 @@ for (input_folder in input_folders){ # input_folder <- input_folders[1]
           Modularity <- as.numeric(gsub(" ", "", gsub("\\(","", gsub("\\)","", strsplit(OutPut[Item], "=")[[1]][2]))))  ## extract the modularity from the output
         }
         ## stack modularity for each m
-        Modules <- data.frame(colony, treatment,period, ITER, alpha, MODULARITY=Modularity )
+        Modules <- data.frame(colony, treatment,period, ITER, alpha, MODULARITY=Modularity)
         ## check if the modularity for m communities has already been calculated and recorded
         if (file.exists(Module_File)){ 
           Modules_precomputed <- read.table(Module_File, header = T)
-          if (!m %in% Modules_precomputed$N_modules) {write.table (Modules, file=Module_File, row.names=F, col.names=F, quote=F, append=T)  } ## only add a line to the file if m is not already there
+          if (!ITER %in% Modules_precomputed$ITER) {write.table (Modules, file=Module_File, row.names=F, col.names=F, quote=F, append=T)  } ## only add a line to the file if m is not already there !m %in% Modules_precomputed$N_modules; DS: I changed this, only add line if this Iteration is not yet there because Modules_precomputed$N_modules is NULL not defined and m is just 2 defined at the start of the script. 
         }else{
           write.table (Modules, file=Module_File, row.names=F, col.names=T, quote=F, append=F)  }  ## if the file doesn't exist, create it
       }
@@ -236,7 +236,6 @@ for (input_folder in input_folders){ # input_folder <- input_folders[1]
         merged_data$task_group_FACETNET_0.5 <- ifelse(merged_data$colony == colony & !is.na(merged_data$task_group_FACETNET_0.5.update), merged_data$task_group_FACETNET_0.5.update, merged_data$task_group_FACETNET_0.5)
         merged_data$Forager_score <- ifelse(merged_data$colony == colony & !is.na(merged_data$Forager_score.update), merged_data$Forager_score.update, merged_data$Forager_score)
         merged_data$Forager_score <- round(merged_data$Forager_score,3)
-        
         merged_data <- merged_data[order(merged_data$colony),]
         
         write.table(merged_data[, names(task_groups)],
@@ -247,6 +246,9 @@ for (input_folder in input_folders){ # input_folder <- input_folders[1]
   }
   clean()
 }
+
+
+
 
 
 
@@ -372,6 +374,11 @@ if(DISPLAY_RESULTS){
          y = "Count") +
     theme_minimal()
 }
+
+
+
+
+
 
 # #Merge cluster output
 # # Set the path to the directory

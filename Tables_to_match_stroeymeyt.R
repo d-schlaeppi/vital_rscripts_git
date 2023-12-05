@@ -69,21 +69,18 @@ if (usr != "mac_gismo") {
 # Time aggregation info might also be needed for the trophallaxis network... check later... if running simulations along the trophallaxis network. 
 
 
-# Load meta data
-metadata_present <- read.table(paste(DATADIR, "/individual_metadata_vital.txt", sep = ""), header = T, stringsAsFactors = F, sep = ",") 
-names(metadata_present)
-source(paste0(SCRIPTDIR,"/vital_meta_data.R")) # will add colony_metadata data frame to the environment so it can be accessed within this script (in my case containing bodylenght information)
-
-
 #### 3. Load data ####
+#  meta data
+metadata_present <- read.table(paste(DATADIR, "/individual_metadata_vital.txt", sep = ""), header = T, stringsAsFactors = F, sep = ",") 
+source(paste0(SCRIPTDIR,"/vital_meta_data.R")) # will add colony_metadata data frame to the environment so it can be accessed within this script (in my case containing bodylenght information)
 
 #remove dead ants
 metadata_present <- metadata_present[which(metadata_present$IsAlive==TRUE),]
-
-metadata_present$identifStart <- NULL #remove duplicates (the tag rotated ant duplicates have a different stop-start so they have to be eliminated before dups removal)
-metadata_present$identifEnd <- NULL
-metadata_present <- metadata_present %>% distinct() # In my case: before 4209 and after 4209.   #not sure what this does exactly
-
+# ants with rotated tags (retaged with the same tags) appear as duplicates ->
+# remove duplicates: however have different start and stop times as well as surv time. As those variables are not used they can be set to zero and then we can eliminate lines that are not distinct. 
+nrow(metadata_present)
+metadata_present <- metadata_present %>% distinct(colony_id, antID, .keep_all = TRUE) # In my case: before 4209 and after 4209.   #not sure what this does exactly
+nrow(metadata_present)
 # for ants which are alive but because of the loss of the tag or another reasong did not get assigned a Task,
 # assign task "nurse" (total of 5 ants). NOT DOING SO causes issues with assortativity_nominal in 13_network_measures.
 # Excluding them altogether causes issues with the 11_transmission_simulation as interactions will be in the interactions lists but not in the tag_list
@@ -104,11 +101,10 @@ metadata_present$colony_status     <- metadata_present$treatment_simple
 ####              4.1 task_groups.txt                          ####
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
 
-names(metadata_present)
 task_groups <- data.frame(colony = metadata_present$colony_id,
                           tag =  metadata_present$antID,
-                          task_group = metadata_present$AntTask1perc,
-                          treatment = metadata_present$treatment,
+                          task_group_prop = metadata_present$AntTask1perc,
+                          treatment = metadata_present$treatment_simple,
                           REP_treat= paste0(metadata_present$colony_id, "_" ,metadata_present$treatment_simple))
 write.table(task_groups, file = file.path(SAVEDIR,"task_groups.txt"), append = F, col.names = T, row.names = F, quote = F, sep = "\t")
 
@@ -122,7 +118,7 @@ metadata_treated <- metadata_present[which(metadata_present$IsTreated==TRUE),]
 treated_worker_list <- data.frame(colony = metadata_treated$colony_id,
                                   tag =  metadata_treated$antID,
                                   survived_treatment = T,
-                                  treatment = metadata_treated$treatment,
+                                  treatment = metadata_treated$treatment_simple,
                                   REP_treat= paste0(metadata_treated$colony_id, "_" ,metadata_treated$treatment_simple),
                                   AntTask= metadata_treated$AntTask1perc)
 
@@ -249,9 +245,8 @@ write.table(bead_file, file = bead_file_path, append = F, col.names = T, row.nam
 files_list <- list.files(DATADIR)
 files_list <- list.files(DATADIR, pattern="CapsuleDef2018.myrmidon")     
 files_list <- files_list[which(!grepl("c29",files_list))] # getting a list of each colony
-source(paste0(SCRIPTDIR,"/vital_meta_data.R")) # will add colony_metadata data frame to the environment so it can be accessed within this script (in my case containing bodylenght information)
 
-for (file in files_list) { # file <- files_list[1]
+for (file in files_list) { # file <- files_list[12]
   colony_id <- unlist(strsplit(file,split="_"))[grepl("c",unlist(strsplit(file,split="_")))]
   colony <- colony_id
   # get base info for this colony
@@ -270,11 +265,11 @@ for (file in files_list) { # file <- files_list[1]
   
   # create tag file and populate it...
   tag_file <- NULL
-  for (ant in exp.Ants){  # ant <- exp.Ants[[1]]
+  for (ant in exp.Ants){  # ant <- exp.Ants[[91]]
     if(all(ant$getValues("IsAlive")["values"]$values)){ #making just making sure there is no false, i.e. ant is alive
       for (id in ant$identifications){ # id <- ant$identifications[[1]]
-        ### THIS EXCLUDES THE ANTS WITH ROTATED TAGS! if (capture.output(ant$identifications[[1]]$end)=="+∞") {      ### this was probably in andrianos but not needed by linda, kept for now so it could get back in should I need it?
-        tag_file <- rbind(tag_file,data.frame(tag =  ant$ID,
+        if (capture.output(ant$identifications[[1]]$end)=="+∞") {   ### THIS EXCLUDES one instance of THE ANTS WITH ROTATED TAGS (or dead ants which should already be excluded anyways) ### skip lines for ants that had the tag rotated which were deleted as duplicates above in metadata present. 
+        tag_file <- rbind(tag_file, data.frame(tag =  ant$ID,
                                               count = tag_stats[which(tag_stats$tagDecimalValue == id$tagValue),"count"],
                                               # version 1:
                                               # last_det = 27*3600*FRAME_RATE, #not entirely clear: simple like adriano: last_det = 51*60*60 * 8, #fixed= sll alive, so it is the n of frames for 51 hours.tag_stats[which(tag_stats$tagDecimalValue == id$tagValue),"lastSeen"],
@@ -296,7 +291,7 @@ for (file in files_list) { # file <- files_list[1]
                                               REP_treat = REP_treat,
                                               stringsAsFactors = F))
  
-        #}
+        }
       }
     }
    }

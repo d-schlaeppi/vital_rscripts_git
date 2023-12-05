@@ -14,8 +14,10 @@ mallinfo::malloc.trim(0L)
 # Run Tables to match Stroeymeyt et al 2018 to get a couple more things in the right format for the following pipeline.
 # If not already done add the data on pathogen or spore load to each individual (e.g. by merging it with the meta data file) 
 # and when doing so also adjust blanks
+# 
 # Then continue here. 
-
+# Once Facet net is done redo the Tables to match stroeymeyt with to add facet net task group allocation 
+# update the metadata file with latest information so it includes task group perc and facet as well as the information on space use and movement stuff... 
 # This script contains code to run separate analysis scripts from the stroeymeyt 2018 pipeline: 
 
 ### Index ###
@@ -40,7 +42,7 @@ library(tcltk)
 FRAME_RATE <- 6
 
 # Define which interactions to look at:                                                                                                  
-{RUN_CLASSIC_INTERACTIONS           <- TRUE
+{RUN_CLASSIC_INTERACTIONS           <- FALSE
 RUN_GROOMING_INTERACTIONS          <- FALSE
 RUN_TROPHALLACTIC_INTERACTIONS     <- FALSE
 
@@ -70,16 +72,15 @@ source(paste(code_path,"/libraries_DS.R",sep="")) #not much in these two scripts
 source(paste(code_path,"/functions_and_parameters_DS.R",sep="")) # see line above
 # executables_path <- "~/executables" # not clear what this is and where it is used. ?
 
-to_keep <- c(ls(),"to_keep")
+to_keep <- c(ls(),"to_keep", "loop_start_time")
 
 
 ### ### ### ### ### ### ### ### ### ### ### ### 
 ####     3.  Analysis programs vital       ####
 ### ### ### ### ### ### ### ### ### ### ### ###
 
-
+if(TRUE){
 #### 3.1 11_randomise_interactions_DS.R ####
-
 # create randomized interaction networks based on the observed interactions 
 if (RUN_11_randomise_interactions_DS.R){
   print("runnung 11_randomise_interactions_DS.R")
@@ -128,17 +129,18 @@ if (RUN_12_simulate_transmission_DS.R){
 
 #### 3.5 19_Facetnet_community_detection.R ####
 if (RUN_19_Facetnet_community_detection.R){
-  print("running 19_Facetnet_community_detection.R")
+  print(paste(Sys.time(), ":    running 19_Facetnet_community_detection.R"))
+  loop_start_time <- Sys.time()
   source(paste(code_path,"/19_Facetnet_community_detection_DS.R",sep=""))
   clean()
-  print(paste("ALL DONE", "\U0001F973"))
+  loop_end_time <- Sys.time()
+  print(paste(Sys.time(), ":    ALL DONE", "\U0001F973"))
+  print(paste("script took ", as.numeric(difftime(loop_end_time, loop_start_time, units = "mins")), " minutes to complete"))
     } else { print("skipping 19_Facetnet_community_detection_DS.R")}
-
-
-
+}
 
 #### 4. All available analysis programs ####
-# check adrianos github for all the scripts should they be needed
+# check adrianos github for all the scripts should they be needed 
 
 # source(paste(code_path,"/1_trackconverter.R",sep=""))
 # clean()
