@@ -373,48 +373,17 @@ if (RUN_LOOP){
   
 
 #### To dos #### 
-
 # move on to the next analysis scripts i.e. vital_main_analysis
-
 # Dont forget to correct when going through the downstream pipeline:
-
-# downstream: use 13_network_analysis.R and 14_summarise_interactions.R in the version linda sent around and include her fixes 
 # In another script, 12_simulate_transmission.R (which is part of the 2018 Social Plasticity code and can be found here on Adriano's github), we discovered that the output of the Surv() function has changed the name for one of its columns, which is being referred to in lines 261 & 265: "rmean" (new) instead of "*rmean" (old); due to a library update perhaps? Please be aware of this since it does not give an error but just NAs for those specific cases.
 
-# P.S. sorry, already found another bug (I didn't test very thoroughly on Friday afternoon...) -  in 13_network_analysis add "edge_weights" to "to_keep". 
-#to_keep <- c(ls(),"to_keep","input_folder","network_files","options","option","summary_collective","summary_individual","outputfolder","network_file","queenid", "edge_weights")
 
-# When Calculating the ant tasks it might be better to do it over the full 24h of the pre treatment network?! Check with the script 19_facet_net 
-
-### From Adriano
-#   in 13_network_analysis, the following block of code
-# ###build NETWORK
-# if (!grepl("survival",data_path)){
-#   net <- graph.data.frame(interactions[c("Tag1","Tag2")],directed=F,vertices=actors)
-#   ### add edge weights
-#   if (edge_weights=="number"){
-#     E(net)$weight <- interactions[,"number"]
-#   }else if (edge_weights=="duration"){
-#     E(net)$weight <- interactions[,"duration_min"]        
-#   }
-#   should be changed from "E(net)$weight <- interactions[,"number"]" to "E(net)$weight <- interactions[,"N"]" (the variable is called N).
-#   
-#   Also, when the code is run for the "grooming interactions", it should only be run for the "observed" folders (in theory, you should not have generated any randomisation for the grooming anyway), so to make sure your analysis of the network properties for grooming takes only "observed as input, you can place these lines before "for (input_folder in input_folders){":
-# 
-# #if grooming, perform analysis only on the observed cases
-# if (grepl("grooming",input_path)) {
-#   input_folders <- grep("observed", input_folders, value=TRUE)
-# }
-#
-# for (input_folder in input_folders){
-
-  
 ### 
 # Note to myself keep updating the list of scripts used as part of this analysis pipeline.
 # if not specified differently, the script version used in the pipeline is in the top git hub folder or in the folder with trophallacis_classifier. 
-# previous version is either in the _old folder or in a folder referring to another persion e.g Adriano or Linda.
+# previous version is either in the _old folder or in a folder referring to another person e.g Adriano or Linda.
 # At some point make a cleaner github version of all this...
-# Further, what ever I do with the interactions, make sure to do the same things with the trophallaxis interactions
+# Further, what ever I do with the interactions, make sure to do the same things with the trophallaxis interactions?
   
 
 

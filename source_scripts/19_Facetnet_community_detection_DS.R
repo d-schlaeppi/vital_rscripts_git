@@ -12,9 +12,6 @@
 # https://c4science.ch/source/facet_unil/
 # TO Richardson, T Kay, R Braunschweig, OA Journeau, M Rüegg, ... Ant behavioral maturation is mediated by a stochastic transition between two fundamental states. Current Biology 31, 1-8
 
-#### TO DO's ####
-# Rerun the spaces use script to get correct proportion of time spent inside or outside.
-# Once that is done 
 
 #### Prerequisites ####
 # Set up directories and parameters
