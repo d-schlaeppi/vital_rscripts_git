@@ -9,9 +9,22 @@
 # This is just a little script containing a function to save a bit of time when setting all the different directories across different computers.
 # It can be sourced in other scripts and it will add the user name and the used hard drive to the environment which can then be used to quickly define generate
 # directories that should be working across the different computers (Linux and mac) and hard drives containing the data without much further issues.
-# plus a couple of small functions already used by adriano.
 
+# additionally it loads a couple of libraries and small functions already used by Adriano required for the main analysis and the scripts its sourcing
+
+#### Libraries ####
 library(tcltk)
+# library(adehabitatHR)
+# library(adehabitatLT)
+# library(changepoint)
+# library(e1071)
+library(igraph)
+# library(gtools)
+library(Rcpp)   # contains sourceCpp()
+# library(survival)
+# library(entropy)
+
+
 getUserOptions <- function() {
   # select user
   options <- list(
@@ -44,10 +57,15 @@ getUserOptions <- function() {
 
 getUserOptions()
 
+
 #### functions #### 
 clean <- function(){
   rm(list=ls(envir = .GlobalEnv)[!ls(envir = .GlobalEnv)%in%to_keep], envir = .GlobalEnv)
   no_print <- gc(verbose=F)
   Sys.sleep(1) }
 
-
+read.tag <- function(tag_list){ #AW
+  tag <- paste0(tag_list,list.files(tag_list)[grep(colony,list.files(tag_list))])
+  tag <- read.table(tag,header=T,stringsAsFactors = F) #AW
+  return(tag)
+}

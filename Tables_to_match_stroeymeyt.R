@@ -79,7 +79,7 @@ metadata_present <- metadata_present[which(metadata_present$IsAlive==TRUE),]
 # ants with rotated tags (retaged with the same tags) appear as duplicates ->
 # remove duplicates: however have different start and stop times as well as surv time. As those variables are not used they can be set to zero and then we can eliminate lines that are not distinct. 
 nrow(metadata_present)
-metadata_present <- metadata_present %>% distinct(colony_id, antID, .keep_all = TRUE) # In my case: before 4209 and after 4209.   #not sure what this does exactly
+metadata_present <- metadata_present %>% distinct(colony_id, antID, .keep_all = TRUE) # In my case: before 4242 and after 4235.
 nrow(metadata_present)
 # for ants which are alive but because of the loss of the tag or another reasong did not get assigned a Task,
 # assign task "nurse" (total of 5 ants). NOT DOING SO causes issues with assortativity_nominal in 13_network_measures.
@@ -245,8 +245,9 @@ write.table(bead_file, file = bead_file_path, append = F, col.names = T, row.nam
 files_list <- list.files(DATADIR)
 files_list <- list.files(DATADIR, pattern="CapsuleDef2018.myrmidon")     
 files_list <- files_list[which(!grepl("c29",files_list))] # getting a list of each colony
+# files_list <- files_list[which(grepl("c11",files_list))]
 
-for (file in files_list) { # file <- files_list[12]
+for (file in files_list) { # file <- files_list[11]
   colony_id <- unlist(strsplit(file,split="_"))[grepl("c",unlist(strsplit(file,split="_")))]
   colony <- colony_id
   # get base info for this colony
@@ -265,10 +266,10 @@ for (file in files_list) { # file <- files_list[12]
   
   # create tag file and populate it...
   tag_file <- NULL
-  for (ant in exp.Ants){  # ant <- exp.Ants[[91]]
+  for (ant in exp.Ants){  # ant <- exp.Ants[[91]] | ant <- exp.Ants[[2]]
     if(all(ant$getValues("IsAlive")["values"]$values)){ #making just making sure there is no false, i.e. ant is alive
       for (id in ant$identifications){ # id <- ant$identifications[[1]]
-        if (capture.output(ant$identifications[[1]]$end)=="+∞") {   ### THIS EXCLUDES one instance of THE ANTS WITH ROTATED TAGS (or dead ants which should already be excluded anyways) ### skip lines for ants that had the tag rotated which were deleted as duplicates above in metadata present. 
+        if (capture.output(ant$identifications[[1]]$start)=="-∞") {   #DS: Changed from $start)=="+∞" to avoid loosing queen of colony 11 ### THIS EXCLUDES one instance of THE ANTS WITH ROTATED TAGS (or dead ants which should already be excluded anyways) ### skip lines for ants that had the tag rotated which were deleted as duplicates above in metadata present. 
         tag_file <- rbind(tag_file, data.frame(tag =  ant$ID,
                                               count = tag_stats[which(tag_stats$tagDecimalValue == id$tagValue),"count"],
                                               # version 1:

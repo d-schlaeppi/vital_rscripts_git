@@ -56,7 +56,7 @@ FRAME_RATE <- 6
 # Define which interactions to look at:                                                                                                  
 {RUN_CLASSIC_INTERACTIONS           <- TRUE
 RUN_GROOMING_INTERACTIONS          <- FALSE
-RUN_TROPHALLACTIC_INTERACTIONS     <- TRUE
+RUN_TROPHALLACTIC_INTERACTIONS     <- FALSE
 
 # Define what analysis step to run: 
 RUN_11_randomise_interactions_DS.R        <- FALSE
@@ -77,13 +77,15 @@ choose_data_path <- function() { # does not work on the mac.
 }
 
 
-# Call the functions to get the data and script paths as well as additional libraries and functions loaded: 
+# Call the functions to get the data and script paths as well as additional info tables,  libraries and functions loaded: 
 code_path <- paste("/home/",usr,"/Documents/vital_rscripts_git/source_scripts",sep="") # place where the needed r scripts are stored
 data_paths <- choose_data_path()
-source(paste(code_path,"/libraries_DS.R",sep="")) #not much in these two scripts (libraries and functions) yet... if needed maybe include in the config script?
-source(paste(code_path,"/functions_and_parameters_DS.R",sep="")) # see line above
-# executables_path <- "~/executables" # not clear what this is and where it is used. ?
-
+# source(paste(code_path,"/libraries_DS.R",sep="")) #not much in these two scripts (libraries and functions) yet... if needed maybe include in the config script?
+# source(paste(code_path,"/functions_and_parameters_DS.R",sep="")) # see line above
+info        <- read.table(paste("/media", usr, hd, "vital/fc2/vital_experiment/main_experiment/original_data/info.txt",sep="/"), header=T,stringsAsFactors = F) 
+treated     <- read.table(paste("/media", usr, hd, "vital/fc2/vital_experiment/main_experiment/original_data/treated_worker_list.txt",sep="/"),header=T,stringsAsFactors = F)
+task_groups <- read.table(paste("/media", usr, hd, "vital/fc2/vital_experiment/main_experiment/original_data/task_groups.txt",sep="/"),header=T,stringsAsFactors = F) # only created in 
+tag_list <- paste("/media", usr, hd, "vital/fc2/vital_experiment/main_experiment/original_data/tag_files/",sep="/")
 to_keep <- c(ls(),"to_keep", "loop_start_time")
 
 
@@ -103,7 +105,7 @@ if(TRUE){
 #### 3.1 11_randomise_interactions_DS.R ####
 # create randomized interaction networks based on the observed interactions 
 if (RUN_11_randomise_interactions_DS.R){
-  print("runnung 11_randomise_interactions_DS.R")
+  print("running 11_randomise_interactions_DS.R")
   for (interaction_type in names(data_paths)) {
     data_path <- data_paths[[interaction_type]]
     if (!is.null(data_path)) {
@@ -125,7 +127,7 @@ if (RUN_11_randomise_interactions_DS.R){
 # simulate transmission of an agent from a list of originally contaminated workers to the rest of the colony. 
 # include the Run if thing here. 
 if (RUN_12_simulate_transmission_DS.R){
-  print("runnung 12_simulate_transmission_DS.R")
+  print("running 12_simulate_transmission_DS.R")
  for (interaction_type in names(data_paths)) {
    data_path <- data_paths[[interaction_type]]
    #data_path <- data_paths[["TROPHALLACTIC_INTERACTIONS"]]
@@ -144,7 +146,7 @@ if (RUN_12_simulate_transmission_DS.R){
   
 #### 3.3 13_network_analysis.R ####
 if (RUN_13_network_analysis_DS.R){
-  print("runnung 13_network_analysis_DS.R")
+  print("running 13_network_analysis_DS.R")
   for (interaction_type in names(data_paths)) { #interaction_type <- "CLASSIC_INTERACTIONS"
     data_path <- data_paths[[interaction_type]]   #define input path to get the right interactions for network calculations:
     if (!is.null(data_path)) {
