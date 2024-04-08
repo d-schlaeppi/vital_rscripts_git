@@ -57,6 +57,7 @@ library(emmeans) # contains emmeans()
 library(coxme)
 library(survival)
 library(survminer) # used in the analysis of the survival curves incl ggsurvplot
+library(scales)
 
 # working directory 
 directory <- "/Users/gismo/Documents/GitHub/vital_rscripts_git/flugus_manuscript/"
@@ -80,23 +81,25 @@ summary(glht( full_model, linfct = mcp (concentration="Tukey")), test=adjusted("
 letters <- cld(summary(glht( full_model, linfct = mcp (concentration="Tukey")), test=adjusted("BH")))
 
 #### 2.2 Survival plot ####
-# Survial plot for the FPF susceptibility test (exported as 800*600)
-surv_plot <- survfit(Surv (time = survival, event = censor) ~ 1 + concentration , data=exp1_data) #basic plot
+# Survival plot for the FPF susceptibility test (exported as 800*600)
+surv_plot <- survfit(Surv(time = survival, event = censor) ~ 1 + concentration, data = exp1_data)
 legend <- c('0     - a', '0.5  - ab','1     - ab','5     - a','10   - ab','50   - ab','100  - b','500  - c')
+line_types <- c("solid", "dashed", "dotted", "dotdash", "longdash", "twodash", "solid", "twodash")
 
 surv_plot <- ggsurvplot(surv_plot, data = exp1_data,
                         censor = FALSE,
-                        legend.title = 'concentration [ppm]',
+                        legend.title = 'Concentration [ppm]',
                         legend.labs = legend, 
-                        legend = c(0.15,0.25),
+                        legend = c(0.15, 0.25),
                         xlab = 'Time (days)',
                         ylab = 'Proportion Surviving',
-                        break.time.by=2,
-                        xlim = c(0,21),
+                        break.time.by = 2,
+                        xlim = c(0, 21),
                         ggtheme = theme_bw(),
-                        palette = viridis(8, begin = 0, end = 0.8, option = 5),
-                        conf.int= TRUE,
-                        conf.int.alpha = 0.1
+                        palette = viridis(8, begin = 0, end = 0.9, option = 5),
+                        conf.int = TRUE,
+                        conf.int.alpha = 0.1,
+                        linetype = line_types
 )
 
 surv_plot$plot <- surv_plot$plot + theme(panel.grid = element_blank()) +  
@@ -106,11 +109,11 @@ surv_plot$plot <- surv_plot$plot + theme(panel.grid = element_blank()) +
     legend.title = element_text(size = 16),
     legend.text = element_text(size = 14),
     axis.ticks = element_line(linewidth = 1),
-    strip.text = element_text(size = 14)
+    strip.text = element_text(size = 14), 
+    legend.key.width = unit(2.5, "line")
   )
+
 surv_plot
-
-
 
 
 
@@ -127,56 +130,106 @@ summary(interaction_model)
 contrast_matrix <- rbind("slope_fungusS"=c(1,0,0),"slope_fungusM"=c(1,0,1))
 summary(glht(interaction_model,linfct=contrast_matrix),test=adjusted("BH"))
 
-# how to write this in the stats section?
 
 
 #### 3.2 Plot ####
+# # Survival plot for the FPF Fungus interaction test (exported as 800*600)
 surviplot <- survfit(Surv (time = survival, event = censor) ~ 1 + concentration + fungus, data=flugus_data)
 aggregate(censor ~ fungus + concentration, FUN=mean,data=flugus_data)
-chosen_colors <- viridis(3, option = "inferno", begin = 0.35, end = 0.9)
+chosen_colors <- viridis(2, option = 5, begin = 0, end = 0.8)
 show_col(chosen_colors, labels = TRUE, borders = NULL)
-color_vector <- rep(chosen_colors, each = 2)
-
+color_vector <- rep(chosen_colors, times = 3)
 y_offset <- 0.05 
+line_types <- rep(c("dotdash", "longdash", "solid"), each = 2)
 
-{surv_plot <- ggsurvplot(surviplot, data = flugus_data,
-                          pval = FALSE,
-                          linetype = "fungus",
-                          lwd = 1,
-                          xlab = 'Time (days)', ylab = 'Proportion Surviving',
-                          palette = color_vector,
-                          ggtheme = theme_bw(),
-                          xlim = c(0, 15), break.time.by = 2,
-                          censor = FALSE,
-                          conf.int = TRUE,
-                          conf.int.alpha = 0.2,
-                          legend = c(0.4, 0.25),
-                          legend.title = "Treatments"
-  )
-  surv_plot$plot <- surv_plot$plot + 
-    scale_y_continuous(limits = c(0.2, 1), breaks = seq(0.2, 1, by = 0.2)) +
-    theme(panel.grid = element_blank(), legend.position = "none") +  
-    theme(
-      axis.title = element_text(size = 16),
-      axis.text = element_text(size = 14),
-      axis.ticks = element_line(linewidth = 1),
-      strip.text = element_text(size = 14)) +
-    geom_segment(aes(x = 14.3, y = 0.78, xend = 14.3, yend = 0.65))+
-    geom_segment(aes(x = 14.3, y = 0.52, xend = 14.3, yend = 0.325)) +
-    geom_segment(aes(x = 0, y = 0.4-y_offset, xend = 0.6, yend = 0.4-y_offset)) +
-    geom_segment(aes(x = 0, y = 0.3699-y_offset, xend = 0.6, yend = 0.3699-y_offset), linetype = "dashed") +
-    geom_segment(aes(x = 0, y = 0.33-y_offset, xend = 0.6, yend = 0.33-y_offset), color = chosen_colors[1]) +
-    geom_segment(aes(x = 0, y = 0.30-y_offset, xend = 0.6, yend = 0.30-y_offset), color = chosen_colors[2]) +
-    geom_segment(aes(x = 0, y = 0.271-y_offset, xend = 0.6, yend = 0.271-y_offset), color = chosen_colors[3]) +
-    annotate("text", x = 0.8, y=0.4-y_offset, label="sham", color = "black", size = 4, fontface = "plain", hjust = 0) +
-    annotate("text", x = 0.8, y=0.37-y_offset, label="fungus", color = "black", size = 4, fontface = "plain", hjust = 0) +
-    annotate("text", x = 0.8, y=0.33-y_offset, label="0 ppm", color = "black", size = 4, fontface = "plain", hjust = 0) +
-    annotate("text", x = 0.8, y=0.30-y_offset, label="5 ppm", color = "black", size = 4, fontface = "plain", hjust = 0) +
-    annotate("text", x = 0.8, y=0.27-y_offset, label="50 ppm", color = "black", size = 4, fontface = "plain", hjust = 0) +
-    annotate("text", x=14.7, y=0.71, label="n.s", color = "black", size = 4.5, fontface = "bold") +
-    annotate("text", x=14.7, y=0.42, label="p = \n 0.01", color = "black", size = 4.5, fontface = "bold")
-  print(surv_plot)
-}
+surv_plot <- ggsurvplot(surviplot, data = flugus_data,
+                        pval = FALSE,
+                        linetype = line_types,
+                        lwd = 1,
+                        xlab = 'Time (days)', ylab = 'Proportion Surviving',
+                        palette = color_vector,
+                        ggtheme = theme_bw(),
+                        xlim = c(0, 15), break.time.by = 2,
+                        censor = FALSE,
+                        conf.int = TRUE,
+                        conf.int.alpha = 0.2,
+                        legend = c(0.4, 0.25),
+                        legend.title = "Treatments"
+)
+
+surv_plot$plot <- surv_plot$plot + 
+  scale_y_continuous(limits = c(0.2, 1), breaks = seq(0.2, 1, by = 0.2)) +
+  theme(panel.grid = element_blank(), legend.position = "none") +  
+  theme(
+    axis.title = element_text(size = 16),
+    axis.text = element_text(size = 14),
+    axis.ticks = element_line(linewidth = 1),
+    strip.text = element_text(size = 14)) +
+  geom_segment(aes(x = 14.3, y = 0.78, xend = 14.3, yend = 0.65))+
+  geom_segment(aes(x = 14.3, y = 0.52, xend = 14.3, yend = 0.325)) +
+  geom_segment(aes(x = 0.4, y = 0.33-y_offset, xend = 1, yend = 0.33-y_offset), color = chosen_colors[1], linetype = line_types[1]) +
+  geom_segment(aes(x = 0.4, y = 0.30-y_offset, xend = 1, yend = 0.30-y_offset), color = chosen_colors[1], linetype = line_types[3]) +
+  geom_segment(aes(x = 0.4, y = 0.271-y_offset, xend = 1, yend = 0.271-y_offset), color = chosen_colors[1], linetype = line_types[5]) +
+  geom_segment(aes(x = 1.5, y = 0.33-y_offset, xend = 2.1, yend = 0.33-y_offset), color = chosen_colors[2], linetype = line_types[1]) +
+  geom_segment(aes(x = 1.5, y = 0.30-y_offset, xend = 2.1, yend = 0.30-y_offset), color = chosen_colors[2], linetype = line_types[3]) +
+  geom_segment(aes(x = 1.5, y = 0.271-y_offset, xend = 2.1, yend = 0.271-y_offset), color = chosen_colors[2], linetype = line_types[5]) +
+  annotate("text", x = 0.3, y=0.36-y_offset, label="sham", color = "black", size = 4, fontface = "plain", hjust = 0) +
+  annotate("text", x = 1.3, y=0.36-y_offset, label="fungus", color = "black", size = 4, fontface = "plain", hjust = 0) +
+  annotate("text", x = 2.5, y=0.33-y_offset, label="0 ppm", color = "black", size = 4, fontface = "plain", hjust = 0) +
+  annotate("text", x = 2.5, y=0.30-y_offset, label="5 ppm", color = "black", size = 4, fontface = "plain", hjust = 0) +
+  annotate("text", x = 2.5, y=0.27-y_offset, label="50 ppm", color = "black", size = 4, fontface = "plain", hjust = 0) +
+  annotate("text", x=14.7, y=0.71, label="n.s", color = "black", size = 4.5, fontface = "bold") +
+  annotate("text", x=14.7, y=0.42, label="p = \n 0.01", color = "black", size = 4.5, fontface = "bold")
+
+print(surv_plot)
+
+# old version: 
+# surviplot <- survfit(Surv (time = survival, event = censor) ~ 1 + concentration + fungus, data=flugus_data)
+# aggregate(censor ~ fungus + concentration, FUN=mean,data=flugus_data)
+# chosen_colors <- viridis(3, option = "inferno", begin = 0.35, end = 0.9)
+# show_col(chosen_colors, labels = TRUE, borders = NULL)
+# color_vector <- rep(chosen_colors, each = 2)
+# 
+# y_offset <- 0.05 
+# 
+# {surv_plot <- ggsurvplot(surviplot, data = flugus_data,
+#                           pval = FALSE,
+#                           linetype = "fungus",
+#                           lwd = 1,
+#                           xlab = 'Time (days)', ylab = 'Proportion Surviving',
+#                           palette = color_vector,
+#                           ggtheme = theme_bw(),
+#                           xlim = c(0, 15), break.time.by = 2,
+#                           censor = FALSE,
+#                           conf.int = TRUE,
+#                           conf.int.alpha = 0.2,
+#                           legend = c(0.4, 0.25),
+#                           legend.title = "Treatments"
+#   )
+#   surv_plot$plot <- surv_plot$plot + 
+#     scale_y_continuous(limits = c(0.2, 1), breaks = seq(0.2, 1, by = 0.2)) +
+#     theme(panel.grid = element_blank(), legend.position = "none") +  
+#     theme(
+#       axis.title = element_text(size = 16),
+#       axis.text = element_text(size = 14),
+#       axis.ticks = element_line(linewidth = 1),
+#       strip.text = element_text(size = 14)) +
+#     geom_segment(aes(x = 14.3, y = 0.78, xend = 14.3, yend = 0.65))+
+#     geom_segment(aes(x = 14.3, y = 0.52, xend = 14.3, yend = 0.325)) +
+#     geom_segment(aes(x = 0, y = 0.4-y_offset, xend = 0.6, yend = 0.4-y_offset)) +
+#     geom_segment(aes(x = 0, y = 0.3699-y_offset, xend = 0.6, yend = 0.3699-y_offset), linetype = "dashed") +
+#     geom_segment(aes(x = 0, y = 0.33-y_offset, xend = 0.6, yend = 0.33-y_offset), color = chosen_colors[1]) +
+#     geom_segment(aes(x = 0, y = 0.30-y_offset, xend = 0.6, yend = 0.30-y_offset), color = chosen_colors[2]) +
+#     geom_segment(aes(x = 0, y = 0.271-y_offset, xend = 0.6, yend = 0.271-y_offset), color = chosen_colors[3]) +
+#     annotate("text", x = 0.8, y=0.4-y_offset, label="sham", color = "black", size = 4, fontface = "plain", hjust = 0) +
+#     annotate("text", x = 0.8, y=0.37-y_offset, label="fungus", color = "black", size = 4, fontface = "plain", hjust = 0) +
+#     annotate("text", x = 0.8, y=0.33-y_offset, label="0 ppm", color = "black", size = 4, fontface = "plain", hjust = 0) +
+#     annotate("text", x = 0.8, y=0.30-y_offset, label="5 ppm", color = "black", size = 4, fontface = "plain", hjust = 0) +
+#     annotate("text", x = 0.8, y=0.27-y_offset, label="50 ppm", color = "black", size = 4, fontface = "plain", hjust = 0) +
+#     annotate("text", x=14.7, y=0.71, label="n.s", color = "black", size = 4.5, fontface = "bold") +
+#     annotate("text", x=14.7, y=0.42, label="p = \n 0.01", color = "black", size = 4.5, fontface = "bold")
+#   print(surv_plot)
+# }
 
 
 
