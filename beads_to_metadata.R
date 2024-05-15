@@ -33,7 +33,6 @@ mean_yellow_blanks <- round(mean(bead_data$yellow_count_YB[bead_data$flowjo_samp
 bead_data$yellow_beads_cor <- ifelse(bead_data$flowjo_sampletype == "sample", bead_data$yellow_count_YB - mean_yellow_blanks, bead_data$yellow_count_YB)
 bead_data$blue_beads_cor <- ifelse(bead_data$flowjo_sampletype == "sample", bead_data$blue_count_NB - mean_blue_blanks, bead_data$blue_count_NB)
 
-# Example for loop
 file_list <- list.files(paste(DATADIR, "vital_experiment/main_experiment/original_data/tag_files", sep="/"))
 
 #### Loop ####
