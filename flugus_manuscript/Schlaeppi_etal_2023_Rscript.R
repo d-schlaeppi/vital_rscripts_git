@@ -19,9 +19,14 @@ rm(list=ls())
 
 #### Read me ####
 # Author: Daniel Schläppi
+# FLUGUS is short for FLUpyradifurone and funGUS
 # This script contains all the analysis for the manuscript:
-# Synergistic effects of the insecticide Flupyradifurone (FPF) and the entomopathogen Metarhizium brunneum in ants
+# Synergistic effects of the next generation insecticide flupyradifurone with a fungal pathogen
 # Run it together with the following data files:
+# exp1_flupy_susceptibility_test.csv
+# exp2_flugus_interaction_survival.csv
+# supplexp_food_uptake.txt
+
 
 # Indexing
 # 1. prerequisites
@@ -38,9 +43,6 @@ rm(list=ls())
 #   4.3 Food consumption stats 
 #   4.4 Food consumption graph 
 
-# Supplementary Material:
-# data
-# 
 
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
 #### 1.  prerequisites ####
@@ -60,17 +62,19 @@ library(survminer) # used in the analysis of the survival curves incl ggsurvplot
 library(scales)
 
 # working directory 
-directory <- "/Users/gismo/Documents/GitHub/vital_rscripts_git/flugus_manuscript/"
+directory <- "/Users/gismo/Documents/Uni/DS Bees Home/Bristol/Projects/Flugus/IFG/Manuscript/Submission/data/"
 setwd(directory)
 
-#### 2. FPF susceptibility test ####
 # load data
-exp1_data <- read.csv('flupy_susceptibility_test.csv') #flupy only survival data
+exp1_data <- read.csv('exp1_flupy_susceptibility_test.csv') #Experiment 1: flupy only survival data
 exp1_data$concentration <- factor(exp1_data$concentration)
 
-flugus_data <- read.csv('FPF_fungus_survival.csv') #flupy fungus co-exposure survival data
+flugus_data <- read.csv('exp2_flugus_interaction_survival.csv') #Experiment 2: flupy fungus co-exposure survival data
 flugus_data$fungus <- factor(flugus_data$fungus, levels=c("S","M"))
 
+supl_data <- read.table("supplexp_food_uptake.txt", header = TRUE) # Supplementary Experiment: food uptake data
+
+#### 2. FPF susceptibility test ####
 #### 2.1 Stats ####
 null_model <- coxme ( Surv (time = survival, event = censor) ~ 1                 + ( 1 | petri_dish), data = exp1_data)
 full_model <- coxme ( Surv (time = survival, event = censor) ~ 1 + concentration + ( 1 | petri_dish), data = exp1_data)
@@ -183,80 +187,28 @@ surv_plot$plot <- surv_plot$plot +
 
 print(surv_plot)
 
-# old version: 
-# surviplot <- survfit(Surv (time = survival, event = censor) ~ 1 + concentration + fungus, data=flugus_data)
-# aggregate(censor ~ fungus + concentration, FUN=mean,data=flugus_data)
-# chosen_colors <- viridis(3, option = "inferno", begin = 0.35, end = 0.9)
-# show_col(chosen_colors, labels = TRUE, borders = NULL)
-# color_vector <- rep(chosen_colors, each = 2)
-# 
-# y_offset <- 0.05 
-# 
-# {surv_plot <- ggsurvplot(surviplot, data = flugus_data,
-#                           pval = FALSE,
-#                           linetype = "fungus",
-#                           lwd = 1,
-#                           xlab = 'Time (days)', ylab = 'Proportion Surviving',
-#                           palette = color_vector,
-#                           ggtheme = theme_bw(),
-#                           xlim = c(0, 15), break.time.by = 2,
-#                           censor = FALSE,
-#                           conf.int = TRUE,
-#                           conf.int.alpha = 0.2,
-#                           legend = c(0.4, 0.25),
-#                           legend.title = "Treatments"
-#   )
-#   surv_plot$plot <- surv_plot$plot + 
-#     scale_y_continuous(limits = c(0.2, 1), breaks = seq(0.2, 1, by = 0.2)) +
-#     theme(panel.grid = element_blank(), legend.position = "none") +  
-#     theme(
-#       axis.title = element_text(size = 16),
-#       axis.text = element_text(size = 14),
-#       axis.ticks = element_line(linewidth = 1),
-#       strip.text = element_text(size = 14)) +
-#     geom_segment(aes(x = 14.3, y = 0.78, xend = 14.3, yend = 0.65))+
-#     geom_segment(aes(x = 14.3, y = 0.52, xend = 14.3, yend = 0.325)) +
-#     geom_segment(aes(x = 0, y = 0.4-y_offset, xend = 0.6, yend = 0.4-y_offset)) +
-#     geom_segment(aes(x = 0, y = 0.3699-y_offset, xend = 0.6, yend = 0.3699-y_offset), linetype = "dashed") +
-#     geom_segment(aes(x = 0, y = 0.33-y_offset, xend = 0.6, yend = 0.33-y_offset), color = chosen_colors[1]) +
-#     geom_segment(aes(x = 0, y = 0.30-y_offset, xend = 0.6, yend = 0.30-y_offset), color = chosen_colors[2]) +
-#     geom_segment(aes(x = 0, y = 0.271-y_offset, xend = 0.6, yend = 0.271-y_offset), color = chosen_colors[3]) +
-#     annotate("text", x = 0.8, y=0.4-y_offset, label="sham", color = "black", size = 4, fontface = "plain", hjust = 0) +
-#     annotate("text", x = 0.8, y=0.37-y_offset, label="fungus", color = "black", size = 4, fontface = "plain", hjust = 0) +
-#     annotate("text", x = 0.8, y=0.33-y_offset, label="0 ppm", color = "black", size = 4, fontface = "plain", hjust = 0) +
-#     annotate("text", x = 0.8, y=0.30-y_offset, label="5 ppm", color = "black", size = 4, fontface = "plain", hjust = 0) +
-#     annotate("text", x = 0.8, y=0.27-y_offset, label="50 ppm", color = "black", size = 4, fontface = "plain", hjust = 0) +
-#     annotate("text", x=14.7, y=0.71, label="n.s", color = "black", size = 4.5, fontface = "bold") +
-#     annotate("text", x=14.7, y=0.42, label="p = \n 0.01", color = "black", size = 4.5, fontface = "bold")
-#   print(surv_plot)
-# }
-
-
-
-
 
 #### 4. Supplementary material ####
 #### 4.1 Prepare food uptake data ####
-# data
-data <- read.table("food_uptake.txt", header = TRUE)
+
 # adjust variables and correct fluorescence by subtracting the mean values of blank ants. 
-data$treatment <- as.factor(data$treatment)
-mean_negative_ant <- mean(data$fluorescence[data$sample_type == "negative_ant"])
-for (i in 1:nrow(data)) {
-  if (data$fluorescence[i] >= mean_negative_ant) {
-    data$fluorescence[i] <- data$fluorescence[i] - mean_negative_ant
+supl_data$treatment <- as.factor(supl_data$treatment)
+mean_negative_ant <- mean(supl_data$fluorescence[supl_data$sample_type == "negative_ant"])
+for (i in 1:nrow(supl_data)) {
+  if (supl_data$fluorescence[i] >= mean_negative_ant) {
+    supl_data$fluorescence[i] <- supl_data$fluorescence[i] - mean_negative_ant
   } else {
-    data$fluorescence[i] <- 0
+    supl_data$fluorescence[i] <- 0
   }
 }
 
 # for simlicity create two subsets, one containing only the standard curves and one containing the samples
 # std curves
-data_stdcurves <- subset(data, data$treatment == "std_curve", drop = TRUE)
+data_stdcurves <- subset(supl_data, supl_data$treatment == "std_curve", drop = TRUE)
 data_stdcurves$treatment <- droplevels(data_stdcurves$treatment)
-# data
+
 {
-  data_samples <- subset(data, data$sample_type == "ant")
+  data_samples <- subset(supl_data, supl_data$sample_type == "ant")
   data_samples$treatment <- droplevels(data_samples$treatment) 
   data_samples$treatment <- relevel(data_samples$treatment, "mid") # reorder the levels of the treatment variable
   data_samples$treatment <- relevel(data_samples$treatment, "low")
@@ -281,7 +233,6 @@ coef <- coefficients(std_model)
 slope <-  coef[[1]]
 # calculate estimated volume of food uptake and add it to the dataframe
 data_samples$consumed_volume <- data_samples$fluorescence / slope
-
 
 #### 4.3 Food consumption stats ####
 group_by(data_samples, treatment) %>%
@@ -325,3 +276,4 @@ label_positions <- ggplot_build(gg)$data[[1]]$x  # calculate position of x to pu
 gg <- gg + geom_text(data = labels_df, aes(x = label_positions, y = 0.7, label = label, fontface = "bold"),
                      hjust = 0.5, vjust = 0.5, size = 5)
 print(gg)
+
