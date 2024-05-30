@@ -11,7 +11,6 @@
 # with adaptations by Linda Sartoris and then adjusted to the needs of Daniel Schläppi's data
 
 
-
 ### ### ### ### ### ### ### ### ### ### ### ###
 to_keep_ori <- to_keep
 ### ### ### ### ### ### ### ### ### ### ### ###
@@ -19,9 +18,11 @@ to_keep_ori <- to_keep
 
 
 options(digits = 16) ; options(digits.secs = 6) ; options("scipen" = 10)
-edge_weights <-"number"  ### "duration" or "number" # LS: run once for duration of interactions and once for number of interactions
+edge_weights <-"number"  ### "duration" or "number" # LS: run once for duration of interactions and once for number of interactions 
+                         # DS:could probably be implemented below to not run everything in double...
 
-###remove output file 
+### remove output file
+# DS: step only needed if run multiple times - check if there are other output files that need to be deleted in this instance... 
 if (file.exists(paste(data_path,"/processed_data/individual_behaviour/post_treatment/interactions_with_treated.txt",sep=""))){
   file.remove(paste(data_path,"/processed_data/individual_behaviour/post_treatment/interactions_with_treated.txt",sep=""))
 }

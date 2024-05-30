@@ -54,7 +54,8 @@ library(tcltk)
 FRAME_RATE <- 6
 
 # Define which interactions to look at:                                                                                                  
-{RUN_CLASSIC_INTERACTIONS           <- TRUE
+{
+RUN_CLASSIC_INTERACTIONS           <- TRUE
 RUN_GROOMING_INTERACTIONS          <- FALSE
 RUN_TROPHALLACTIC_INTERACTIONS     <- FALSE
 
@@ -63,9 +64,10 @@ RUN_11_randomise_interactions_DS.R        <- FALSE
 RUN_12_simulate_transmission_DS.R         <- FALSE
 RUN_13_network_analysis_DS.R              <- TRUE
 RUN_14_summarise_interactions_DS.R        <- FALSE
-RUN_19_Facetnet_community_detection_DS.R  <- FALSE}
+RUN_19_Facetnet_community_detection_DS.R  <- FALSE
+}
 
-setwd(tk_choose.dir(default = "~/", caption = "Select Working Directory")) # direct it to where you have config_user_and_hd.R (typically your script or github folder )
+setwd(tk_choose.dir(default = "~/", caption = "Select Working Directory")) # direct it to where you have config_user_and_hd.R (typically the script folder or github folder)
 source("config_user_and_hd.R") # contains getUserOptions() that defines usr and hd and the clean() function
 
 choose_data_path <- function() { # does not work on the mac. 
@@ -84,7 +86,7 @@ data_paths <- choose_data_path()
 # source(paste(code_path,"/functions_and_parameters_DS.R",sep="")) # see line above
 info        <- read.table(paste("/media", usr, hd, "vital/fc2/vital_experiment/main_experiment/original_data/info.txt",sep="/"), header=T,stringsAsFactors = F) 
 treated     <- read.table(paste("/media", usr, hd, "vital/fc2/vital_experiment/main_experiment/original_data/treated_worker_list.txt",sep="/"),header=T,stringsAsFactors = F)
-task_groups <- read.table(paste("/media", usr, hd, "vital/fc2/vital_experiment/main_experiment/original_data/task_groups.txt",sep="/"),header=T,stringsAsFactors = F) # only created in 
+task_groups <- read.table(paste("/media", usr, hd, "vital/fc2/vital_experiment/main_experiment/original_data/task_groups.txt",sep="/"),header=T,stringsAsFactors = F) # might need to be checked if this how the task groups are defined at the moment... % or facet net?  
 tag_list <- paste("/media", usr, hd, "vital/fc2/vital_experiment/main_experiment/original_data/tag_files/",sep="/")
 to_keep <- c(ls(),"to_keep", "loop_start_time")
 
@@ -163,12 +165,11 @@ if (RUN_13_network_analysis_DS.R){
   
   
   
-  
 #### 3.4 14_summarise_interactions.R ####
-if (RUN_14_summarise_interactions_DS.R){
-  print("scripts to summarise interactions not yet defined for Daniel")
-  # source(paste(code_path,"/14_summarise_interactions.R",sep=""))
-  # clean()
+if (RUN_14_summarise_interactions_DS.R){ # might need addition of trophallaxis
+  print("currently being tested for Daniel")
+  source(paste(code_path,"/14_summarise_interactions_DS.R",sep=""))
+  clean()
 } else {print("skipping 14_summarise_interactions_DS.R")}
 
 
@@ -194,6 +195,7 @@ if (RUN_19_Facetnet_community_detection_DS.R){
 
 #### END OF THE LOOP OVER ALL FUNCTIONS ####
 
+### NEXT: Move on the analysis of the data using script "Vital_stats_and_plots_R"
 
 
 
