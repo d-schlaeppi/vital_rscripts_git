@@ -17,31 +17,30 @@ to_keep_ori <- to_keep
 
 
 
-options(digits = 16) ; options(digits.secs = 6) ; options("scipen" = 10)
-edge_weights <-"number"  ### "duration" or "number" # LS: run once for duration of interactions and once for number of interactions 
-                         # DS:could probably be implemented below to not run everything in double...
+options(digits = 16) ; options(digits.secs = 6) ; options("scipen" = 10) #set options to control how numerical values are printed and handled in the R environment
+edge_weights <- c("number", "duration") # DS: script now loops over both types, to undo change here back to one of the two, remove loop start plus the end bracket and change edge_weight back to edge_weights
+
 
 ### remove output file
-# DS: step only needed if run multiple times - check if there are other output files that need to be deleted in this instance... 
-if (file.exists(paste(data_path,"/processed_data/individual_behaviour/post_treatment/interactions_with_treated.txt",sep=""))){
+if (file.exists(paste(data_path,"/processed_data/individual_behaviour/post_treatment/interactions_with_treated.txt",sep=""))){ # DS: step only needed if run multiple times - check if there are other output files that need to be deleted in this instance... ?
   file.remove(paste(data_path,"/processed_data/individual_behaviour/post_treatment/interactions_with_treated.txt",sep=""))
 }
 
 #### get input file list
-if (!grepl("survival",data_path)){
+if (!grepl("survival",data_path)){ #DS never has survival
   input_path           <- paste(data_path,"/intermediary_analysis_steps/binned_interaction_lists",sep="")
   setwd(input_path)  
   input_folders        <- list.dirs(recursive=T,path="PreTreatment",full.names=F)
   input_folders        <- input_folders[which(input_folders!="")]
-}else{
-  input_path           <- paste(data_path,"/intermediary_analysis_steps/full_interaction_lists",sep="")
-  setwd(input_path)  
-  input_folders        <- list.dirs(recursive=T,path="PostTreatment",full.names=F)
-  input_folders        <- input_folders[which(input_folders!="")]
-}
+} # else{
+#   input_path           <- paste(data_path,"/intermediary_analysis_steps/full_interaction_lists",sep="")
+#   setwd(input_path)  
+#   input_folders        <- list.dirs(recursive=T,path="PostTreatment",full.names=F)
+#   input_folders        <- input_folders[which(input_folders!="")]
+# }
 
 queen_community_summary <- NULL
-to_keep <- c(ls(),"to_keep","input_folder","network_files","options","option","summary_collective","summary_individual","outputfolder","network_file","queenid", "edge_weights")
+to_keep <- c(ls(),"to_keep","input_folder","network_files","options","option","summary_collective","summary_individual","outputfolder","network_file","queenid", "edge_weights", "edge_weight")
 for (input_folder in input_folders){ # input_folder <- input_folders[1]
   print(input_folder)
   setwd(input_path)
@@ -58,7 +57,8 @@ for (input_folder in input_folders){ # input_folder <- input_folders[1]
   }
   for (option in options){ # option <- options[1] 
     print(option)
-    outputfolder <- paste(data_path,"/processed_data/network_properties_edge_weights_",edge_weights,sep="")
+    for (edge_weight in edge_weights) { #edge_weight <- "number" # #DS: for loop to loop over edge weights inserted
+    outputfolder <- paste(data_path,"/processed_data/network_properties_edge_weights_",edge_weight,sep="")
     
     summary_collective <- NULL
     summary_individual <- NULL
@@ -67,8 +67,7 @@ for (input_folder in input_folders){ # input_folder <- input_folders[1]
       ### get file metadata
       root_name          <- gsub("_interactions.txt","",unlist(strsplit(network_file,split="/"))[grepl("interactions",unlist(strsplit(network_file,split="/")))]) # LS: replace grepl("colony", ...) with grepl("interactions")
       components         <- unlist(strsplit(root_name,split="_"))
-      # colony             <- components[grepl("colony",components)]
-      colony             <- unlist(strsplit(root_name,split="_"))[1] # LS
+      colony             <- unlist(strsplit(root_name,split="_"))[1]
       treatment          <- unlist(strsplit(root_name,split="_"))[2] 
       colony_size        <- info[which(info$colony==colony),"colony_size"]
       if (!all(!grepl("PreTreatment",components))){period <- "pre"}else{period <- "post"} 
@@ -91,18 +90,19 @@ for (input_folder in input_folders){ # input_folder <- input_folders[1]
       #   period_circadian <- ifelse(treatment_circadian=="day","night","day")
       # }
       
-      if(!grepl("survival",data_path)){
+      if(!grepl("survival",data_path)){ # DS never set to survival 
         time_hours         <- as.numeric(gsub("TH","",components[which(grepl("TH",components))]))
         time_of_day        <- as.numeric(gsub("TD","",components[which(grepl("TD",components))]))
-      }else{ # LS: would have to change but probably never needed bc I don't have survival experiment. Different depending on Day or Night, pre1 or pre2 | probably same for DS
-        if (period=="post"){
-          time_hours   <- 0
-          time_of_day <- 12 
-        }else{
-          time_hours   <- -27 #AW: shifted time window by 3h
-          time_of_day <- 9 #AW: shifted time window by 3h
-        }
-      }
+      } #else{ # LS: would have to change but probably never needed bc I don't have survival experiment. Different depending on Day or Night, pre1 or pre2 | probably same for DS
+      #   if (period=="post"){
+      #     time_hours   <- 0
+      #     time_of_day <- 12 
+      #   }else{
+      #     time_hours   <- -27 #AW: shifted time window by 3h
+      #     time_of_day <- 9 #AW: shifted time window by 3h
+      #   }
+      # }
+      # 
       
       ### get appropriate task_group list, treated list and tag
       colony_treated     <- treated[which(treated$colony==colony),"tag"] #AW
@@ -111,7 +111,7 @@ for (input_folder in input_folders){ # input_folder <- input_folders[1]
 
       ### read interactions & remove dead ants from interactions list
       interactions       <- read.table(network_file,header=T,stringsAsFactors = F)
-      tag <- read.tag(tag_list)
+      tag <- read.tag(tag_list, colony)
       alive <- tag$tag
       interactions <- subset(interactions, Tag1 %in% alive)
       interactions <- subset(interactions, Tag2 %in% alive)
@@ -194,9 +194,9 @@ for (input_folder in input_folders){ # input_folder <- input_folders[1]
       if (!grepl("survival",data_path)){
         net <- graph.data.frame(interactions[c("Tag1","Tag2")],directed=F,vertices=actors)
         ### add edge weights
-        if (edge_weights=="number"){
+        if (edge_weight=="number"){
           E(net)$weight <- interactions[,"N"]
-        }else if (edge_weights=="duration"){
+        }else if (edge_weight=="duration"){
           E(net)$weight <- interactions[,"duration_min"]        
          }
 
@@ -368,8 +368,8 @@ for (input_folder in input_folders){ # input_folder <- input_folders[1]
         if (!grepl("age",data_path)&option=="all_workers"){
           pre_treatment_behav_file <- paste(data_path,"/processed_data/individual_behaviour/pre_treatment/network_position_vs_time_outside.dat",sep="")
           pre_treatment_behav      <- read.table(pre_treatment_behav_file,header=T,stringsAsFactors = F)
-          names(summary_individual)[which(names(summary_individual)=="aggregated_distance_to_queen")] <- paste("aggregated_distance_to_queen_edge_weights_",edge_weights,sep="")
-          pre_treatment_behav      <- merge(pre_treatment_behav,summary_individual[which(summary_individual$period=="pre"),c("colony","tag","time_hours","degree",paste("aggregated_distance_to_queen_edge_weights_",edge_weights,sep=""))],all.x=T,all.y=T) 
+          names(summary_individual)[which(names(summary_individual)=="aggregated_distance_to_queen")] <- paste("aggregated_distance_to_queen_edge_weights_",edge_weight,sep="")
+          pre_treatment_behav      <- merge(pre_treatment_behav,summary_individual[which(summary_individual$period=="pre"),c("colony","tag","time_hours","degree",paste("aggregated_distance_to_queen_edge_weights_",edge_weight,sep=""))],all.x=T,all.y=T) 
           pre_treatment_behav      <- pre_treatment_behav[order(pre_treatment_behav$colony,pre_treatment_behav$tag,pre_treatment_behav$time_hours),]
           write.table(pre_treatment_behav, file=pre_treatment_behav_file,col.names=T,row.names=F,quote=F,append=F) # LS: this file adds columns to "network_position_vs_time_outside.dat" which already has the information of period_detail in it
         }
@@ -380,8 +380,8 @@ for (input_folder in input_folders){ # input_folder <- input_folders[1]
         write.table(summary_individual[which(summary_individual$period=="pre"),],file=paste(outputfolder3,"/node_properties_",input_folder,".txt",sep=""),col.names = T,row.names=F,append=F,quote=F) #
         
       }
+     } #DS one bracket added here for edge weight. ``
     }
-    
     ### Get characteristics of queen community vs. other communities (worker age, prop. of foragers)
     if (!grepl("survival",data_path)&option=="all_workers"){ 
       print(" End of writing >> Get characteristics of queen community vs. other communities")

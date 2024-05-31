@@ -3,10 +3,9 @@
 #### 11_randomise_interactions.R #####
 ### ### ### ### ### ### ### ### ### ### ### ###
 
-
 ### Sources C++ function randomised_edges 
 
-#### Takes an interaction list as an input and returns a the same interaction interaction list in which the interaction partners have been randomised
+#### Takes an interaction list as an input and returns a the same interaction interaction list in which the interaction partners have been randomized
 #### Follows the 'Randomized edges (RE)' algorithm laid out by Holme and Saramäki 2012 (Physics Reports)
 
 ### Created by Nathalie Stroeymeyt 
@@ -18,11 +17,9 @@ to_keep_ori <- to_keep
 Sys.setenv("PKG_CXXFLAGS"="-std=c++11")
 sourceCpp(paste(code_path,"/randomise_edges.cpp",sep=""))
 
+# Get all interaction lists for which randomized versions will be created:
 
-
-# Get all interaction lists for which randomized versions should be created:
-# in theory only needed for the pre treatment but should be fine with the post treatment as well... 
-timings <- c("PreTreatment", "PostTreatment")# Specify timings
+timings <- c("PreTreatment", "PostTreatment") # Specify timings
 interact_list <- list()
 
 for (timing in timings) {
@@ -38,12 +35,10 @@ to_keep <- c(ls(),"to_keep","i","interac")
 
 for (i in 1:100){ ### perform 100 randomization                  
   print(paste("Performing randomisations",i,"out of 100..."))
-  for (interac in interact_list){
-    # interac <- interact_list[[1]]
+  for (interac in interact_list){ # interac <- interact_list[[1]]
     folder_name <- dirname(interac) 
     file_name <- basename(interac)
     outputfolder       <- gsub("observed", paste("random",sep=""),folder_name)
-    #
     if (!file.exists(outputfolder)){dir.create(outputfolder)}
     new_file_name <- paste0(sub("\\.txt$", "", file_name),"_random_",paste(rep(0,3-nchar(i)),collapse=""),i, ".txt")
     outfile <- paste(outputfolder, new_file_name,sep="/")
@@ -60,7 +55,3 @@ for (i in 1:100){ ### perform 100 randomization
 }
 
 to_keep <- to_keep_ori
-
-# to do next: 
-# Organize the trophallactic interactions:
-# load the the original file and create subsets for the pre 3h period and the post 3 h period. 

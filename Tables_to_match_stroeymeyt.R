@@ -133,7 +133,7 @@ write.table(treated_worker_list, file = file.path(SAVEDIR,"treated_worker_list.t
 
 # flag to determine if selecting 10% of the colony size (T) or the same N as the real exposed ants (F)
 select_fixed_N <- F
-# !!!! that is something to think about: Do it once with the same number of workers that were in the treatment groups and once witht the same number of workers that I deem worth including! i.e. that did not drown themselves.
+# !!!! that is something to think about: Do it once with the same number of workers that were in the treatment groups and once with the same number of workers that I deem worth including! i.e. that did not drown themselves.
 
 # same as above : treated_workers.txt
 # treated workers simulation is to compare effects with the observed post-exposure changes
@@ -159,12 +159,12 @@ for (GROUP in c("nurse","forager","random_worker")) {
   }else{
     metadata_GROUP <- metadata_present[which(metadata_present$AntTask1perc==GROUP),]
   }
-  if (select_fixed_N) { # currently false so Daniel goes straight to the else statement
+  if (select_fixed_N) { # currently always false so DS goes straight to the else statement
     # nurses.txt
     # Group the dataset by "colony" and sample rows based on "status"
     # metadata_GROUPs_seed <- metadata_GROUP %>%
     #   group_by(colony) %>%
-    #   sample_n(ifelse(status == "Big", 18, 3)) %>% # replace FALSE means do not resample rows if threre are less than N to be sliced
+    #   sample_n(ifelse(status == "Big", 18, 3)) %>% # replace FALSE means do not re-sample rows if there are less than N to be sliced
     #   ungroup()
   }else{
     metadata_GROUPs_seed <- metadata_GROUP %>%
@@ -173,10 +173,10 @@ for (GROUP in c("nurse","forager","random_worker")) {
       ungroup()
   }
   
-  metadata_GROUPs_seed <- metadata_GROUPs_seed[,c("colony_id","tagIDdecimal","treatment_simple","AntTask1perc")]
+  metadata_GROUPs_seed <- metadata_GROUPs_seed[,c("colony_id","antID","treatment_simple","AntTask1perc")]
   names(metadata_GROUPs_seed)[which(names(metadata_GROUPs_seed)=="colony_id")] <- "colony"
   names(metadata_GROUPs_seed)[which(names(metadata_GROUPs_seed)=="treatment_simple")] <- "treatment"
-  names(metadata_GROUPs_seed)[which(names(metadata_GROUPs_seed)=="tagIDdecimal")] <- "tag"
+  names(metadata_GROUPs_seed)[which(names(metadata_GROUPs_seed)=="antID")] <- "tag"
   metadata_GROUPs_seed <- metadata_GROUPs_seed %>%
     mutate(REP_treat = paste0(colony, "_", treatment))
   
@@ -305,8 +305,7 @@ for (file in files_list) { # file <- files_list[11]
 ####                 4.7 time_aggregation_info                 ####
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
 # needed by the simulations
-# ev. I need to do the same for the trophallaxis interaction network. However, mot sure whether it does mach as I only had one 3h time block for the pre and the post treatment duration.
-
+# ev. I need to do the same for the trophallaxis interaction network. However, not sure whether it does mach as I only had one 3h time block for the pre and the post treatment duration.
 
 # file format: colony020_pathogen_PostTreatment.txt
 

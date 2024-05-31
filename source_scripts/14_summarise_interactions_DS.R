@@ -13,14 +13,14 @@
 # with adaptations by Linda Sartoris
 # Adjusted to specific needs of the vital experiment by Daniel Schläppi
 
-#Script wide mods AW
+# Script wide mods AW
 # - replaced before/after with pre/post
 # when ran for the grooming interactions it should only be run for the "observed" folders
 
 # TO DO's
 # See if and how to implement the trophallactic interaction in this script instead of the grooming interactions which will probably be ignored because of the framerate...
 
-#### Start ####
+
 
 ### ### ### ### ### ### ### ### ### ### ### ###
 to_keep_ori <- to_keep
@@ -28,7 +28,9 @@ to_keep_ori <- to_keep
 
 options(digits=16) ; options(digits.secs=6) ; options("scipen" = 10)
 
-#### get input file list
+#### Start ####
+
+### get input file list
 input_path           <- paste(data_path,"/intermediary_analysis_steps/binned_interaction_lists",sep="")
 setwd(input_path)  
 input_folders        <- list.dirs(recursive=T,path="PreTreatment",full.names=F)
@@ -39,7 +41,7 @@ if (!file.exists(outputfolder1)){dir.create(outputfolder1,recursive = T)}
 
 summary_dol <- NULL
 to_keep <- c(ls(),"to_keep","input_folder","network_file","network_files","summary_interactions","summary_interactions_grooming","summary_pairs","all_interactions")
-for (input_folder in input_folders){ ### LS: change this back so it iterates through all input_folders
+for (input_folder in input_folders){ # input_folder <- "observed"
   print(input_folder)
   setwd(input_path)
   network_files <- list.files(path=paste("PreTreatment/",input_folder,sep=""),full.names=T)
@@ -50,73 +52,48 @@ for (input_folder in input_folders){ ### LS: change this back so it iterates thr
   summary_interactions_grooming <- NULL
   summary_pairs        <- NULL
   all_interactions     <- NULL
-  for (network_file in network_files){
-    # network_file <- network_files[1] # temp
-    cat("\r",network_file)
-    ####get file metadata
-    root_name          <- gsub("_interactions.txt","",unlist(strsplit(network_file,split="/"))[grepl("interactions",unlist(strsplit(network_file,split="/")))])  # LS: replace grepl("colony", ...) with grepl("interactions")
+  
+  for (network_file in network_files){ # network_file <- network_files[1]
+    #### collect information on network file and get interactions ####
+    cat("\r",network_file) # DS: reminder to myself: The carriage return (\r) is an escape sequence that moves the cursor back to the beginning of the current line without advancing to the next line so cat keeps printing on the current line without moving on in the console
+    
+    ### get file metadata
+    root_name          <- gsub("_interactions.txt","",unlist(strsplit(network_file,split="/"))[grepl("interactions",unlist(strsplit(network_file,split="/")))]) 
     components         <- unlist(strsplit(root_name,split="_"))
-    # colony             <- components[grepl("colony",components)]
-    colony             <- unlist(strsplit(root_name,split="_"))[1] # LS
+    colony             <- unlist(strsplit(root_name,split="_"))[1] 
     treatment          <- info[which(info$colony==colony),"treatment"] #AW: no need for as.numeric() 
-    treatment_circadian<- unlist(strsplit(unlist(strsplit(root_name,split="_"))[2],split="\\."))[2] # LS
     colony_size        <- info[which(info$colony==colony),"colony_size"]
     
     if (!all(!grepl("PreTreatment",components))){period <- "pre"}else{period <- "post"} 
     time_hours         <- as.numeric(gsub("TH","",components[which(grepl("TH",components))]))
     time_of_day        <- as.numeric(gsub("TD","",components[which(grepl("TD",components))]))
     
-    # LS: add period_detail so it can be added in extra column later
-    if (period=="pre"){
-      if (components[4] %in% c("TH-24", "TH-21", "TH-18")){
-        period_detail <- "pre1"
-      }else{
-        period_detail <- "pre2"
-      }
-    }else{
-      period_detail <- "post"
-    }
-    
-    # LS: add period_circadian
-    if (period_detail=="pre1"|period_detail=="post"){
-      period_circadian <- treatment_circadian
-    }else{
-      period_circadian <- ifelse(treatment_circadian=="day","night","day")
-    }
-    
-    if (grepl("age",data_path)){
-      colony_ages <- ages[which(ages$colony==colony),]
-    }
-    
-    ####get appropriate task_group list, treated list and tag
+    # DS here code specific to Linda and Adriano was cleaned out
+
+    ### get appropriate task_group list, treated list and tag
     colony_treated     <- treated[which(treated$colony==colony),"tag"] #AW
     colony_task_group  <- task_groups[which(task_groups$colony==colony),]
-    queenid            <- as.character(colony_task_group[which(colony_task_group$task_group=="queen"),"tag"]) #AW: call specific queen tag instead of fixed 665. it has to be a character to work with igraph
-    #tagfile            <- tag_list[which(grepl(colony,tag_list))]
-    tag <- read.tag(tag_list) #AW
-    # if (length(tagfile)>1){
-    #   tagfile <- tagfile[grepl(components[grepl("Treatment",components)],tagfile)]
-    # }
-    # tag                <- read.tag(tagfile)$tag
-    #names(tag)[names(tag)=="#tag"] <- "tag"; tag <- tag[which(tag$tag!="#tag"),]
-    tag[which(tag$age==0),"age"]   <- NA ###unknown ages are coded as 0 in the tag file
-    #tag <-tag[which(tag$final_status=="alive"),] ###remove dead ants from tag file
-    ####read interactions
+    queenid            <- as.character(colony_task_group[which(colony_task_group$task_group_prop =="queen"),"tag"]) # has to be a character to work with igraph
+    tag <- read.tag(tag_list, colony) #AW # DS deleted some old stuff commented out.
+    tag[which(tag$age==0),"age"]   <- NA # unknown ages are coded as 0 in the tag file
+    
+    ### read interactions
     interactions       <- read.table(network_file,header=T,stringsAsFactors = F)  
-    alive <- tag$tag #AW
-    #remove dead ants from interactions list #AW
-    interactions <- subset(interactions, Tag1 %in% alive)
-    interactions <- subset(interactions, Tag2 %in% alive)
+    alive <- tag$tag # tag list only contains ants alive until the end. 
+    interaction_table <- interaction_table[which(interaction_table$Tag1%in%alive & interaction_table$Tag2%in%alive),] # subset interaction table to remove interactions involving ants that were not alive anymore at the end of the experiment
     
     # if(any(interactions$Tag2==1)){print(paste(root_name, "has queen ID in Tag2"))} # LS: for "observed" there are never any queen's (1) in Tag2
-    #### add a column containing interaction duration in min
-    interactions["duration_min"] <- (interactions$Stoptime - interactions$Starttime + (1/FRAME_RATE)) /60 ###duration in minutes (one frame = 0.125 second) #AW
-    interactions$N               <- 1 ###duration in minutes (one frame = 0.125 second) #AW
-    #### add a column containing the status of tag 1 and the status of tag2
-    foragers <- colony_task_group[which(colony_task_group$task_group=="forager"),"tag"]
-    nurses   <- colony_task_group[which(colony_task_group$task_group=="nurse"),"tag"]
     
-    #####1. calculate within/between caste interactions for pre period
+    ### add a column containing interaction duration in min
+    interactions["duration_min"] <- (interactions$Stoptime - interactions$Starttime + (1/FRAME_RATE)) /60 # duration in minutes (one frame = 0.125 second) #AW
+    interactions$N               <- 1 
+    
+    ### add a column containing the status of tag 1 and the status of tag2
+    ### ### ### DS: This for now will be based on the facet net definition of forager and nurses. 
+    foragers <- colony_task_group[which(colony_task_group$task_group_FACETNET_0.5=="forager"),"tag"]
+    nurses   <- colony_task_group[which(colony_task_group$task_group_FACETNET_0.5=="nurse"),"tag"]
+    
+    #### 1. calculate within/between caste interactions for pre period ####
     interactions[c("status_Tag1","status_Tag2")] <- NA
     
     interactions[which(interactions$Tag1%in%foragers),"status_Tag1"] <- "forager"
@@ -150,12 +127,11 @@ for (input_folder in input_folders){ ### LS: change this back so it iterates thr
       all_interactions <- rbind(all_interactions,data.frame(randy=input_folder,colony_size=colony_size,inter)) # LS: remove period=period because column already exists in "interactions" when we read in the file # although it will not appear twice in the files that are ultimately saved anyway
     }
     
-    # #####2. continue calculations for pre vs post
+    #### 2. continue calculations for pre vs post ####
     interactions[which(interactions$Tag1%in%colony_treated),"status_Tag1"] <- "treated"
     interactions[which(interactions$Tag2%in%colony_treated),"status_Tag2"] <- "treated"
-    
-    
-    #### use this information to calculate, for each worker, the cumulated duration of interaction with treated workers
+  
+    ### use this information to calculate, for each worker, the accumulated duration of interaction with treated workers
     aggregated1                 <- aggregate(na.rm=T,na.action="na.pass",cbind(duration_min,N)~Tag1+status_Tag2,FUN=sum,data=interactions)
     names(aggregated1)          <- c("tag","partner_status","duration_min","number_contacts")
     aggregated2                 <- aggregate(na.rm=T,na.action="na.pass",cbind(duration_min,N)~Tag2+status_Tag1,FUN=sum,data=interactions)

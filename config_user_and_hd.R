@@ -21,8 +21,10 @@ library(tcltk)
 library(igraph)
 # library(gtools)
 library(Rcpp)   # contains sourceCpp()
-# library(survival)
+library(survival) #contains coxph() function
 # library(entropy)
+library(moments) # contains skewness function... 
+library(crayon) # cloring messages in the terminal 
 
 
 getUserOptions <- function() {
@@ -32,16 +34,19 @@ getUserOptions <- function() {
     "Nath_office" = "bzniks",
     "AEL-laptop" = "ael",
     "mac_gismo" = "gismo",
-    "2A13_Office_Adriano" = "cf19810"
+    "2A13_Office_Adriano" = "cf19810",
+    "other Linux computer" = "to_be_defined"
   )
   usr_index <- menu(names(options), title = "Select USER option:")
   usr <- options[[names(options)[usr_index]]]
+  if (usr == "to_be_defined") {
+    usr <- basename(tk_choose.dir(default = paste0("~/"), caption = "Select User - just press ok"))
+  }
   if (is.na(usr)) {
     stop("User canceled the selection.")
   }
-
   # select hard drive
-  hd <- basename(tk_choose.dir(default = "~/", caption = "Select Hard Drive")) # Opens a directory dialog for selecting the hard drive
+  hd <- basename(tk_choose.dir(default = paste0("/media/", usr), caption = "Select Hard Drive - doubleclick HD and press ok")) # Opens a directory dialog for selecting the hard drive
   if (is.na(hd) || hd == "") {
     stop("User canceled the selection.")
   }
@@ -53,8 +58,6 @@ getUserOptions <- function() {
   assign("hd", hd, envir = .GlobalEnv)
 }
 
-
-
 getUserOptions()
 
 
@@ -64,8 +67,14 @@ clean <- function(){
   no_print <- gc(verbose=F)
   Sys.sleep(1) }
 
-read.tag <- function(tag_list){ #AW
+# read.tag <- function(tag_list){ #AW
+#   tag <- paste0(tag_list,list.files(tag_list)[grep(colony,list.files(tag_list))])
+#   tag <- read.table(tag,header=T,stringsAsFactors = F) #AW
+#   return(tag)
+# }
+
+read.tag <- function(tag_list, colony){
   tag <- paste0(tag_list,list.files(tag_list)[grep(colony,list.files(tag_list))])
-  tag <- read.table(tag,header=T,stringsAsFactors = F) #AW
+  tag <- read.table(tag,header=T,stringsAsFactors = F)
   return(tag)
-}
+} # used in subsequent scripts to read the tag list (generated earlier) for specific colonies

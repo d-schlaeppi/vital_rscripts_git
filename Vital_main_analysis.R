@@ -11,7 +11,6 @@ mallinfo::malloc.trim(0L)
 
 # This script contains code to run separate analysis scripts from the stroeymeyt 2018 pipeline: 
 
-
 # Before starting this scrip, first start with the pre processing of the data following Vital.R and Adrianos guides 
 # Then extract the meta data for your colonies and individuals based on the Extract meta data script
 # Next do the base analyses (interactions and space use) in Vital_base_analysis.R
@@ -19,18 +18,12 @@ mallinfo::malloc.trim(0L)
 # Run 19_facet net to get forager nurse distribution via community detection
 # Add pathogen/spore/bead load & new forager nurse allocation including space use to meta data (script 20) 
 
-# look at distribution of foragers and nurses to see which of the two is better? 
-# percentage per colony, overlap between the two different definitions. 
+# Todo:
+# Look at distribution of foragers and nurses to see which of the two task allocation methods is better? 
+# Percentage per colony, overlap between the two different definitions. 
 
-
-
-
-# and when doing so also adjust blanks
-# 
-
-# Once Facet net is done redo the Tables to match stroeymeyt with to add facet net task group allocation 
-# update the metadata file with latest information so it includes task group perc and facet as well as the information on space use and movement stuff... 
-
+# Notes: 
+# Due to difference in the framerate in comparison to adrianos experiments we so far did not generate the grooming interactions and anything regarding grooming is so far neglected down the line.
 
 ### Index ###
 # 1. Read Me
@@ -57,19 +50,22 @@ FRAME_RATE <- 6
 {
 RUN_CLASSIC_INTERACTIONS           <- TRUE
 RUN_GROOMING_INTERACTIONS          <- FALSE
-RUN_TROPHALLACTIC_INTERACTIONS     <- FALSE
+RUN_TROPHALLACTIC_INTERACTIONS     <- TRUE
 
 # Define what analysis step to run: 
 RUN_11_randomise_interactions_DS.R        <- FALSE
 RUN_12_simulate_transmission_DS.R         <- FALSE
-RUN_13_network_analysis_DS.R              <- TRUE
-RUN_14_summarise_interactions_DS.R        <- FALSE
+RUN_13_network_analysis_DS.R              <- FALSE
+RUN_14_summarise_interactions_DS.R        <- TRUE
 RUN_19_Facetnet_community_detection_DS.R  <- FALSE
 }
 
-setwd(tk_choose.dir(default = "~/", caption = "Select Working Directory")) # direct it to where you have config_user_and_hd.R (typically the script folder or github folder)
+setwd("/home/ael/Documents/vital_rscripts_git")
+#setwd(tk_choose.dir(default = "~/", caption = "Select Working Directory")) # direct it to where you have config_user_and_hd.R (typically the script folder or github folder)
 source("config_user_and_hd.R") # contains getUserOptions() that defines usr and hd and the clean() function
 
+
+# additional functions 
 choose_data_path <- function() { # does not work on the mac. 
   list(
     CLASSIC_INTERACTIONS = if (RUN_CLASSIC_INTERACTIONS) paste("/media", usr, hd, "vital/fc2/vital_experiment/main_experiment", sep="/") else NULL,
@@ -79,16 +75,19 @@ choose_data_path <- function() { # does not work on the mac.
 }
 
 
-# Call the functions to get the data and script paths as well as additional info tables,  libraries and functions loaded: 
-code_path <- paste("/home/",usr,"/Documents/vital_rscripts_git/source_scripts",sep="") # place where the needed r scripts are stored
-data_paths <- choose_data_path()
-# source(paste(code_path,"/libraries_DS.R",sep="")) #not much in these two scripts (libraries and functions) yet... if needed maybe include in the config script?
-# source(paste(code_path,"/functions_and_parameters_DS.R",sep="")) # see line above
+# get the data and script paths as well as additional info tables, libraries, parameters and functions loaded: 
+code_path   <- paste("/home/",usr,"/Documents/vital_rscripts_git/source_scripts",sep="") # place where the needed r scripts are stored
+data_paths  <- choose_data_path()
 info        <- read.table(paste("/media", usr, hd, "vital/fc2/vital_experiment/main_experiment/original_data/info.txt",sep="/"), header=T,stringsAsFactors = F) 
 treated     <- read.table(paste("/media", usr, hd, "vital/fc2/vital_experiment/main_experiment/original_data/treated_worker_list.txt",sep="/"),header=T,stringsAsFactors = F)
 task_groups <- read.table(paste("/media", usr, hd, "vital/fc2/vital_experiment/main_experiment/original_data/task_groups.txt",sep="/"),header=T,stringsAsFactors = F) # might need to be checked if this how the task groups are defined at the moment... % or facet net?  
-tag_list <- paste("/media", usr, hd, "vital/fc2/vital_experiment/main_experiment/original_data/tag_files/",sep="/")
+tag_list    <- paste("/media", usr, hd, "vital/fc2/vital_experiment/main_experiment/original_data/tag_files/",sep="/")
+seed_path   <- paste("/media", usr, hd, "vital/fc2/vital_experiment/main_experiment/original_data/seeds/",sep="/")
+splitpath   <- paste("/media", usr, hd, "vital/fc2/vital_experiment/main_experiment/original_data/time_aggregation_info/",sep="/")
+split_list  <- paste(splitpath,list.files(splitpath),sep="") # needed for transmission simulation
+high_threshold <- 0.0411 * 0.5/0.3 # Science paper: high threshold =0.0411 where 1 = load of treated   # In Adriano's experiment, spore concentration was the same but volume was 0.3 microliter instead of 0.5 microliter --> needs to be adjusted so that it fits the virus or bead data (CHECK WHAT LUKE DID HERE?)
 to_keep <- c(ls(),"to_keep", "loop_start_time")
+
 
 
 ### ### ### ### ### ### ### ### ### ### ### ### 
@@ -122,54 +121,57 @@ if (RUN_11_randomise_interactions_DS.R){
   
   
   
-  
-  
-  
 #### 3.2 12_simulate_transmission_DS.R ####
 # simulate transmission of an agent from a list of originally contaminated workers to the rest of the colony. 
-# include the Run if thing here. 
+
 if (RUN_12_simulate_transmission_DS.R){
   print("running 12_simulate_transmission_DS.R")
- for (interaction_type in names(data_paths)) {
+ for (interaction_type in names(data_paths)) { # interaction_type <- "TROPHALLACTIC_INTERACTIONS" or # interaction_type <- "CLASSIC_INTERACTIONS"
    data_path <- data_paths[[interaction_type]]
-   #data_path <- data_paths[["TROPHALLACTIC_INTERACTIONS"]]
-   #data_path <- data_paths[["CLASSIC_INTERACTIONS"]]
    if (!is.null(data_path)) {
      print(paste("Processing files for", interaction_type, "\U0001F91D"))
      source(paste(code_path,"/12_simulate_transmission_DS.R",sep=""))
      clean()
-   }
-  print(paste("ALL DONE", "\U0001F973"))
- }} else { print("skipping 12_simulate_transmission_DS.R") }
+     print(paste(interaction_type, "ALL DONE",  "\U0001F973"))
+   } else {print(paste("Skipping", interaction_type))}
+   }} else {print("skipping 12_simulate_transmission_DS.R")}
 
 
 
 
-  
 #### 3.3 13_network_analysis.R ####
-if (RUN_13_network_analysis_DS.R){
-  print("running 13_network_analysis_DS.R")
-  for (interaction_type in names(data_paths)) { #interaction_type <- "CLASSIC_INTERACTIONS"
-    data_path <- data_paths[[interaction_type]]   #define input path to get the right interactions for network calculations:
-    if (!is.null(data_path)) {
-      print(paste("Processing files for", interaction_type, "\U0001F91D"))
-      source(paste(code_path,"/13_network_analysis_DS.R",sep=""))
-      clean()
-    }
-    print(paste("ALL DONE", "\U0001F973"))
-  }} else {print("skipping 13_network_analysis_DS.R")}
-    
+#  conducts network analysis on interaction data
+if (RUN_13_network_analysis_DS.R) {
+    print("running 13_network_analysis_DS.R")
+    for (interaction_type in names(data_paths)) { # interaction_type <- "CLASSIC_INTERACTIONS" or interaction_type <- "TROPHALLACTIC_INTERACTIONS"
+      data_path <- data_paths[[interaction_type]] 
+      if (!is.null(data_path)) {
+        print(paste("Processing files for", interaction_type, "\U0001F91D"))
+        source(paste(code_path, "/13_network_analysis_DS.R", sep=""))
+        clean()
+        print(paste(interaction_type, "ALL DONE", "\U0001F973"))
+      } else {
+        print(paste("Skipping", interaction_type))}
+      }} else {print("skipping 13_network_analysis_DS.R")}
   
   
   
-  
+
   
   
 #### 3.4 14_summarise_interactions.R ####
-if (RUN_14_summarise_interactions_DS.R){ # might need addition of trophallaxis
-  print("currently being tested for Daniel")
-  source(paste(code_path,"/14_summarise_interactions_DS.R",sep=""))
-  clean()
+  
+if (RUN_14_summarise_interactions_DS.R){ 
+  print("summarize interactions currently being prepared and tested for Daniel")
+  for (interaction_type in names(data_paths)) { # interaction_type <- "CLASSIC_INTERACTIONS" or interaction_type <- "TROPHALLACTIC_INTERACTIONS"
+    data_path <- data_paths[[interaction_type]] 
+    if (!is.null(data_path)) {
+      print(paste("Processing files for", interaction_type, "\U0001F91D"))
+      source(paste(code_path,"/14_summarise_interactions_DS.R",sep=""))
+      clean()
+      print(paste(interaction_type, "ALL DONE", "\U0001F973"))
+    } else {
+      print(paste("Skipping", interaction_type))}
 } else {print("skipping 14_summarise_interactions_DS.R")}
 
 
