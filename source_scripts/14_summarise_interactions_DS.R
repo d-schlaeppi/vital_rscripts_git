@@ -37,7 +37,7 @@ input_folders        <- list.dirs(recursive=T,path="PreTreatment",full.names=F)
 input_folders        <- input_folders[which(input_folders!="")]
 
 outputfolder1 <- paste(data_path,"/processed_data/individual_behaviour/random_vs_observed",sep="")
-if (!file.exists(outputfolder1)){dir.create(outputfolder1,recursive = T)}
+if (!file.exists(outputfolder1))  {dir.create(outputfolder1,recursive = T)}
 
 summary_dol <- NULL
 to_keep <- c(ls(),"to_keep","input_folder","network_file","network_files","summary_interactions","summary_interactions_grooming","summary_pairs","all_interactions")
@@ -152,6 +152,8 @@ for (input_folder in input_folders){ # input_folder <- "observed"
     # Daniel updated version so that status is treated or not, and task group is taskgroup calculated from facet net. 
     full_table$status           <- ""
     full_table[which(full_table$tag%in%colony_treated), "status"] <- "treated"
+    
+    ### or not? ... continue here
     
     ##############################################################
     #### check below in the script where treated vs status vs task group is used?!!!

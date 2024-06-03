@@ -59,29 +59,36 @@ library(crayon) # cloring messages in the terminal
 # }
 
 getUserOptions <- function() {
-  win <- tktoplevel()
-  tkwm.title(win, "Are you using Linux or is this Daniel messing around on his mac?")
-  tkwm.geometry(win, "600x100")
-  choice <- tclVar("") # Variable to store the user's choice
-  on_button_click <- function(os) { # Function to handle button clicks
-    tclvalue(choice) <- os
-    tkdestroy(win)
-  }
-  # Create and position buttons
-  button_linux <- tkbutton(win, text = "Linux", command = function() on_button_click("Linux"), font = tkfont.create(size = 15)) 
-  button_mac <- tkbutton(win, text = "Mac", command = function() on_button_click("Mac"), font = tkfont.create(size = 15))
-  button_else <- tkbutton(win, text = "else", command = function() on_button_click("else"), font = tkfont.create(size = 15))
-  tkpack(button_linux, side = "left", padx = 10)
-  tkpack(button_mac, side = "left", padx = 10)
-  tkpack(button_else, side = "left", padx = 10)
-  tkwait.window(win) # Wait for the user to click a button
+  ## old version using a little user interface to load user...
+  # win <- tktoplevel()
+  # tkwm.title(win, "Are you using Linux or is this Daniel messing around on his mac?")
+  # tkwm.geometry(win, "600x100")
+  # choice <- tclVar("") # Variable to store the user's choice
+  # on_button_click <- function(os) { # Function to handle button clicks
+  #   tclvalue(choice) <- os
+  #   tkdestroy(win)
+  # }
+  # # Create and position buttons
+  # button_linux <- tkbutton(win, text = "Linux", command = function() on_button_click("Linux"), font = tkfont.create(size = 15)) 
+  # button_mac <- tkbutton(win, text = "Mac", command = function() on_button_click("Mac"), font = tkfont.create(size = 15))
+  # button_else <- tkbutton(win, text = "else", command = function() on_button_click("else"), font = tkfont.create(size = 15))
+  # tkpack(button_linux, side = "left", padx = 10)
+  # tkpack(button_mac, side = "left", padx = 10)
+  # tkpack(button_else, side = "left", padx = 10)
+  # tkwait.window(win) # Wait for the user to click a button
+  os <- Sys.info()["sysname"]
   usr <- ""
   hd <- ""
   mac <- FALSE
-  if (tclvalue(choice) == "Linux") {
-    usr <- basename(tk_choose.dir(default = "~/", caption = "Select User - just press ok"))
-    hd <- basename(tk_choose.dir(default = paste0("/media/", usr), caption = "Select Hard Drive - double click HD and press ok"))
-  } else if (tclvalue(choice) == "Mac") {
+  if (os == "Linux") { #use tclvalue(choice) isntead of os with the old version
+    usr <- system("whoami", intern = TRUE)
+    media_drives <- list.dirs(paste0("/media/", usr), full.names = TRUE, recursive = FALSE)
+    if (length(media_drives) == 1) { # if only one hd is plugged in it should be automatically detected
+      hd <- basename(media_drives)
+    } else {
+      hd <- basename(tk_choose.dir(default = paste0("/media/", usr), caption = "Select Hard Drive - double click HD and press ok"))  # select hd if more than one is loaded
+    }
+  } else if (os == "Darwin") {
     usr <- Sys.info()["user"]
     hd <- basename(tk_choose.dir(default = "/Volumes", caption = "Select Hard Drive - double click HD and press ok"))
     cat(red(paste("Warning: The code below has been coded for Linux and might not work as intended on this device")), "\n")

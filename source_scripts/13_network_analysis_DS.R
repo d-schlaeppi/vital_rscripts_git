@@ -16,7 +16,6 @@ to_keep_ori <- to_keep
 ### ### ### ### ### ### ### ### ### ### ### ###
 
 
-
 options(digits = 16) ; options(digits.secs = 6) ; options("scipen" = 10) #set options to control how numerical values are printed and handled in the R environment
 edge_weights <- c("number", "duration") # DS: script now loops over both types, to undo change here back to one of the two, remove loop start plus the end bracket and change edge_weight back to edge_weights
 
