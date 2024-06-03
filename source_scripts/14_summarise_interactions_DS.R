@@ -80,7 +80,7 @@ for (input_folder in input_folders){ # input_folder <- "observed"
     ### read interactions
     interactions       <- read.table(network_file,header=T,stringsAsFactors = F)  
     alive <- tag$tag # tag list only contains ants alive until the end. 
-    interaction_table <- interaction_table[which(interaction_table$Tag1%in%alive & interaction_table$Tag2%in%alive),] # subset interaction table to remove interactions involving ants that were not alive anymore at the end of the experiment
+    interactions <- interactions[which(interactions$Tag1%in%alive & interactions$Tag2%in%alive),] # subset interaction table to remove interactions involving ants that were not alive anymore at the end of the experiment
     
     # if(any(interactions$Tag2==1)){print(paste(root_name, "has queen ID in Tag2"))} # LS: for "observed" there are never any queen's (1) in Tag2
     
@@ -105,7 +105,7 @@ for (input_folder in input_folders){ # input_folder <- "observed"
     interactions[which(interactions$Tag1==queenid),"status_Tag1"] <- "queen"
     interactions[which(interactions$Tag2==queenid),"status_Tag2"] <- "queen"
     
-    if (grepl("grooming",input_path)){
+    if (grepl("grooming",input_path)){ # actor and receiver definition for directional behaviors (allo grooming) - thus skipped for classic interactions and so far also trophallaxis where it is not possible to say who initiates the interaction
       interactions$Actor <- gsub("ant_","",interactions$Act_Name)
       interactions$Receiver <- gsub("ant_","",interactions$Rec_Name)
       
@@ -128,7 +128,7 @@ for (input_folder in input_folders){ # input_folder <- "observed"
     }
     
     #### 2. continue calculations for pre vs post ####
-    interactions[which(interactions$Tag1%in%colony_treated),"status_Tag1"] <- "treated"
+    interactions[which(interactions$Tag1%in%colony_treated),"status_Tag1"] <- "treated"     ### Is this the right way to do this? it overwrites the nurse or forager status of treated ants instead of creating a new binary variable treated/untreated or treated yes/no
     interactions[which(interactions$Tag2%in%colony_treated),"status_Tag2"] <- "treated"
   
     ### use this information to calculate, for each worker, the accumulated duration of interaction with treated workers
@@ -144,10 +144,20 @@ for (input_folder in input_folders){ # input_folder <- "observed"
     full_table[is.na(full_table$duration_min),"duration_min"] <- 0
     full_table[is.na(full_table$number_contacts),"number_contacts"] <- 0    
     
-    full_table                  <- merge(full_table,tag[c("tag","group")]); names(full_table)[names(full_table)=="group"] <- "status"
-    # full_table                  <- merge(full_table,colony_task_group[c("tag","task_group")]); full_table[which(full_table$status=="treated"),"task_group"] <- "treated" # LS: there are no "treated" in status so this just adds the same column as before (="status" with three levels: queen, nurse, forager)
+    full_table                  <- merge(full_table,tag[c("tag","group")]); names(full_table)[names(full_table)=="group"] <- "caste"
+    # full_table                <- merge(full_table,colony_task_group[c("tag","task_group")]); full_table[which(full_table$status=="treated"),"task_group"] <- "treated" # LS: there are no "treated" in status so this just adds the same column as before (="status" with three levels: queen, nurse, forager)
     # LS: fix line above by adding treated to task_group using "colony_treated"
-    full_table                  <- merge(full_table,colony_task_group[c("tag","task_group")]); full_table[which(full_table$tag%in%colony_treated), "task_group"] <- "treated"
+    # full_table                  <- merge(full_table,colony_task_group[c("tag","task_group_FACETNET_0.5")]); full_table[which(full_table$tag%in%colony_treated), "task_group_FACETNET_0.5"] <- "treated"
+
+    # Daniel updated version so that status is treated or not, and task group is taskgroup calculated from facet net. 
+    full_table$status           <- ""
+    full_table[which(full_table$tag%in%colony_treated), "status"] <- "treated"
+    
+    ##############################################################
+    #### check below in the script where treated vs status vs task group is used?!!!
+    # see blew where group / task group is used and replace it with caste 
+    # see below where status or task-group  is used and make it work with the status reflecting treated or not. 
+    
     
     if (!grepl("age",data_path)){
       full_table$age <- NA
