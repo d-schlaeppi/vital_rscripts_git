@@ -54,9 +54,9 @@ RUN_TROPHALLACTIC_INTERACTIONS     <- TRUE
 
 # Define what analysis step to run: 
 RUN_11_randomise_interactions_DS.R        <- FALSE
-RUN_12_simulate_transmission_DS.R         <- FALSE
-RUN_13_network_analysis_DS.R              <- FALSE
-RUN_14_summarise_interactions_DS.R        <- TRUE
+RUN_12_simulate_transmission_DS.R         <- TRUE
+RUN_13_network_analysis_DS.R              <- TRUE
+RUN_14_summarise_interactions_DS.R        <- FALSE
 RUN_19_Facetnet_community_detection_DS.R  <- FALSE
 }
 
