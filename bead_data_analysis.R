@@ -16,10 +16,10 @@ library(tidyr)
 library(ggplot2)
 library(lme4)
 library(car)
-
 #model testing
 library(blmeco)
 library(DHARMa)
+
 plot_model_diagnostics <- function(model) {
   compareqqnorm(model)   # Compare QQ plot
   cat("Press Enter to continue...")
@@ -38,43 +38,68 @@ plot_model_diagnostics <- function(model) {
   layout(1)
 } # simple finction to display some model plots - not sure what models it works for... should be ok for lmer
 
-# set directories
-set_directories <- function() {
-  cat("Select an option:\n") # Prompt and read the user for input
-  cat("1. This is Daniel working on his Mac\n")
-  cat("2. This is a random user working on Linux\n")
-  cat("3. Else\n")
-  option <- as.integer(readLines(n = 1))
-  
-  if (option == 1) { #MAC
-    DATADIR <- "/Volumes/DISK_B/vital/fc2/"
-    SCRIPTDIR <- "/Users/gismo/Documents/GitHub/vital_rscripts_git/"
-    setwd(DATADIR)
-    assign("DATADIR", DATADIR, envir = .GlobalEnv)
-    assign("SCRIPTDIR", SCRIPTDIR, envir = .GlobalEnv)
-    cat("Directories set for Daniel on Mac.\n")
-    cat("DATADIR:", DATADIR, "\n")
-    cat("SCRIPTDIR:", SCRIPTDIR, "\n")
-  } else if (option == 2) { #LINUX - config_user_and_hd.txt must exist in the selected working directory
-    working_dir <- tk_choose.dir(default = "~", caption = "Select Working Directory")
-    setwd(working_dir)
-    source("config_user_and_hd.R")
-    DATADIR <- paste("/media", usr, hd, "vital/fc2", sep = "/")
-    SCRIPTDIR <- paste("/home", usr, "Documents/vital_rscripts_git", sep = "/")
-    setwd(DATADIR)
-    assign("DATADIR", DATADIR, envir = .GlobalEnv)
-    assign("SCRIPTDIR", SCRIPTDIR, envir = .GlobalEnv)
-    cat("Directories set for random user on Linux.\n")
-    cat("DATADIR:", DATADIR, "\n")
-    cat("SCRIPTDIR:", SCRIPTDIR, "\n")
-  } else if (option == 3) { #ELSE
-    cat("Please set the directories manually.\n")
-  } else {
-    cat("Invalid option selected. Please run the script again and select a valid option.\n")
-  }
-}
-set_directories()
-1
+# # set directories
+# set_directories <- function() {
+#   cat("Select an option:\n") # Prompt and read the user for input
+#   cat("1. This is Daniel working on his Mac\n")
+#   cat("2. This is a random user working on Linux\n")
+#   cat("3. Else\n")
+#   option <- as.integer(readLines(n = 1))
+#   if (option == 1) { #MAC
+#     DATADIR <- "/Volumes/DISK_B/vital/fc2/"
+#     SCRIPTDIR <- "/Users/gismo/Documents/GitHub/vital_rscripts_git/"
+#     setwd(DATADIR)
+#     assign("DATADIR", DATADIR, envir = .GlobalEnv)
+#     assign("SCRIPTDIR", SCRIPTDIR, envir = .GlobalEnv)
+#     cat("Directories set for Daniel on Mac.\n")
+#     cat("DATADIR:", DATADIR, "\n")
+#     cat("SCRIPTDIR:", SCRIPTDIR, "\n")
+#   } else if (option == 2) { #LINUX - config_user_and_hd.txt must exist in the selected working directory
+#     working_dir <- tk_choose.dir(default = "~", caption = "Select Working Directory")
+#     setwd(working_dir)
+#     source("config_user_and_hd.R")
+#     DATADIR <- paste("/media", usr, hd, "vital/fc2", sep = "/")
+#     SCRIPTDIR <- paste("/home", usr, "Documents/vital_rscripts_git", sep = "/")
+#     setwd(DATADIR)
+#     assign("DATADIR", DATADIR, envir = .GlobalEnv)
+#     assign("SCRIPTDIR", SCRIPTDIR, envir = .GlobalEnv)
+#     cat("Directories set for random user on Linux.\n")
+#     cat("DATADIR:", DATADIR, "\n")
+#     cat("SCRIPTDIR:", SCRIPTDIR, "\n")
+#   } else if (option == 3) { #ELSE
+#     cat("Please set the directories manually.\n")
+#   } else {
+#     cat("Invalid option selected. Please run the script again and select a valid option.\n")
+#   }
+# }
+# set_directories()
+
+# temporary for memory stick
+setwd(tk_choose.dir(default = "~/", caption = "Select Working Directory")) # direct it to where you have config_user_and_hd.R (typically the script folder or github folder)
+source("config_user_and_hd.R") # contains getUserOptions() that defines usr and hd and the clean() function
+
+if (mac) { #MAC
+  DATADIR <- paste("/Volumes", hd, "r_data", sep = "/")
+  SCRIPTDIR <- "/Users/gismo/Documents/GitHub/vital_rscripts_git/"
+  setwd(DATADIR)
+  assign("DATADIR", DATADIR, envir = .GlobalEnv)
+  assign("SCRIPTDIR", SCRIPTDIR, envir = .GlobalEnv)
+  cat("Directories set for Daniel on Mac.\n")
+  cat("DATADIR:", DATADIR, "\n")
+  cat("SCRIPTDIR:", SCRIPTDIR, "\n")
+} else { #LINUX 
+  DATADIR <- paste("/media", usr, hd, "r_data", sep = "/")
+  SCRIPTDIR <- paste("/home", usr, "Documents/vital_rscripts_git", sep = "/")
+  setwd(DATADIR)
+  assign("DATADIR", DATADIR, envir = .GlobalEnv)
+  assign("SCRIPTDIR", SCRIPTDIR, envir = .GlobalEnv)
+  cat("Directories set for random user on Linux.\n")
+  cat("DATADIR:", DATADIR, "\n")
+  cat("SCRIPTDIR:", SCRIPTDIR, "\n")
+} 
+
+
+
 #### Creating the different dataframes used for the Analyses ####
 
 # read tables
@@ -112,7 +137,8 @@ combined_bead_data$yellow_beads_cor <- ifelse(combined_bead_data$flowjo_samplety
 combined_bead_data$blue_beads_cor <- ifelse(combined_bead_data$flowjo_sampletype %in% c("sample", "sample_brood"),
                                             combined_bead_data$blue_count_NB - mean_yellow_blanks,
                                             combined_bead_data$blue_count_NB)
-# individual metadata already contains the corrected bead numbers as this was done in the scritp "add_beads_to_metadata-R"
+
+# individual metadata already contains the corrected bead numbers as this was done in the script "add_beads_to_metadata-R"
 # However, it is necessary to correct negative values to be 0 - could have been done in previously... but let's do it now
 # function to replace negatives 
 replace_negatives <- function(x) {
@@ -134,18 +160,19 @@ merged_data_individuals <- merge(individual_metadata[, !names(individual_metadat
 merged_data_brood <- merge(brood_data[, !names(brood_data) %in% c("treatment", "treatment_simple")], 
                            colony_metadata, by = "colony_id")
 
+### Identify colonies for which worker bead data was not assessed: 
 # As there were so many individuals it was not possible to analyse all colonies --> colonies were ranked based on manual feeding observations and the the top 7 colonies of the two treatments were selected for the bead analysis
 # Hence the individuals data set is subsetted in the bead analysis
 # all colonies were analysed for brood (pooled larva samples from each colony)
-# identify colonies not analysed in flowcytometry ( have bead count zero for both food sources)
-filtered_data <- updated_df_individuals %>%
+# identify colonies not analysed in flowcytometry (have bead count zero for both food sources)
+filtered_data <- merged_data_individuals %>%
   group_by(colony_id, treatment_simple) %>%
   summarise(
-    total_beads_food1v = sum(food_1v, na.rm = TRUE),
-    total_beads_food2c = sum(food_2c, na.rm = TRUE),
+    total_yellow_beads = sum(yellow_count_YB, na.rm = TRUE),
+    total_blue_beads = sum(blue_count_NB, na.rm = TRUE),
     .groups = 'drop'  # Ungroup after summarising
   )  %>%
-  filter(total_beads_food1v != 0 & total_beads_food2c != 0)
+  filter(total_yellow_beads != 0 & total_blue_beads != 0)
 colonies_to_analyse <- filtered_data$colony_id
 
 
@@ -170,6 +197,7 @@ calculate_beads <- function(treatment, yellow_beads, blue_beads) {
   }
   return(list(food_1v = food_1v, food_2c = food_2c))
 }
+
 process_df <- function(data){
   if (df == "individuals") {
     data <- data %>% filter(colony_id %in% colonies_to_analyse)
@@ -200,8 +228,6 @@ process_df <- function(data){
   return(list(updated_df = updated_df, long_df = long_df))
 }
 
-
-
 dfs <- c("individuals", "brood")
 for (df in dfs) {
   data <- get(paste0("merged_data_", df))
@@ -211,6 +237,18 @@ for (df in dfs) {
 }
 
 # after the above there are 4 dataframes available: updated_df_individuals, long_df_individuals, updated_df_brood, long_df_brood
+
+# create new variable saying for is virus positive
+updated_df_individuals$is_virus_positive <- ifelse(updated_df_individuals$treatment != "cc" & updated_df_individuals$food_1v >= 0, "yes", "no") 
+
+
+
+
+
+
+
+
+                                                         
 
 
 ### ### ### ### ### ### ### ### ### ### ### 
@@ -245,7 +283,7 @@ text(1.5, 4.2, "*", cex = 2)
 # mean sum of beads per food source per colony for the two treatments
 # Summarize and get a feel for data
 
-#by colny
+#by coolny
 colony_sum <- updated_df_individuals %>%
   group_by(colony_id, treatment_simple) %>% 
   summarise(
@@ -277,8 +315,7 @@ boxplot(colony_long$bead_count ~ colony_long$treatment_simple * colony_long$food
         main = "Bead count by treatment and food source",
         xlab = "Treatment and Food Source",
         ylab = "Bead Count",
-        names = c("Control - Food 1", "Control - Food 2", "Virus - Food 1", "Virus - Food 2"))
-
+        names = c("Control - Food 1", "Control - Food 2", "Virus - Food 1", "Virus - Food 2"), col = c("lightgreen", "lightgreen","red","lightgreen"))
 mod <- lmer(bead_count ~ treatment_simple * food + (1|colony_id), data = colony_long)
 Anova(mod)
 plot_model_diagnostics(mod)
@@ -369,7 +406,7 @@ boxplot(log(treated_workers_long_virus_only$bead_count+0.5) ~ treated_workers_lo
 # data not normally distributed and zero inflated and needs, random factors 
 # generalized mixed model with poisson distribution and random factors for colony, bead color and individual but taking into account zero inflation... 
 
-
+### binomial modal to test for difference is positive or not
 
 
 
