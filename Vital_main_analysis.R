@@ -54,27 +54,36 @@ RUN_TROPHALLACTIC_INTERACTIONS     <- TRUE
 
 # Define what analysis step to run: 
 RUN_11_randomise_interactions_DS.R        <- FALSE
-RUN_12_simulate_transmission_DS.R         <- TRUE
-RUN_13_network_analysis_DS.R              <- TRUE
-RUN_14_summarise_interactions_DS.R        <- FALSE
+RUN_12_simulate_transmission_DS.R         <- FALSE
+RUN_13_network_analysis_DS.R              <- FALSE
+RUN_14_summarise_interactions_DS.R        <- TRUE
 RUN_19_Facetnet_community_detection_DS.R  <- FALSE
 }
 
-# setwd("/home/ael/Documents/vital_rscripts_git")
-setwd(tk_choose.dir(default = "~/", caption = "Select Working Directory")) # direct it to where you have config_user_and_hd.R (typically the script folder or github folder)
+setwd("/home/ael/Documents/vital_rscripts_git")
+#setwd(tk_choose.dir(default = "~/", caption = "Select Working Directory")) # direct it to where you have config_user_and_hd.R (typically the script folder or github folder)
 source("config_user_and_hd.R") # contains getUserOptions() that defines usr and hd and the clean() function
 
+
+# additional functions 
+choose_data_path <- function() { # does not work on the mac. 
+  list(
+    CLASSIC_INTERACTIONS = if (RUN_CLASSIC_INTERACTIONS) paste("/media", usr, hd, "vital/fc2/vital_experiment/main_experiment", sep="/") else NULL,
+    GROOMING_INTERACTIONS = if (RUN_GROOMING_INTERACTIONS) paste("/media", usr, hd, "vital/fc2/vital_experiment/main_experiment_grooming", sep="/") else NULL,
+    TROPHALLACTIC_INTERACTIONS = if (RUN_TROPHALLACTIC_INTERACTIONS) paste("/media", usr, hd, "vital/fc2/vital_experiment/main_experiment_trophallaxis", sep="/") else NULL
+  )
+}
+
+
 # get the data and script paths as well as additional info tables, libraries, parameters and functions loaded: 
-scriptdir   <- getwd()
-code_path   <- paste(scriptdir, "/source_scripts",sep="") # place where the needed r scripts are stored
+code_path   <- paste("/home/",usr,"/Documents/vital_rscripts_git/source_scripts",sep="") # place where the needed r scripts are stored
 data_paths  <- choose_data_path()
-dir_additional_data <- paste("/media", usr, hd, "vital/fc2/vital_experiment/main_experiment/original_data", sep="/")
-info        <- read.table(paste(dir_additional_data, "info.txt", sep="/"), header=T, stringsAsFactors = F)
-treated     <- read.table(paste(dir_additional_data, "treated_worker_list.txt",sep="/"),header=T,stringsAsFactors = F)
-task_groups <- read.table(paste(dir_additional_data, "task_groups.txt",sep="/"),header=T,stringsAsFactors = F) # might need to be checked if this how the task groups are defined at the moment... % or facet net?  
-tag_list    <-            paste(dir_additional_data, "tag_files/",sep="/")
-seed_path   <-            paste(dir_additional_data, "seeds/",sep="/")
-splitpath   <-            paste(dir_additional_data, "time_aggregation_info/",sep="/")
+info        <- read.table(paste("/media", usr, hd, "vital/fc2/vital_experiment/main_experiment/original_data/info.txt",sep="/"), header=T,stringsAsFactors = F) 
+treated     <- read.table(paste("/media", usr, hd, "vital/fc2/vital_experiment/main_experiment/original_data/treated_worker_list.txt",sep="/"),header=T,stringsAsFactors = F)
+task_groups <- read.table(paste("/media", usr, hd, "vital/fc2/vital_experiment/main_experiment/original_data/task_groups.txt",sep="/"),header=T,stringsAsFactors = F) # might need to be checked if this how the task groups are defined at the moment... % or facet net?  
+tag_list    <- paste("/media", usr, hd, "vital/fc2/vital_experiment/main_experiment/original_data/tag_files/",sep="/")
+seed_path   <- paste("/media", usr, hd, "vital/fc2/vital_experiment/main_experiment/original_data/seeds/",sep="/")
+splitpath   <- paste("/media", usr, hd, "vital/fc2/vital_experiment/main_experiment/original_data/time_aggregation_info/",sep="/")
 split_list  <- paste(splitpath,list.files(splitpath),sep="") # needed for transmission simulation
 high_threshold <- 0.0411 * 0.5/0.3 # Science paper: high threshold =0.0411 where 1 = load of treated   # In Adriano's experiment, spore concentration was the same but volume was 0.3 microliter instead of 0.5 microliter --> needs to be adjusted so that it fits the virus or bead data (CHECK WHAT LUKE DID HERE?)
 to_keep <- c(ls(),"to_keep", "loop_start_time")
@@ -93,6 +102,7 @@ to_keep <- c(ls(),"to_keep", "loop_start_time")
 
 if(TRUE){
  
+
 #### 3.1 11_randomise_interactions_DS.R ####
 # create randomized interaction networks based on the observed interactions 
 if (RUN_11_randomise_interactions_DS.R){
@@ -108,8 +118,12 @@ if (RUN_11_randomise_interactions_DS.R){
   }} else {print("skipping 11_randomise_interactions_DS.R")}
   
 
+  
+  
+  
 #### 3.2 12_simulate_transmission_DS.R ####
 # simulate transmission of an agent from a list of originally contaminated workers to the rest of the colony. 
+
 if (RUN_12_simulate_transmission_DS.R){
   print("running 12_simulate_transmission_DS.R")
  for (interaction_type in names(data_paths)) { # interaction_type <- "TROPHALLACTIC_INTERACTIONS" or # interaction_type <- "CLASSIC_INTERACTIONS"
@@ -121,6 +135,8 @@ if (RUN_12_simulate_transmission_DS.R){
      print(paste(interaction_type, "ALL DONE",  "\U0001F973"))
    } else {print(paste("Skipping", interaction_type))}
    }} else {print("skipping 12_simulate_transmission_DS.R")}
+
+
 
 
 #### 3.3 13_network_analysis.R ####
@@ -139,8 +155,11 @@ if (RUN_13_network_analysis_DS.R) {
       }} else {print("skipping 13_network_analysis_DS.R")}
   
 
+
+  
 #### 3.4 14_summarise_interactions.R ####
-if (RUN_14_summarise_interactions_DS.R){
+  
+if (RUN_14_summarise_interactions_DS.R){ 
   print("summarize interactions currently being prepared and tested for Daniel")
   for (interaction_type in names(data_paths)) { # interaction_type <- "CLASSIC_INTERACTIONS" or interaction_type <- "TROPHALLACTIC_INTERACTIONS"
     data_path <- data_paths[[interaction_type]] 
@@ -151,9 +170,14 @@ if (RUN_14_summarise_interactions_DS.R){
       print(paste(interaction_type, "ALL DONE", "\U0001F973"))
     } else {
       print(paste("Skipping", interaction_type))}
-}} else {print("skipping 14_summarise_interactions_DS.R")}
+} else {print("skipping 14_summarise_interactions_DS.R")}
 
 
+  
+  
+  
+  
+  
 #### 3.5 19_Facetnet_community_detection.R ####
 if (RUN_19_Facetnet_community_detection_DS.R){
   print(paste(Sys.time(), ":    running 19_Facetnet_community_detection.R"))
@@ -167,11 +191,13 @@ if (RUN_19_Facetnet_community_detection_DS.R){
 
   
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
-}
+} 
 
 #### END OF THE LOOP OVER ALL FUNCTIONS ####
 
 ### NEXT: Move on the analysis of the data using script "Vital_stats_and_plots_R"
+
+
 
 
 
