@@ -18,7 +18,7 @@ cat(red(paste("### ### ### Starting transmission simulations for ", interaction_
 to_keep_ori <- to_keep
 
 Sys.setenv("PKG_CXXFLAGS"="-std=c++11")
-sourceCpp(paste(code_path,"/simulate_transmission.cpp",sep=""))
+  sourceCpp(paste(code_path,"/simulate_transmission.cpp",sep=""))
 loop_start_time <- Sys.time()
 
 ### ### ### ### ### ### ### ### ### ### ###
@@ -76,12 +76,12 @@ for (seed_file in seed_files ){ # seed_file <- "treated_workers.txt"
         cat(blue(paste0("starting ", colony, " ",  period_detail, "Treatment - ",  tolower(interaction_type)), " - ", interac_folder, "\n"))
             
         ### read interactions
-        interaction_table <- read.table(interac,header=T,stringsAsFactors=F,sep = "\t")
+        interaction_table <- read_table_with_auto_delim(interac) # DS using function to read file to work both with space and tab separated tables (observed and randomized might have different format)
         interaction_table <- interaction_table[order(interaction_table$Starttime),]
-        interaction_table <- interaction_table[which(!duplicated(interaction_table)),] #removes duplicates should there be any
+        interaction_table <- interaction_table[which(!duplicated(interaction_table)),] # removes duplicates should there be any
         
         ### DS: additional checks because the trophallaxis interaction_table is missing some columns that were not created due to my simplified design with only 1 3h block to analyze - technically not required but easier with subsequent scripts
-        if (!"time_hours" %in% colnames(interaction_table)) {# Check if 'interaction_table' contains the column 'time_hours'
+        if (!"time_hours" %in% colnames(interaction_table)) { # Check if 'interaction_table' contains the column 'time_hours'
           interaction_table$time_hours <- ifelse(period == "before", -24, ifelse(period == "after", 0, NA)) # Create and fill 'time_hours' based on the value of 'period'
         }
         if (!"time_of_day" %in% colnames(interaction_table)) { # Check if 'interaction_table' contains the column 'time_of_day'
