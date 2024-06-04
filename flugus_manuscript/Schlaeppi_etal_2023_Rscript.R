@@ -48,6 +48,7 @@ rm(list=ls())
 #### 1.  prerequisites ####
 
 # load required libraries and functions:
+{
 library(dplyr) #contains pipe operator
 library(ggplot2)
 library(broom) #contains tidy()
@@ -60,6 +61,7 @@ library(coxme)
 library(survival)
 library(survminer) # used in the analysis of the survival curves incl ggsurvplot
 library(scales)
+}
 
 # working directory 
 directory <- "/Users/gismo/Documents/Uni/DS Bees Home/Bristol/Projects/Flugus/IFG/Manuscript/Submission/data/"
@@ -83,6 +85,8 @@ summary(full_model)
 
 summary(glht( full_model, linfct = mcp (concentration="Tukey")), test=adjusted("BH"))
 letters <- cld(summary(glht( full_model, linfct = mcp (concentration="Tukey")), test=adjusted("BH")))
+
+
 
 #### 2.2 Survival plot ####
 # Survival plot for the FPF susceptibility test (exported as 800*600)
@@ -134,7 +138,65 @@ summary(interaction_model)
 contrast_matrix <- rbind("slope_fungusS"=c(1,0,0),"slope_fungusM"=c(1,0,1))
 summary(glht(interaction_model,linfct=contrast_matrix),test=adjusted("BH"))
 
+#### 3.1 Stats - alternative ####
+flugus_data_qual <- flugus_data
+flugus_data_qual$concentration <- as.factor(flugus_data_qual$concentration)
+flugus_data_qual$interac <- interaction(flugus_data_qual$fungus,flugus_data_qual$concentration)
+fungus_model_qual      <- coxme ( Surv (time = survival, event = censor) ~ 1 + concentration + fungus + (1 | petri_dish) + (1 | colony) + (1 | block), data = flugus_data_qual)
+interaction_model_qual <- coxme ( Surv (time = survival, event = censor) ~ 1 + concentration * fungus + (1 | petri_dish) + (1 | colony) + (1 | block), data = flugus_data_qual)
+interaction_model_qual_bis <- coxme ( Surv (time = survival, event = censor) ~ 1 + interac + (1 | petri_dish) + (1 | colony) + (1 | block), data = flugus_data_qual)
 
+anova(fungus_model_qual, interaction_model_qual)
+summary(interaction_model_qual)
+
+
+
+contrast_matrix_qual<- rbind(
+"Delta50"=c(0,0,1,0,1),
+"Delta5"=c(0,0,1,1,0),
+"DeltaControl"=c(0,0,1,0,0),
+"Delta50 minus Delta5"=c(0,0,0,-1,1),
+"Delta50 minus DeltaControl"=c(0,0,0,0,1),
+"Delta5 minus DeltaControl"=c(0,0,0,1,0))
+
+
+
+posthocs <- summary(glht(interaction_model_qual,linfct=contrast_matrix_qual),test=adjusted("BH"))
+HR_control <- exp(posthocs$test$coefficients["DeltaControl"])#increase in mortality rate caused by the fungus in the no-FPF group
+HR_control_lo <- exp(posthocs$test$coefficients["DeltaControl"] - posthocs$test$sigma["DeltaControl"])
+HR_control_hi <- exp(posthocs$test$coefficients["DeltaControl"] + posthocs$test$sigma["DeltaControl"])
+
+HR_5 <- exp(posthocs$test$coefficients["Delta5"])#increase in mortality rate caused by the fungus in the FPF 5 group
+HR_5_lo <- exp(posthocs$test$coefficients["Delta5"] - posthocs$test$sigma["Delta5"])
+HR_5_hi <- exp(posthocs$test$coefficients["Delta5"] + posthocs$test$sigma["Delta5"])
+
+HR_50 <- exp(posthocs$test$coefficients["Delta50"])#increase in mortality rate caused by the fungus in the FPF 50 group
+HR_50_lo <- exp(posthocs$test$coefficients["Delta50"] - posthocs$test$sigma["Delta50"])
+HR_50_hi <- exp(posthocs$test$coefficients["Delta50"] + posthocs$test$sigma["Delta50"])
+
+
+contrast_matrix_Tukey <-  rbind(
+  "1 minus 2"=c(-1,0,0,0,0)
+  ,"1 minus 3"=c(0,-1,0,0,0)
+  ,"1 minus 4"=c(0,0,-1,0,0)
+  ,"1 minus 5"=c(-1,0,-1,-1,0)
+  ,"1 minus 6"=c(0,-1,-1,0,-1)
+  ,"2 minus 3"=c(1,-1,0,0,0)
+  ,"2 minus 4"=c(1,0,-1,0,0)
+  ,"2 minus 5"=c(0,0,-1,-1,0)
+  ,"2 minus 6"=c(1,-1,-1,0,-1)
+  ,"3 minus 4"=c(0,1,-1,0,0)
+  ,"3 minus 5"=c(-1,1,-1,-1,0)
+  ,"3 minus 6"=c(0,0,-1,0,-1)
+  ,"4 minus 5"=c(-1,0,0,-1,0)
+  ,"4 minus 6"=c(0,-1,0,0,-1)
+  ,"5 minus 6"=c(1,-1,0,1,-1)
+)
+
+
+posthocs_Tukey_1 <- summary(glht(interaction_model_qual,linfct=contrast_matrix_Tukey),test=adjusted("BH"))
+posthocs_Tukey_2 <- summary(glht(interaction_model_qual_bis,linfct=mcp(interac="Tukey")),test=adjusted("BH"))
+cld(posthocs_Tukey_2)
 
 #### 3.2 Plot ####
 # # Survival plot for the FPF Fungus interaction test (exported as 800*600)
