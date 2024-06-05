@@ -93,7 +93,10 @@ getUserOptions <- function() {
     hd <- basename(tk_choose.dir(default = "/Volumes", caption = "Select Hard Drive - double click HD and press ok"))
     cat(red(paste("Warning: The code below has been coded for Linux and might not work as intended on this device")), "\n")
     mac <- TRUE
-  } else if (tclvalue(choice) == "else") {
+  }  else if (os == "Windows") {
+    DATADIR <- "D:/r_data/"
+    SCRIPTDIR <- "D:/r_data/"
+  }else if (tclvalue(choice) == "else") {
     cat(red(paste("Warning: Please define usr (User) and hd (hard drive) manually and adjust code to get data if necessary")), "\n")
   }
   # Output
