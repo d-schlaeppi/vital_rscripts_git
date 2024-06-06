@@ -1,137 +1,36 @@
-rm(list = ls())
+rm(list = setdiff(ls(), "first_time_use_working_directory"))
 
 ### ### ### ### ### ### ### ### ### ### ### 
 ### Preliminary bead data analysis  ### ###
 ### ### ### ### ### ### ### ### ### ### ### 
 
 #### Read Me ####
-# First look at the flowcytometry bead data to get an idea on the food consumption and distribution through colonies
-
-#### Todo ####
+# First look at the flow cytometry bead data to get an idea on the food consumption and distribution in ant colonies
+# Note: Controls had one for their food source defined as the "virus corresponding food source" in a ~ paired fashion rather randomly... 
 
 #### Prerequisites ####
-{library(tcltk)
-  library(dplyr)
-  library(tidyr)
-  library(ggplot2)
-  library(lme4)
-  library(car)
-  library(glmmTMB)
-  library(multcomp)
-  
-  #model testing
-  library(blmeco)
-  library(DHARMa)
-  library(plotrix)
-}
+if (!exists("first_time_use_working_directory") || first_time_use_working_directory == "") {
+  setwd(tk_choose.dir(default = "~/", caption = "Select Working Directory")) # Direct it to where you have config_user_and_hd.R which should be in the script_directory
+  first_time_use_working_directory <- getwd()
+  setwd(first_time_use_working_directory)
+} else {setwd(first_time_use_working_directory)}
 
-set.seed <- 1
-
-plot_model_diagnostics <- function(model) {
-  compareqqnorm(model)   # Compare QQ plot
-  cat("Press Enter to continue...")
-  readline()
-  sim_res <- simulateResiduals(model)   # Simulate residuals using DHARMa
-  plot(sim_res)
-  readline()
-  par(mfrow = c(1, 3))
-  testUniformity(sim_res)  # Test for uniformity (KS test),
-  text(0.3, 0.95, " Test for uniformity", cex = 2)
-  text(0.43, 0.93,"(KS test - N.S.--> The two compared distributions are identical)", cex = 1)
-  testOutliers(sim_res)  # Test for outliers
-  testDispersion(sim_res) # Test for homoscedasticity
-  #text(1.5, 20, " Test for homoscedasticity against heteroscedacity", cex = 1)
-  #text(1.5, 19,"(N.S.--> residuals have constant variance = homoscedasticity)", cex = 1)
-  layout(1)
-} # simple finction to display some model plots - not sure what models it works for... should be ok for lmer
-
-# # set directories
-# set_directories <- function() {
-#   cat("Select an option:\n") # Prompt and read the user for input
-#   cat("1. This is Daniel working on his Mac\n")
-#   cat("2. This is a random user working on Linux\n")
-#   cat("3. Else\n")
-#   option <- as.integer(readLines(n = 1))
-#   if (option == 1) { #MAC
-#     DATADIR <- "/Volumes/DISK_B/vital/fc2/"
-#     SCRIPTDIR <- "/Users/gismo/Documents/GitHub/vital_rscripts_git/"
-#     setwd(DATADIR)
-#     assign("DATADIR", DATADIR, envir = .GlobalEnv)
-#     assign("SCRIPTDIR", SCRIPTDIR, envir = .GlobalEnv)
-#     cat("Directories set for Daniel on Mac.\n")
-#     cat("DATADIR:", DATADIR, "\n")
-#     cat("SCRIPTDIR:", SCRIPTDIR, "\n")
-#   } else if (option == 2) { #LINUX - config_user_and_hd.txt must exist in the selected working directory
-#     working_dir <- tk_choose.dir(default = "~", caption = "Select Working Directory")
-#     setwd(working_dir)
-#     source("config_user_and_hd.R")
-#     DATADIR <- paste("/media", usr, hd, "vital/fc2", sep = "/")
-#     SCRIPTDIR <- paste("/home", usr, "Documents/vital_rscripts_git", sep = "/")
-#     setwd(DATADIR)
-#     assign("DATADIR", DATADIR, envir = .GlobalEnv)
-#     assign("SCRIPTDIR", SCRIPTDIR, envir = .GlobalEnv)
-#     cat("Directories set for random user on Linux.\n")
-#     cat("DATADIR:", DATADIR, "\n")
-#     cat("SCRIPTDIR:", SCRIPTDIR, "\n")
-#   } else if (option == 3) { #ELSE
-#     cat("Please set the directories manually.\n")
-#   } else {
-#     cat("Invalid option selected. Please run the script again and select a valid option.\n")
-#   }
-# }
-# set_directories()
-
-# temporary for memory stick
-setwd(tk_choose.dir(default = "~/", caption = "Select Working Directory")) # direct it to where you have config_user_and_hd.R (typically the script folder or github folder)
+setwd(first_time_use_working_directory)
 source("config_user_and_hd.R") # contains getUserOptions() that defines usr and hd and the clean() function
 
-if (Sys.info()["sysname"]=="Windows"){
-  DATADIR <- "D:/r_data/"
-  SCRIPTDIR <- "D:/r_data/"
-}else{
+# # should now also work on windows and if not quickly define inputs manually:
+# DATADIR <- "D:/DISK_B/vital/fc2"
+# SCRIPTDIR <- "D:/DISK_B/vital/vital_rscripts_git"
   
-  set_directories <- function(mac, hd, usr) {
-    if (mac) { # MAC
-      DATADIR <- paste("/Volumes", hd, "r_data", sep = "/")
-      SCRIPTDIR <- "/Users/gismo/Documents/GitHub/vital_rscripts_git/"
-      setwd(DATADIR)
-      assign("DATADIR", DATADIR, envir = .GlobalEnv)
-      assign("SCRIPTDIR", SCRIPTDIR, envir = .GlobalEnv)
-      cat("Directories set for Mac.\n")
-      cat("DATADIR:", DATADIR, "\n")
-      cat("SCRIPTDIR:", SCRIPTDIR, "\n")
-    } else { # LINUX
-      if (is.null(usr)) {
-        stop("User name must be provided for Linux.")
-      }
-      DATADIR <- paste("/media", usr, hd, "r_data", sep = "/")
-      SCRIPTDIR <- paste("/home", usr, "Documents/vital_rscripts_git", sep = "/")
-      setwd(DATADIR)
-      assign("DATADIR", DATADIR, envir = .GlobalEnv)
-      assign("SCRIPTDIR", SCRIPTDIR, envir = .GlobalEnv)
-      cat("Directories set for Linux.\n")
-      cat("DATADIR:", DATADIR, "\n")
-      cat("SCRIPTDIR:", SCRIPTDIR, "\n")
-    }
-  }
-  set_directories(mac, hd, usr)
-  
-}
-
 
 #### Creating the different dataframes used for the Analyses ####
-
 # read tables
 bead_data <- read.csv("vital_bead_data.csv", header = TRUE) # flowcytometry bead data for all workers that were analysed
 brood <- read.csv("vital_brood_bead_data.csv", header = TRUE) # flowcytometry bead data for all brood (pooled larva samples from each colony)
 individual_metadata <- read.csv("individual_metadata_vital_updated.csv", header= TRUE) # metadata for all workers involved in the tracking experiment (technically already has the bead_data for workers but needs to be corrected due to negative values)
 source(paste0(SCRIPTDIR,"/vital_meta_data.R")) # loads colony metadata to know background information such as treatments for each colony
 
-# ###CHANGE if decide a matching that makes sense with experimental design
-# colony_metadata$treatment[which(colony_metadata$treatment=="cc")] <- "cy"
-# colony_metadata[sample(which(colony_metadata$treatment=="cy"),round(length(which(colony_metadata$treatment=="cy"))/2)),"treatment"] <- "cb"
-
-### preparation of tables ###
+### ### preparation of tables ### ###
 
 ### brood
 # creating a new variable containing colony id
@@ -150,7 +49,6 @@ combined_bead_data <- rbind(bead_data, brood)
 combined_bead_data$flowjo_sampletype <- trimws(combined_bead_data$flowjo_sampletype) # Remove leading and trailing spaces from flowjo_sampletype
 individual_metadata$flowjo_sampletype <- trimws(individual_metadata$flowjo_sampletype)
 
-
 # Correct the bead data numbers to correct for the blanks: 
 mean_blue_blanks <- round(mean(combined_bead_data$blue_count_NB[combined_bead_data$flowjo_sampletype == "blank"], na.rm = TRUE))
 mean_yellow_blanks <- round(mean(combined_bead_data$yellow_count_YB[combined_bead_data$flowjo_sampletype == "blank"], na.rm = TRUE))
@@ -161,8 +59,9 @@ combined_bead_data$blue_beads_cor <- ifelse(combined_bead_data$flowjo_sampletype
                                             combined_bead_data$blue_count_NB - mean_yellow_blanks,
                                             combined_bead_data$blue_count_NB)
 
+
 # individual metadata already contains the corrected bead numbers as this was done in the script "add_beads_to_metadata-R"
-# However, it is necessary to correct negative values to be 0 - could have been done in previously... but let's do it now
+# However, it is still necessary to correct negative values to be 0 - could have been done in before obviously, but I forgot so let's just do it now!
 # function to replace negatives 
 replace_negatives <- function(x) {
   x[x<0] <- 0
@@ -174,7 +73,6 @@ combined_bead_data[cols_to_adjust] <- lapply(combined_bead_data[cols_to_adjust],
 
 #### creating the virus bead variable ####
 # disentangling bead color form food source for individual metadata as well as for brood
-
 brood_data <- subset(combined_bead_data, combined_bead_data$flowjo_sampletype == "sample_brood")
 
 # Merge colony_metadata and individual metadata based on colony_id
@@ -261,13 +159,8 @@ for (df in dfs) {
 
 # after the above there are 4 dataframes available: updated_df_individuals, long_df_individuals, updated_df_brood, long_df_brood
 
-# create new variable saying for is virus positive
-# updated_df_individuals$is_virus_positive <- ifelse(updated_df_individuals$treatment != "cc" & updated_df_individuals$food_1v >= 0, "yes", "no") 
+# create new variable saying for is virus positive: Yes for the virus food source in the virus treatment and yes in one randomly selected  of the two food sources in the controls.
 updated_df_individuals$is_virus_positive <- ifelse( updated_df_individuals$food_1v > 0, "yes", "no") 
-
-
-
-
 
 
 
@@ -278,8 +171,7 @@ updated_df_individuals$is_virus_positive <- ifelse( updated_df_individuals$food_
 #### Analyses #### 
 ### ### ### ### ### ### ### ### ### ### ###
 
-
-
+### continue here with updating the script!
 
 #### BLUE vs YELLOW BEADS ####
 # compare overall number of blue and yellow beads to see if the number of beads (proxy for consumed food) is different between the two colors - use the controls 
@@ -371,6 +263,7 @@ for (who in c("everyone","untreated_only","treated_only")){
     
   }
 }
+
 
 
 # based on the above the bead count is slighly higher for the virus food sompared to the control food sources but the difference is not significant

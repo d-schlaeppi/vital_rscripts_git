@@ -4,7 +4,7 @@
 
 #### READ ME ####
 
-# Quick script to read in some of the essential data from the vital tracking experiment and safe it in a data frame to be accessed in other scripts
+# Script to read in some of the essential data from the vital tracking experiment and safe it in a data frame to be accessed in other scripts
 # you will get a dataframe containing a row for each colony from the vital tracking tracking experiment
 
 # to load the data frame in another script just run the following line 
