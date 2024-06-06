@@ -22,7 +22,7 @@ for(i in 1:nrow(dat)) {
   block                 <- dat[i, "block"]
   colony_nr             <- paste0("c", sprintf("%02d", i))
   treatment             <- dat[i, "treatment"]
-  treatment_simple      <- ifelse(dat[i, "treatment"] == "cc", "control", "virus")
+  treatment_simple      <- ifelse((dat[i, "treatment"] == "cb"|dat[i, "treatment"] == "cy"), "control", "virus")
   food_position_1       <- dat[i, "food_position_1"]
   food_position_2       <- dat[i, "food_position_2"]
   tracking_system_main  <- dat[i, "tracking_system_main"]
@@ -33,7 +33,7 @@ for(i in 1:nrow(dat)) {
   annotation_stop       <- dat[i, "annotation_stop_time"]
   mean_ant_lenght_px    <- dat[i, "mean_ant_length_px"] # mean lenght in pixcel of the ants based on a manually oriented colony recorded with the same tracking system & setup (assuming that worker size is consistent accros colonies)
   mean_ant_lenght_mm    <- dat[i, "mean_ant_length_mm"] # for the future: it might be better to calculate an overall mean ant size per experiment (assuming that all ants come from the same batch of colonies) else if in one tracking system a colony with smaller ants is used for manual orientation it might create downstream effects
-  # combine variables to a data frame  
+  fluorescence_measured    <- dat[i, "fluorescence_measured"]
   colony_metadata <-  rbind(colony_metadata, data.frame            (nr,
                                                         experiment, 
                                                         colony_id,
@@ -51,6 +51,7 @@ for(i in 1:nrow(dat)) {
                                                         annotation_stop,
                                                         mean_ant_lenght_px,
                                                         mean_ant_lenght_mm,
+                                                        fluorescence_measured,
                                                         stringsAsFactors = F))
 }
 metadata_colonies <- colony_metadata

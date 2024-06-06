@@ -86,7 +86,6 @@ library(stringr)
 library(reader)
 
 
-
 # directories
 directory_scripts <- "/home/gw20248/Documents/vital_rscripts_git/" # directory with the R scripts linked with github
 directory_data    <- '/media/gw20248/gismo_hd2/vital/fc2/'  # directory with extrapolated data and the myrmidon files
