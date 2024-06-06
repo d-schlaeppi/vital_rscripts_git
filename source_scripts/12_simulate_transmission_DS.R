@@ -18,7 +18,7 @@ cat(red(paste("### ### ### Starting transmission simulations for ", interaction_
 to_keep_ori <- to_keep
 
 Sys.setenv("PKG_CXXFLAGS"="-std=c++11")
-  sourceCpp(paste(code_path,"/simulate_transmission.cpp",sep=""))
+sourceCpp(paste(code_path,"/simulate_transmission.cpp",sep=""))
 loop_start_time <- Sys.time()
 
 ### ### ### ### ### ### ### ### ### ### ###
@@ -27,7 +27,10 @@ options(digits=16) ; options(digits.secs=6) ; options("scipen" = 10)
 #### get input file list
 input_path         <- paste(data_path,"/intermediary_analysis_steps/full_interaction_lists",sep="")
 setwd(input_path)  
-input_files        <- paste(input_path,"/",list.files(recursive=T,pattern="interactions"),sep="")     
+# input_files        <- paste(input_path,"/",list.files(recursive=T,pattern="interactions"),sep="")  
+input_files <- list.files(path = input_path, pattern = "interactions", recursive = TRUE, full.names = TRUE)
+
+
 
 ### arguments 
 N_SIM  <- 500 # N_SIM  <- 2  
@@ -63,8 +66,7 @@ for (seed_file in seed_files ){ # seed_file <- "treated_workers.txt"
     if (!file.exists(paste(outputfolder,"/individual_simulation_results_",interac_folder,".txt",sep=""))){
       summary_collective <- NULL
       summary_individual <- NULL
-      
-      interac_list <- input_files[grepl(interac_folder,input_files)]
+      interac_list <- input_files[grepl(interac_folder, input_files)]
       if (seed_file!="treated_workers.txt"){interac_list <- interac_list[grepl("PreTreatment",interac_list)]}
       for (interac in interac_list){ # interac  <- interac_list[6] 
         ### get and display colony info

@@ -54,9 +54,9 @@ RUN_TROPHALLACTIC_INTERACTIONS     <- TRUE
 
 # Define what analysis step to run: 
 RUN_11_randomise_interactions_DS.R        <- FALSE
-RUN_12_simulate_transmission_DS.R         <- FALSE
-RUN_13_network_analysis_DS.R              <- FALSE
-RUN_14_summarise_interactions_DS.R        <- TRUE
+RUN_12_simulate_transmission_DS.R         <- TRUE
+RUN_13_network_analysis_DS.R              <- TRUE
+RUN_14_summarise_interactions_DS.R        <- FALSE
 RUN_19_Facetnet_community_detection_DS.R  <- FALSE
 }
 
@@ -117,8 +117,8 @@ if (RUN_12_simulate_transmission_DS.R){
    if (!is.null(data_path)) {
      print(paste("Processing files for", interaction_type, "\U0001F91D"))
      source(paste(code_path,"/12_simulate_transmission_DS.R",sep=""))
-     clean()
      print(paste(interaction_type, "ALL DONE",  "\U0001F973"))
+     clean()
    } else {print(paste("Skipping", interaction_type))}
    }} else {print("skipping 12_simulate_transmission_DS.R")}
 
@@ -132,8 +132,8 @@ if (RUN_13_network_analysis_DS.R) {
       if (!is.null(data_path)) {
         print(paste("Processing files for", interaction_type, "\U0001F91D"))
         source(paste(code_path, "/13_network_analysis_DS.R", sep=""))
-        clean()
         print(paste(interaction_type, "ALL DONE", "\U0001F973"))
+        clean()
       } else {
         print(paste("Skipping", interaction_type))}
       }} else {print("skipping 13_network_analysis_DS.R")}
