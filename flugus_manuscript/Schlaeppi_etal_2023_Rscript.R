@@ -61,10 +61,14 @@ library(coxme)
 library(survival)
 library(survminer) # used in the analysis of the survival curves incl ggsurvplot
 library(scales)
+library(clipr)
 }
 
+source("/Users/gismo/Documents/GitHub/vital_rscripts_git/copy_paste_contrast_matrix.R")
+
+
 # working directory 
-directory <- "/Users/gismo/Documents/Uni/DS Bees Home/Bristol/Projects/Flugus/IFG/Manuscript/Submission/data/"
+directory <- "/Users/gismo/Documents/GitHub/vital_rscripts_git/flugus_manuscript"
 setwd(directory)
 
 # load data
@@ -76,6 +80,8 @@ flugus_data$fungus <- factor(flugus_data$fungus, levels=c("S","M"))
 
 supl_data <- read.table("supplexp_food_uptake.txt", header = TRUE) # Supplementary Experiment: food uptake data
 
+
+
 #### 2. FPF susceptibility test ####
 #### 2.1 Stats ####
 null_model <- coxme ( Surv (time = survival, event = censor) ~ 1                 + ( 1 | petri_dish), data = exp1_data)
@@ -83,8 +89,50 @@ full_model <- coxme ( Surv (time = survival, event = censor) ~ 1 + concentration
 anova(null_model   ,  full_model )
 summary(full_model)
 
-summary(glht( full_model, linfct = mcp (concentration="Tukey")), test=adjusted("BH"))
-letters <- cld(summary(glht( full_model, linfct = mcp (concentration="Tukey")), test=adjusted("BH")))
+posthocs_Tukey_1 <- summary(glht(full_model, linfct = mcp (concentration="Tukey")), test=adjusted("BH"))
+posthocs_Tukey_2 <- summary(glht(full_model,            linfct = contrast_matrix)      ,test=adjusted("BH"))
+
+letters <- cld(posthocs_Tukey_1)
+letters <- cld(posthocs_Tukey_2)
+
+copy_paste_contrast_matrix()
+contrast_matrix <- rbind(
+  "1minus2"=c(-1,0,0,0,0,0,0),
+  "1minus3"=c(0,-1,0,0,0,0,0),
+  "1minus4"=c(0,0,-1,0,0,0,0),
+  "1minus5"=c(0,0,0,-1,0,0,0),
+  "1minus6"=c(0,0,0,0,-1,0,0),
+  "1minus7"=c(0,0,0,0,0,-1,0),
+  "1minus8"=c(0,0,0,0,0,0,-1),
+  "2minus3"=c(1,-1,0,0,0,0,0),
+  "2minus4"=c(1,0,-1,0,0,0,0),
+  "2minus5"=c(1,0,0,-1,0,0,0),
+  "2minus6"=c(1,0,0,0,-1,0,0),
+  "2minus7"=c(1,0,0,0,0,-1,0),
+  "2minus8"=c(1,0,0,0,0,0,-1),
+  "3minus4"=c(0,1,-1,0,0,0,0),
+  "3minus5"=c(0,1,0,-1,0,0,0),
+  "3minus6"=c(0,1,0,0,-1,0,0),
+  "3minus7"=c(0,1,0,0,0,-1,0),
+  "3minus8"=c(0,1,0,0,0,0,-1),
+  "4minus5"=c(0,0,1,-1,0,0,0),
+  "4minus6"=c(0,0,1,0,-1,0,0),
+  "4minus7"=c(0,0,1,0,0,-1,0),
+  "4minus8"=c(0,0,1,0,0,0,-1),
+  "5minus6"=c(0,0,0,1,-1,0,0),
+  "5minus7"=c(0,0,0,1,0,-1,0),
+  "5minus8"=c(0,0,0,1,0,0,-1),
+  "6minus7"=c(0,0,0,0,1,-1,0),
+  "6minus8"=c(0,0,0,0,1,0,-1),
+  "7minus8"=c(0,0,0,0,0,1,-1)
+) 
+
+posthocs_Tukey_1 <- summary(glht(interaction_model_qual,linfct=contrast_matrix_Tukey),test=adjusted("BH"))
+posthocs_Tukey_2 <- summary(glht(interaction_model_qual_bis,linfct=mcp(interac="Tukey")),test=adjusted("BH"))
+cld(posthocs_Tukey_2)
+
+
+
 
 
 
@@ -129,36 +177,35 @@ surv_plot
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###  ### ### ### ### ### ### ### ### ### ### ### ###
 
 #### 3. FPF Fungus co-Exposure #### 
-#### 3.1 Stats ####
-fungus_model      <- coxme ( Surv (time = survival, event = censor) ~ 1 + concentration + fungus + (1 | petri_dish) + (1 | colony) + (1 | block), data = flugus_data)
-interaction_model <- coxme ( Surv (time = survival, event = censor) ~ 1 + concentration * fungus + (1 | petri_dish) + (1 | colony) + (1 | block), data = flugus_data)
-anova(fungus_model, interaction_model)
-summary(interaction_model)
 
-contrast_matrix <- rbind("slope_fungusS"=c(1,0,0),"slope_fungusM"=c(1,0,1))
-summary(glht(interaction_model,linfct=contrast_matrix),test=adjusted("BH"))
+### Older version 
+# #### 3.1 Stats ####
+# fungus_model      <- coxme ( Surv (time = survival, event = censor) ~ 1 + concentration + fungus + (1 | petri_dish) + (1 | colony) + (1 | block), data = flugus_data)
+# interaction_model <- coxme ( Surv (time = survival, event = censor) ~ 1 + concentration * fungus + (1 | petri_dish) + (1 | colony) + (1 | block), data = flugus_data)
+# anova(fungus_model, interaction_model)
+# summary(interaction_model)
+# 
+# contrast_matrix <- rbind("slope_fungusS"=c(1,0,0),"slope_fungusM"=c(1,0,1))
+# summary(glht(interaction_model,linfct=contrast_matrix),test=adjusted("BH"))
 
 #### 3.1 Stats - alternative ####
 flugus_data_qual <- flugus_data
 flugus_data_qual$concentration <- as.factor(flugus_data_qual$concentration)
 flugus_data_qual$interac <- interaction(flugus_data_qual$fungus,flugus_data_qual$concentration)
-fungus_model_qual      <- coxme ( Surv (time = survival, event = censor) ~ 1 + concentration + fungus + (1 | petri_dish) + (1 | colony) + (1 | block), data = flugus_data_qual)
-interaction_model_qual <- coxme ( Surv (time = survival, event = censor) ~ 1 + concentration * fungus + (1 | petri_dish) + (1 | colony) + (1 | block), data = flugus_data_qual)
+fungus_model_qual          <- coxme ( Surv (time = survival, event = censor) ~ 1 + concentration + fungus + (1 | petri_dish) + (1 | colony) + (1 | block), data = flugus_data_qual)
+interaction_model_qual     <- coxme ( Surv (time = survival, event = censor) ~ 1 + concentration * fungus + (1 | petri_dish) + (1 | colony) + (1 | block), data = flugus_data_qual)
 interaction_model_qual_bis <- coxme ( Surv (time = survival, event = censor) ~ 1 + interac + (1 | petri_dish) + (1 | colony) + (1 | block), data = flugus_data_qual)
 
 anova(fungus_model_qual, interaction_model_qual)
 summary(interaction_model_qual)
 
-
-
-contrast_matrix_qual<- rbind(
+contrast_matrix <- rbind(
 "Delta50"=c(0,0,1,0,1),
 "Delta5"=c(0,0,1,1,0),
 "DeltaControl"=c(0,0,1,0,0),
 "Delta50 minus Delta5"=c(0,0,0,-1,1),
 "Delta50 minus DeltaControl"=c(0,0,0,0,1),
 "Delta5 minus DeltaControl"=c(0,0,0,1,0))
-
 
 
 posthocs <- summary(glht(interaction_model_qual,linfct=contrast_matrix_qual),test=adjusted("BH"))
