@@ -10,6 +10,7 @@ rm(list = setdiff(ls(), "first_time_use_working_directory"))
 
 #### Prerequisites ####
 if (!exists("first_time_use_working_directory") || first_time_use_working_directory == "") {
+  library(tcltk)
   setwd(tk_choose.dir(default = "~/", caption = "Select Working Directory")) # Direct it to where you have config_user_and_hd.R which should be in the script_directory
   first_time_use_working_directory <- getwd()
   setwd(first_time_use_working_directory)

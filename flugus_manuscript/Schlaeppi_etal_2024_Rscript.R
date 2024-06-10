@@ -1,4 +1,4 @@
-rm(list=ls())
+rm(list = setdiff(ls(), "first_time_use_working_directory"))
 
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
@@ -56,31 +56,42 @@ library(viridis)
 library(lme4)
 library(car) # Anova()
 library(multcomp) # contains cld
+library(multcompView)
 library(emmeans) # contains emmeans()
 library(coxme)
 library(survival)
 library(survminer) # used in the analysis of the survival curves incl ggsurvplot
 library(scales)
 library(clipr)
+library(gridExtra)
 }
 
 
-source("/Users/gismo/Documents/GitHub/vital_rscripts_git/copy_paste_contrast_matrix.R")
 
+# Set working directory
+if (!exists("first_time_use_working_directory") || first_time_use_working_directory == "") {
+  library(tcltk)
+  setwd(tk_choose.dir(default = "~/", caption = "Select Working Directory")) # Direct it to where you have config_user_and_hd.R which should be in the script_directory
+  first_time_use_working_directory <- getwd()
+  setwd(first_time_use_working_directory)
+} else {setwd(first_time_use_working_directory)}
 
-# working directory 
-directory <- "/Users/gismo/Documents/GitHub/vital_rscripts_git/flugus_manuscript"
+setwd(first_time_use_working_directory)
+source("config_user_and_hd.R") # contains getUserOptions() that defines usr and hd and some functions
+directory <- NULL; directory <- paste(SCRIPTDIR, "flugus_manuscript", sep = "/")
 setwd(directory)
 
-# load data
+# source("/Users/gismo/Documents/GitHub/vital_rscripts_git/copy_paste_contrast_matrix.R")
+
+# load data sets
 exp1_data <- read.csv('exp1_flupy_susceptibility_test.csv') #Experiment 1: flupy only survival data
 exp1_data$concentration <- factor(exp1_data$concentration)
 
 flugus_data <- read.csv('exp2_flugus_interaction_survival.csv') #Experiment 2: flupy fungus co-exposure survival data
 flugus_data$fungus <- factor(flugus_data$fungus, levels=c("S","M"))
+flugus_data$concentration <- as.factor(flugus_data$concentration)
 
 supl_data <- read.table("supplexp_food_uptake.txt", header = TRUE) # Supplementary Experiment: food uptake data
-
 
 
 #### 2. FPF susceptibility test ####
@@ -90,50 +101,8 @@ full_model <- coxme ( Surv (time = survival, event = censor) ~ 1 + concentration
 anova(null_model   ,  full_model )
 summary(full_model)
 
-posthocs_Tukey_1 <- summary(glht(full_model, linfct = mcp (concentration="Tukey")), test=adjusted("BH"))
-posthocs_Tukey_2 <- summary(glht(full_model,            linfct = contrast_matrix)      ,test=adjusted("BH"))
-
-letters <- cld(posthocs_Tukey_1)
-letters <- cld(posthocs_Tukey_2)
-
-copy_paste_contrast_matrix()
-contrast_matrix <- rbind(
-  "1minus2"=c(-1,0,0,0,0,0,0),
-  "1minus3"=c(0,-1,0,0,0,0,0),
-  "1minus4"=c(0,0,-1,0,0,0,0),
-  "1minus5"=c(0,0,0,-1,0,0,0),
-  "1minus6"=c(0,0,0,0,-1,0,0),
-  "1minus7"=c(0,0,0,0,0,-1,0),
-  "1minus8"=c(0,0,0,0,0,0,-1),
-  "2minus3"=c(1,-1,0,0,0,0,0),
-  "2minus4"=c(1,0,-1,0,0,0,0),
-  "2minus5"=c(1,0,0,-1,0,0,0),
-  "2minus6"=c(1,0,0,0,-1,0,0),
-  "2minus7"=c(1,0,0,0,0,-1,0),
-  "2minus8"=c(1,0,0,0,0,0,-1),
-  "3minus4"=c(0,1,-1,0,0,0,0),
-  "3minus5"=c(0,1,0,-1,0,0,0),
-  "3minus6"=c(0,1,0,0,-1,0,0),
-  "3minus7"=c(0,1,0,0,0,-1,0),
-  "3minus8"=c(0,1,0,0,0,0,-1),
-  "4minus5"=c(0,0,1,-1,0,0,0),
-  "4minus6"=c(0,0,1,0,-1,0,0),
-  "4minus7"=c(0,0,1,0,0,-1,0),
-  "4minus8"=c(0,0,1,0,0,0,-1),
-  "5minus6"=c(0,0,0,1,-1,0,0),
-  "5minus7"=c(0,0,0,1,0,-1,0),
-  "5minus8"=c(0,0,0,1,0,0,-1),
-  "6minus7"=c(0,0,0,0,1,-1,0),
-  "6minus8"=c(0,0,0,0,1,0,-1),
-  "7minus8"=c(0,0,0,0,0,1,-1)
-) 
-
-posthocs_Tukey_1 <- summary(glht(interaction_model_qual,linfct=contrast_matrix_Tukey),test=adjusted("BH"))
-posthocs_Tukey_2 <- summary(glht(interaction_model_qual_bis,linfct=mcp(interac="Tukey")),test=adjusted("BH"))
-cld(posthocs_Tukey_2)
-
-
-
+posthocs_Tukey <- summary(glht(full_model, linfct = mcp (concentration="Tukey")), test=adjusted("BH"))
+letters <- cld(posthocs_Tukey)
 
 
 
@@ -179,26 +148,16 @@ surv_plot
 
 #### 3. FPF Fungus co-Exposure #### 
 
-### Older version 
-# #### 3.1 Stats ####
-# fungus_model      <- coxme ( Surv (time = survival, event = censor) ~ 1 + concentration + fungus + (1 | petri_dish) + (1 | colony) + (1 | block), data = flugus_data)
-# interaction_model <- coxme ( Surv (time = survival, event = censor) ~ 1 + concentration * fungus + (1 | petri_dish) + (1 | colony) + (1 | block), data = flugus_data)
-# anova(fungus_model, interaction_model)
-# summary(interaction_model)
-# 
-# contrast_matrix <- rbind("slope_fungusS"=c(1,0,0),"slope_fungusM"=c(1,0,1))
-# summary(glht(interaction_model,linfct=contrast_matrix),test=adjusted("BH"))
+#### 3.1 Stats ####
 
-#### 3.1 Stats - alternative ####
-flugus_data_qual <- flugus_data
-flugus_data_qual$concentration <- as.factor(flugus_data_qual$concentration)
-flugus_data_qual$interac <- interaction(flugus_data_qual$fungus,flugus_data_qual$concentration)
-fungus_model_qual          <- coxme ( Surv (time = survival, event = censor) ~ 1 + concentration + fungus + (1 | petri_dish) + (1 | colony) + (1 | block), data = flugus_data_qual)
-interaction_model_qual     <- coxme ( Surv (time = survival, event = censor) ~ 1 + concentration * fungus + (1 | petri_dish) + (1 | colony) + (1 | block), data = flugus_data_qual)
-interaction_model_qual_bis <- coxme ( Surv (time = survival, event = censor) ~ 1 + interac + (1 | petri_dish) + (1 | colony) + (1 | block), data = flugus_data_qual)
+flugus_data$interac <- interaction(flugus_data$fungus,flugus_data$concentration)
 
-anova(fungus_model_qual, interaction_model_qual)
-summary(interaction_model_qual)
+fungus_model          <- coxme ( Surv (time = survival, event = censor) ~ 1 + concentration + fungus + (1 | petri_dish) + (1 | colony) + (1 | block), data = flugus_data)
+interaction_model     <- coxme ( Surv (time = survival, event = censor) ~ 1 + concentration * fungus + (1 | petri_dish) + (1 | colony) + (1 | block), data = flugus_data)
+interaction_model_bis <- coxme ( Surv (time = survival, event = censor) ~ 1 + interac + (1 | petri_dish) + (1 | colony) + (1 | block), data = flugus_data)
+
+anova(fungus_model, interaction_model)
+summary(interaction_model)
 
 contrast_matrix <- rbind(
 "Delta50"=c(0,0,1,0,1),
@@ -208,8 +167,11 @@ contrast_matrix <- rbind(
 "Delta50 minus DeltaControl"=c(0,0,0,0,1),
 "Delta5 minus DeltaControl"=c(0,0,0,1,0))
 
+posthocs <- summary(glht(interaction_model,linfct=contrast_matrix),test=adjusted("BH"))
 
-posthocs <- summary(glht(interaction_model_qual,linfct=contrast_matrix_qual),test=adjusted("BH"))
+# for plot
+# delta mortality chance by fungus depending on flupy concentration
+
 HR_control <- exp(posthocs$test$coefficients["DeltaControl"])#increase in mortality rate caused by the fungus in the no-FPF group
 HR_control_lo <- exp(posthocs$test$coefficients["DeltaControl"] - posthocs$test$sigma["DeltaControl"])
 HR_control_hi <- exp(posthocs$test$coefficients["DeltaControl"] + posthocs$test$sigma["DeltaControl"])
@@ -222,29 +184,12 @@ HR_50 <- exp(posthocs$test$coefficients["Delta50"])#increase in mortality rate c
 HR_50_lo <- exp(posthocs$test$coefficients["Delta50"] - posthocs$test$sigma["Delta50"])
 HR_50_hi <- exp(posthocs$test$coefficients["Delta50"] + posthocs$test$sigma["Delta50"])
 
+hr_data <- data.frame(
+  Treatment = c("0 ppm", "5 ppm", "50 ppm"),
+  HR = c(HR_control, HR_5, HR_50),
+  HR_lo = c(HR_control_lo, HR_5_lo, HR_50_lo),
+  HR_hi = c(HR_control_hi, HR_5_hi, HR_50_hi))
 
-contrast_matrix_Tukey <-  rbind(
-  "1 minus 2"=c(-1,0,0,0,0)
-  ,"1 minus 3"=c(0,-1,0,0,0)
-  ,"1 minus 4"=c(0,0,-1,0,0)
-  ,"1 minus 5"=c(-1,0,-1,-1,0)
-  ,"1 minus 6"=c(0,-1,-1,0,-1)
-  ,"2 minus 3"=c(1,-1,0,0,0)
-  ,"2 minus 4"=c(1,0,-1,0,0)
-  ,"2 minus 5"=c(0,0,-1,-1,0)
-  ,"2 minus 6"=c(1,-1,-1,0,-1)
-  ,"3 minus 4"=c(0,1,-1,0,0)
-  ,"3 minus 5"=c(-1,1,-1,-1,0)
-  ,"3 minus 6"=c(0,0,-1,0,-1)
-  ,"4 minus 5"=c(-1,0,0,-1,0)
-  ,"4 minus 6"=c(0,-1,0,0,-1)
-  ,"5 minus 6"=c(1,-1,0,1,-1)
-)
-
-
-posthocs_Tukey_1 <- summary(glht(interaction_model_qual,linfct=contrast_matrix_Tukey),test=adjusted("BH"))
-posthocs_Tukey_2 <- summary(glht(interaction_model_qual_bis,linfct=mcp(interac="Tukey")),test=adjusted("BH"))
-cld(posthocs_Tukey_2)
 
 #### 3.2 Plot ####
 # # Survival plot for the FPF Fungus interaction test (exported as 800*600)
@@ -263,7 +208,7 @@ surv_plot <- ggsurvplot(surviplot, data = flugus_data,
                         xlab = 'Time (days)', ylab = 'Proportion Surviving',
                         palette = color_vector,
                         ggtheme = theme_bw(),
-                        xlim = c(0, 15), break.time.by = 2,
+                        xlim = c(0, 14), break.time.by = 2,
                         censor = FALSE,
                         conf.int = TRUE,
                         conf.int.alpha = 0.2,
@@ -275,12 +220,12 @@ surv_plot$plot <- surv_plot$plot +
   scale_y_continuous(limits = c(0.2, 1), breaks = seq(0.2, 1, by = 0.2)) +
   theme(panel.grid = element_blank(), legend.position = "none") +  
   theme(
-    axis.title = element_text(size = 16),
+    axis.title = element_text(size = 14),
     axis.text = element_text(size = 14),
     axis.ticks = element_line(linewidth = 1),
     strip.text = element_text(size = 14)) +
-  geom_segment(aes(x = 14.3, y = 0.78, xend = 14.3, yend = 0.65))+
-  geom_segment(aes(x = 14.3, y = 0.52, xend = 14.3, yend = 0.325)) +
+  # geom_segment(aes(x = 14.3, y = 0.78, xend = 14.3, yend = 0.65))+
+  # geom_segment(aes(x = 14.3, y = 0.52, xend = 14.3, yend = 0.325)) +
   geom_segment(aes(x = 0.4, y = 0.33-y_offset, xend = 1, yend = 0.33-y_offset), color = chosen_colors[1], linetype = line_types[1]) +
   geom_segment(aes(x = 0.4, y = 0.30-y_offset, xend = 1, yend = 0.30-y_offset), color = chosen_colors[1], linetype = line_types[3]) +
   geom_segment(aes(x = 0.4, y = 0.271-y_offset, xend = 1, yend = 0.271-y_offset), color = chosen_colors[1], linetype = line_types[5]) +
@@ -292,10 +237,36 @@ surv_plot$plot <- surv_plot$plot +
   annotate("text", x = 2.5, y=0.33-y_offset, label="0 ppm", color = "black", size = 4, fontface = "plain", hjust = 0) +
   annotate("text", x = 2.5, y=0.30-y_offset, label="5 ppm", color = "black", size = 4, fontface = "plain", hjust = 0) +
   annotate("text", x = 2.5, y=0.27-y_offset, label="50 ppm", color = "black", size = 4, fontface = "plain", hjust = 0) +
-  annotate("text", x=14.7, y=0.71, label="n.s", color = "black", size = 4.5, fontface = "bold") +
-  annotate("text", x=14.7, y=0.42, label="p = \n 0.01", color = "black", size = 4.5, fontface = "bold")
+  geom_rect(aes(xmin = 0.2, xmax = 3.8, ymin = 0.2, ymax = 0.38 - y_offset), 
+            fill = NA, color = "black", lwd = 0.05)
+# +
+  # annotate("text", x=14.7, y=0.71, label="n.s", color = "black", size = 4.5, fontface = "bold") +
+  # annotate("text", x=14.7, y=0.42, label="p = \n 0.01", color = "black", size = 4.5, fontface = "bold")
 
 print(surv_plot)
+surv_ggplot <- surv_plot$plot
+
+# Hazard plot for M. brunneum in dependence of pesticide concentration 
+hazard_plot <- ggplot(hr_data, aes(x = Treatment, y = HR)) +
+  geom_bar(stat = "identity", fill = "skyblue", color = "black", width = 0.8) + 
+  geom_errorbar(aes(ymin = HR_lo, ymax = HR_hi), width = 0.1, lwd = 1.2) + # Error bars for confidence intervals
+  labs(y = "Hazard Ratio (HR)",
+       x = "Flupyradifurone concentration") +
+  theme_bw() +
+  theme(panel.grid = element_blank(), legend.position = "none",
+        axis.title = element_text(size = 14),
+        axis.text = element_text(size = 14),
+        axis.ticks = element_line(linewidth = 1),
+        strip.text = element_text(size = 14)) +
+  coord_cartesian(ylim=c(1,5.5))  # Setting y-axis limit to start from 1
+
+print(hazard_plot)
+
+# print the two plots together | Exported as 1200*600 clip
+layout_mat <- rbind(c(1,1,2), c(1,1,2))
+grid.arrange(surv_ggplot, hazard_plot, layout_matrix = layout_mat)
+
+
 
 
 #### 4. Supplementary material ####
@@ -368,11 +339,10 @@ qqline(residuals, col = "red")
 
 #### 4.4 Food consumption graph ####
 
-# nice graph based on 0 intercept model exportet at 600x700
-# Define the labels and their positions
+# nice graph based on 0 intercept model exported at 600x700
 labels_df <- data.frame(treatment = c("high", "mid", "control", "low"),
                         label = c("ab", "a", "ab", "b"))
-# Plot with labels (exported as )
+
 gg <- ggplot(data_samples, aes(x = treatment, y = consumed_volume)) +
   geom_boxplot(fill = alpha("grey", 0.5), color = "black", notch = TRUE, outlier.shape = NA) +
   geom_jitter(width = 0.2, height = 0, alpha = 0.2, color = viridis(1)[1]) +
@@ -382,7 +352,7 @@ gg <- ggplot(data_samples, aes(x = treatment, y = consumed_volume)) +
         axis.title = element_text(size = 15),
         axis.text = element_text(size = 13)) +
   coord_cartesian(ylim = c(0, 0.7))
-label_positions <- ggplot_build(gg)$data[[1]]$x  # calculate position of x to put the letters right above the boxplots. 
+label_positions <- ggplot_build(gg)$data[[1]]$x
 gg <- gg + geom_text(data = labels_df, aes(x = label_positions, y = 0.7, label = label, fontface = "bold"),
                      hjust = 0.5, vjust = 0.5, size = 5)
 print(gg)
