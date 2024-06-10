@@ -131,7 +131,13 @@ getUserOptions <- function() {
     }
   } else if (os == "Darwin") {
     usr <- Sys.info()["user"]
-    hd <- basename(tk_choose.dir(default = "/Volumes", caption = "Select Hard Drive - double click HD and press ok"))
+    volumes <- list.dirs("/Volumes", full.names = TRUE, recursive = FALSE)
+    volumes <- volumes[!grepl("/Volumes/Macintosh HD", volumes)]
+    if (length(volumes) == 1) {
+      hd <- basename(volumes)
+    } else {
+      hd <- basename(tk_choose.dir(default = "/Volumes", caption = "Select Hard Drive - double click HD and press ok"))
+    }
     cat(red(paste("Warning: The code below has been coded for Linux and might not work as intended on this device")), "\n")
   } else if (os == "Windows") {
     usr <- Sys.getenv("USERNAME")
