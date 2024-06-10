@@ -76,6 +76,7 @@ if (!exists("first_time_use_working_directory") || first_time_use_working_direct
   setwd(first_time_use_working_directory)
 } else {setwd(first_time_use_working_directory)}
 
+
 setwd(first_time_use_working_directory)
 source("config_user_and_hd.R") # contains getUserOptions() that defines usr and hd and some functions
 directory <- NULL; directory <- paste(SCRIPTDIR, "flugus_manuscript", sep = "/")
@@ -219,13 +220,11 @@ surv_plot <- ggsurvplot(surviplot, data = flugus_data,
 surv_plot$plot <- surv_plot$plot + 
   scale_y_continuous(limits = c(0.2, 1), breaks = seq(0.2, 1, by = 0.2)) +
   theme(panel.grid = element_blank(), legend.position = "none") +  
-  theme(
-    axis.title = element_text(size = 14),
-    axis.text = element_text(size = 14),
-    axis.ticks = element_line(linewidth = 1),
-    strip.text = element_text(size = 14)) +
-  # geom_segment(aes(x = 14.3, y = 0.78, xend = 14.3, yend = 0.65))+
-  # geom_segment(aes(x = 14.3, y = 0.52, xend = 14.3, yend = 0.325)) +
+  theme(plot.margin = margin(20, 10, 10, 10),
+        axis.title = element_text(size = 14),
+        axis.text = element_text(size = 14),
+        axis.ticks = element_line(linewidth = 1),
+        strip.text = element_text(size = 14)) +
   geom_segment(aes(x = 0.4, y = 0.33-y_offset, xend = 1, yend = 0.33-y_offset), color = chosen_colors[1], linetype = line_types[1]) +
   geom_segment(aes(x = 0.4, y = 0.30-y_offset, xend = 1, yend = 0.30-y_offset), color = chosen_colors[1], linetype = line_types[3]) +
   geom_segment(aes(x = 0.4, y = 0.271-y_offset, xend = 1, yend = 0.271-y_offset), color = chosen_colors[1], linetype = line_types[5]) +
@@ -239,9 +238,6 @@ surv_plot$plot <- surv_plot$plot +
   annotate("text", x = 2.5, y=0.27-y_offset, label="50 ppm", color = "black", size = 4, fontface = "plain", hjust = 0) +
   geom_rect(aes(xmin = 0.2, xmax = 3.8, ymin = 0.2, ymax = 0.38 - y_offset), 
             fill = NA, color = "black", lwd = 0.05)
-# +
-  # annotate("text", x=14.7, y=0.71, label="n.s", color = "black", size = 4.5, fontface = "bold") +
-  # annotate("text", x=14.7, y=0.42, label="p = \n 0.01", color = "black", size = 4.5, fontface = "bold")
 
 print(surv_plot)
 surv_ggplot <- surv_plot$plot
@@ -253,20 +249,28 @@ hazard_plot <- ggplot(hr_data, aes(x = Treatment, y = HR)) +
   labs(y = "Hazard Ratio (HR)",
        x = "Flupyradifurone concentration") +
   theme_bw() +
-  theme(panel.grid = element_blank(), legend.position = "none",
+  theme(plot.margin = margin(20, 10, 10, 10),
+        panel.grid = element_blank(), legend.position = "none",
         axis.title = element_text(size = 14),
         axis.text = element_text(size = 14),
         axis.ticks = element_line(linewidth = 1),
         strip.text = element_text(size = 14)) +
+  annotate("text", x = 0.96, y = 5.35, label = "a", color = "black", size = 6, fontface = "bold", hjust = 0) +
+  annotate("text", x = 1.96, y = 5.35, label = "b", color = "black", size = 6, fontface = "bold", hjust = 0) +
+  annotate("text", x = 2.96, y = 5.35, label = "b", color = "black", size = 6, fontface = "bold", hjust = 0) +
   coord_cartesian(ylim=c(1,5.5))  # Setting y-axis limit to start from 1
-
 print(hazard_plot)
 
-# print the two plots together | Exported as 1200*600 clip
+# print the two plots together | Exported as 1000*500 clip
 layout_mat <- rbind(c(1,1,2), c(1,1,2))
+label_a <- textGrob("a", x = unit(0, "npc") + unit(5, "mm"), y = unit(1, "npc") - unit(5, "mm"), just = c("left", "top"), gp = gpar(fontsize = 20, fontface = "bold"))
+label_b <- textGrob("b", x = unit(0, "npc") + unit(5, "mm"), y = unit(1, "npc") - unit(5, "mm"), just = c("left", "top"), gp = gpar(fontsize = 20, fontface = "bold"))
 grid.arrange(surv_ggplot, hazard_plot, layout_matrix = layout_mat)
-
-
+grid.arrange(
+  arrangeGrob(surv_ggplot, top = label_a),
+  arrangeGrob(hazard_plot, top = label_b),
+  layout_matrix = layout_mat
+)
 
 
 #### 4. Supplementary material ####
@@ -283,7 +287,7 @@ for (i in 1:nrow(supl_data)) {
   }
 }
 
-# for simlicity create two subsets, one containing only the standard curves and one containing the samples
+# for simplicity create two subsets, one containing only the standard curves and one containing the samples
 # std curves
 data_stdcurves <- subset(supl_data, supl_data$treatment == "std_curve", drop = TRUE)
 data_stdcurves$treatment <- droplevels(data_stdcurves$treatment)
