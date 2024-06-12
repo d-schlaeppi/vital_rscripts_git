@@ -35,6 +35,7 @@ library(multcomp)
 library(plotrix)
 library(blmeco) #model testing comqqnorm
 library(DHARMa) # model testing
+library(emmeans)
 
 # getUserOptions <- function() {
 #   # select user
