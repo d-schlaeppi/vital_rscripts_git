@@ -153,11 +153,15 @@ surv_plot
 
 flugus_data$interac <- interaction(flugus_data$fungus,flugus_data$concentration)
 
-fungus_model          <- coxme ( Surv (time = survival, event = censor) ~ 1 + concentration + fungus + (1 | petri_dish) + (1 | colony) + (1 | block), data = flugus_data)
-interaction_model     <- coxme ( Surv (time = survival, event = censor) ~ 1 + concentration * fungus + (1 | petri_dish) + (1 | colony) + (1 | block), data = flugus_data)
-interaction_model_bis <- coxme ( Surv (time = survival, event = censor) ~ 1 + interac + (1 | petri_dish) + (1 | colony) + (1 | block), data = flugus_data)
+null_model            <- coxme ( Surv (time = survival, event = censor) ~ 1                              + (1 | petri_dish) + (1 | colony) + (1 | block), data = flugus_data)
+concentration_model   <- coxme ( Surv (time = survival, event = censor) ~ 1 + concentration              + (1 | petri_dish) + (1 | colony) + (1 | block), data = flugus_data)
+additive_model        <- coxme ( Surv (time = survival, event = censor) ~ 1 + concentration + fungus     + (1 | petri_dish) + (1 | colony) + (1 | block), data = flugus_data)
+interaction_model     <- coxme ( Surv (time = survival, event = censor) ~ 1 + concentration * fungus     + (1 | petri_dish) + (1 | colony) + (1 | block), data = flugus_data)
+interaction_model_bis <- coxme ( Surv (time = survival, event = censor) ~ 1 + interac                    + (1 | petri_dish) + (1 | colony) + (1 | block), data = flugus_data)
 
-anova(fungus_model, interaction_model)
+anova(null_model, concentration_model, additive_model, interaction_model)
+anova(additive_model, interaction_model)
+Anova(interaction_model)
 summary(interaction_model)
 
 contrast_matrix <- rbind(

@@ -32,6 +32,7 @@ library(lme4)
 library(car)
 library(glmmTMB)
 library(multcomp)
+library(multcompView)
 library(plotrix)
 library(blmeco) #model testing comqqnorm
 library(DHARMa) # model testing

@@ -23,6 +23,8 @@ setwd("/Users/gismo/Documents/GitHub/vital_rscripts_git/") #home mac
 #dat <- read.csv("vital_treatment_feeding_annotation.csv", header = TRUE, stringsAsFactors = F)
 dat <- read.csv("vital_treatment_feeding_annotation_2.csv", header = TRUE, stringsAsFactors = F)
 head(dat)
+#dat <- read.csv("/Users/gismo/Documents/GitHub/vital_rscripts_git/vital_treatment_feeding_annotation_2.csv", header = TRUE, stringsAsFactors = F)
+
 
 # create a data frame with the missing times from the colonies with an error in fort
 colony <- c("c05", "c09", "c12", "c13", "c17", "c21")
