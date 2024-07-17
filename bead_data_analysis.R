@@ -31,6 +31,54 @@ brood <- read.csv("vital_brood_bead_data.csv", header = TRUE) # flowcytometry be
 individual_metadata <- read.csv("individual_metadata_vital_updated.csv", header= TRUE) # metadata for all workers involved in the tracking experiment (technically already has the bead_data for workers but needs to be corrected due to negative values)
 source(paste0(SCRIPTDIR,"/vital_meta_data.R")) # loads colony metadata to know background information such as treatments for each colony
 
+
+#### Check colony metadata to see which colonies to analyse are affected by Fluorescent bead contamination ####
+# First iteration of food sources was good 
+# Second iteration of food sources: the bead color was switched for the two control foods
+# and for the virus foods: the color is also switched and the one that is supposed to be yellow there is a contamination 
+# Step 1 - see how many and which colonies are affected 
+# Step 2 - Correct the dataframes 
+# Step 2.5 - move fix to colony metadata script so that later on the right color can be used for other analyses
+# Step 2.6 - Consider also implementing the fix for the variable "bead_colour" of treated_ants in the individual_metadata beforehand.
+# Step 3 - rerun the bead analysis with the right colors. 
+# (Step 4) - maybe clean up script by updating the source meta file to the correct colors so the fix is no longer required here 
+
+# When was the switch of food sources?
+# 23.03.2022 --> new food was used starting with colony 9+ 
+# after that the colours have been switched and for the ones that were supposed to be virus blue there is a lot of contamination with the other color meaning we probably do not used them
+# we are left with 7 control colonies and 5 virus colonies that we want to analyse.
+
+colnames(colony_metadata)[which(names(colony_metadata) == "treatment")] <- "treatment_old"
+# make an excludion variable for colonies for which the beads were not analysed or for colonies that received second generation food where there was bead contamination in virus_yellow
+colony_metadata$exclude_colony_for_beadanalyses <- ifelse(colony_metadata$block %in% 1:2,
+                                                          ifelse(colony_metadata$fluorescence_measured == "no", "yes", "no"),
+                                                          ifelse(colony_metadata$fluorescence_measured == "no",
+                                                                 "yes",
+                                                                 ifelse(colony_metadata$fluorescence_measured == "yes" & colony_metadata$treatment_old == "vy",
+                                                                        "yes",
+                                                                        "no")))
+
+# create corrected treatment column
+switch_letters <- function(x) {
+  x <- gsub("b", "X", x)  # Replace 'b' with 'X' (temporary placeholder)
+  x <- gsub("y", "b", x)  # Replace 'y' with 'b'
+  x <- gsub("X", "y", x)  # Replace 'X' (originally 'b') with 'y'
+  return(x)
+}
+colony_metadata$treatment <- ifelse(colony_metadata$block %in% 1:2,
+                                    colony_metadata$treatment_old,
+                                    switch_letters(colony_metadata$treatment_old))
+# colony_metadata[, c("treatment_old", "treatment")]
+
+colnames(individual_metadata)[which(names(individual_metadata) == "bead_colour")] <- "bead_colour_old"
+individual_metadata$block <- ceiling(as.numeric(gsub("[^0-9]", "", individual_metadata$colony_id)) / 4) # transform c01 into a numeric value only, divide it by 4 and round up to next integer. 
+individual_metadata$bead_colour <- ifelse(individual_metadata$block %in% 1:2,
+                                      individual_metadata$bead_colour_old,
+                                      ifelse(individual_metadata$bead_colour_old == "blue", "yellow", 
+                                             ifelse(individual_metadata$bead_colour_old == "yellow", "blue", NA)))
+
+
+
 ### ### preparation of tables ### ###
 
 ### brood
@@ -85,20 +133,30 @@ merged_data_individuals <- merge(individual_metadata[, !names(individual_metadat
 merged_data_brood <- merge(brood_data[, !names(brood_data) %in% c("treatment", "treatment_simple")], 
                            colony_metadata, by = "colony_id")
 
+### Identifiy which colonies to analyse
+# based on whether fluorescence has been measured and whether it was not fed with the contaminated virus food source. 
+
 ### Identify colonies for which worker bead data was not assessed: 
-# As there were so many individuals it was not possible to analyse all colonies --> colonies were ranked based on manual feeding observations and the the top 7 colonies of the two treatments were selected for the bead analysis
-# Hence the individuals data set is subsetted in the bead analysis
-# all colonies were analysed for brood (pooled larva samples from each colony)
-# identify colonies not analysed in flowcytometry (have bead count zero for both food sources)
-filtered_data <- merged_data_individuals %>%
-  group_by(colony_id, treatment_simple) %>%
-  summarise(
-    total_yellow_beads = sum(yellow_count_YB, na.rm = TRUE),
-    total_blue_beads = sum(blue_count_NB, na.rm = TRUE),
-    .groups = 'drop'  # Ungroup after summarising
-  )  %>%
-  filter(total_yellow_beads != 0 & total_blue_beads != 0)
-colonies_to_analyse <- filtered_data$colony_id
+# # As there were so many individuals it was not possible to analyse all colonies --> colonies were ranked based on manual feeding observations and the the top 7 colonies of the two treatments were selected for the bead analysis
+# # Hence the individuals data set is subsetted in the bead analysis
+# # all colonies were analysed for brood (pooled larva samples from each colony)
+# # identify colonies not analysed in flowcytometry (have bead count zero for both food sources)
+# filtered_data <- merged_data_individuals %>%
+#   group_by(colony_id, treatment_simple) %>%
+#   summarise(
+#     total_yellow_beads = sum(yellow_count_YB, na.rm = TRUE),
+#     total_blue_beads = sum(blue_count_NB, na.rm = TRUE),
+#     .groups = 'drop'  # Ungroup after summarising
+#   )  %>%
+#   filter(total_yellow_beads != 0 & total_blue_beads != 0)
+# colonies_to_analyse <- filtered_data$colony_id
+# colony_metadata$fluorescence_measured 
+
+# new short version as the above is now already included in colony metadata 
+# subset_colonies <- colony_metadata[colony_metadata$fluorescence_measured == "yes", ]
+subset_colonies <- colony_metadata[colony_metadata$exclude_colony_for_beadanalyses == "no", ] # verion which also excludes the onces with the contaminated virus food source (originally treatment virus yellow of blocks 3+)
+colonies_to_analyse <- subset_colonies$colony_id
+
 
 
 # Create a function to extract the number of beads for the two food sources:  food_1v and food_2c based on treatment
@@ -167,6 +225,7 @@ for (df in dfs) { # df <- "individuals"
 
 
 # after the above there are 4 dataframes available: updated_df_individuals, long_df_individuals, updated_df_brood, long_df_brood
+# we clear out some of the variables not used here just to make the dataframes a bit easier to work with 
 my_dataframes <- c("updated_df_individuals", "long_df_individuals", "updated_df_brood", "long_df_brood")
 not_used_here <-c("tagIDdecimal", "identifStart", "identifEnd", "treatment_time", "exp_stop_time", "exp_start_time",  
                   "sampling_time", "glass_beads", "meta_ID", "tag_reoriented", "N_treated",  
@@ -203,6 +262,8 @@ updated_df_individuals %>%
             median_yellow = median(yellow_beads_cor, na.rm = TRUE),
             sd_yellow = sd(yellow_beads_cor, na.rm = TRUE))
 
+table(updated_df_individuals$exclude_colony_for_beadanalyses)
+
 wilcox.test(updated_df_individuals[updated_df_individuals$treatment_simple == "control", ]$yellow_beads_cor,updated_df_individuals[updated_df_individuals$treatment_simple == "control", ]$blue_beads_cor)
 boxplot(log10(updated_df_individuals[updated_df_individuals$treatment_simple == "control", ]$yellow_beads_cor+0.5), log10(updated_df_individuals[updated_df_individuals$treatment_simple == "control", ]$blue_beads_cor+0.5), 
         main = "Beads number for each color in the controls",
@@ -212,9 +273,8 @@ boxplot(log10(updated_df_individuals[updated_df_individuals$treatment_simple == 
 segments(1, 4, 2, 4, lwd = 2)
 text(1.5, 4.2, "p=0.55", cex = 2)
 
-### noteworthy --> the two beads are equal - NICE, there appears to be no systematic error or random preference for one of the bead colours.
+### noteworthy --> the two beads are equal - NICE, there appears to be no systematic error or random preference for one of the bead colors.
 # --> still, will be including bead color as a random factor when modeling
-
 
 
 
@@ -303,12 +363,11 @@ for (who in c("untreated_only","treated_only", "everyone")){ # who = "everyone" 
 
 # for treated individuals correlate bead count with individual feeding time.
 treated_ants <- updated_df_individuals %>% filter(IsTreated == TRUE)
-head(treated_ants)
+
 feeding_summary_colonies <- treated_ants %>% 
   group_by(colony_id) %>% 
   summarize(colony_total_feeding_duration = sum(feeding_duration, na.rm = TRUE))
 feeding_summary_colonies <- as.data.frame(feeding_summary_colonies)
-
 
 # merge with feeding colony bead data
 feeding_data_merged <- merge(feeding_summary_colonies, colony_sum, by = "colony_id")
@@ -345,6 +404,8 @@ for (i in 1:nrow(treated_ants)) { # i = 1
                                      stringsAsFactors = F ))
 }
 
+
+# check if the right colour of bead is dominant or at least equal to the other beads
 cor_df %>% 
   group_by(colony_id) %>% 
   summarize(
@@ -352,23 +413,15 @@ cor_df %>%
     yes = sum(right_color_of_beads_dominant == "yes", na.rm = TRUE),
     no = sum(right_color_of_beads_dominant == "no", na.rm = TRUE))
 
+# now it is finally looking fine... maybe it is now time to correlate individual feeding duration... and amount of the corresponding beads. 
+cor(cor_df$feeding_duration, cor_df$nr_beads, use = "complete.obs")
+cor.test(cor_df$feeding_duration, cor_df$nr_beads, method = "pearson") # still significant despite the fact that this is after the food is shared with nestmates so the manual feeding annotations were not completely off...
+# Plot the correlation
+plot(cor_df$feeding_duration, cor_df$nr_beads,
+     xlab = "Feeding Duration", ylab = "Number of Beads",
+     main = "Scatter plot of Feeding Duration vs Number of Beads")
+abline(lm(cor_df$nr_beads ~ cor_df$feeding_duration), col = "blue")
 
-
-
-overview_table <- table(cor_df$colony_id, cor_df$right_color_of_beads_dominant)
-overview_table$treatment <- 
-
-colonies_to_analyse
-
-#### Check what the issue is... grrrrrrrr
-#### that works but something is wrong with the treated ants? for several colonies the bead color in treated ants seems to be inverted...? colonoes after c11? is that a mistake or what?
-
-
-
-
-
-# Filter the merged data to keep only the necessary columns
-merged_data <- merged_data %>% select(colony_id, tagIDdecimal, total_duration, bead_colour, yellow_beads_cor, blue_beads_cor)
 
 
 
