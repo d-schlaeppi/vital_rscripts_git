@@ -19,7 +19,7 @@ rm(list = setdiff(ls(), "first_time_use_working_directory"))
 
 # libraries
 library(pacman)
-pacman::p_load(lubridate, plotrix, scales, car, lme4, Hmisc, dplyr, tidyverse, blmeco, lmtest, lsmeans, emmeans, multcompView, multcomp, viridis, crayon)
+pacman::p_load(lubridate, plotrix, scales, car, lme4, Hmisc, dplyr, tidyverse, blmeco, lmtest, lsmeans, emmeans, multcompView, multcomp, viridis, crayon, e1071, glmmTMB, DHARMa, merTools)
 
 #functions
 sem <- function(x) {sd(x,na.rm=T)/sqrt(lenght(na.omit(x)))} # function to get standard error of means
@@ -300,7 +300,9 @@ for (time_origin in c("same","shifted")){
 
 #### update here with the parts usefull from reconstruciton and learning ####
 
-# not used anymore:     text(x=1, y = 120, label = paste("p=",pval),3, cex = 1.3)
+
+
+
 
 
 
@@ -363,7 +365,22 @@ ggplot(dat_duration_sub, aes(x = food_source, y = feeding_duration_seconds, fill
 lmm <- lmer(feeding_duration_seconds ~ food_source + (1|colony_id) + (1|block) + (1|feeding_session), data = dat_duration_sub)
 summary(lmm)
 Anova(lmm)
-# might need another model, but for now it does the job --> consider changing to glmer with poisson
+
+#' Not the right model given the distribution of the residuals--> consider changing to glmer with poisson or antother test.
+#' We have repeated measures of the same colonies, data not normally distributed --> non-parametric test for repeated measures. 
+#' The Friedmann tist would be suitable (compares multiple paired groups) alternative to repeated measures Anova.
+
+# Arrange data and run test
+mean_feeding_duration <- dat_duration_sub %>%
+  group_by(colony_id, feeding_session, food_source) %>%
+  summarise(mean_duration = mean(feeding_duration_seconds, na.rm = TRUE)) %>%
+  ungroup()
+wide_data <- mean_feeding_duration %>%
+  pivot_wider(names_from = c(feeding_session, food_source), values_from = mean_duration)
+friedman_data <- as.matrix(wide_data[,-1]) # turn into matrix without id column
+friedman.test(friedman_data)
+
+# not difference regarding mean duration 
 
 
 
@@ -388,19 +405,52 @@ ggplot(dat_duration_first, aes(x = food_source, y = feeding_duration_seconds)) +
 mod <- glmer(feeding_duration_seconds ~ food_source + (1|colony_id) + (1|block), data = dat_duration_first, family = "poisson")
 summary(mod)
 Anova(mod)
+residuals_poisson <- residuals(mod, type = "pearson")
+test_norm(residuals_poisson) # not ok, but not needed
+# Non-Normal Residuals: For Poisson models, residuals are not expected to be normally distributed. The Poisson distribution is skewed, especially for small means.
+# Alternative checks suitable for this:
+# Overdispersion
+overdispersion <- sum(residuals_poisson^2) / df.residual(mod)
+print(overdispersion) # should be around 1 (otherwise the model underestimates variability) which it is not --> so the data is overdispersed which needs to be addressed.
+#' Possible Solutions:
+#' Negative Binomial Regression: Use a negative binomial model instead of a Poisson model, which includes an extra parameter to account for overdispersion.
+#' Quasi-Poisson Model: Use a quasi-Poisson model, which adjusts the standard errors to account for overdispersion.
+#' Additional Random Effects: Adding more random effects or accounting for hierarchical structures in your data might help.
+# Fit a negative binomial GLMM
+mod_nb <- glmmTMB(feeding_duration_seconds ~ food_source + (1|colony_id) + (1|block),
+                  data = dat_duration_first, family = nbinom2)
+summary(mod_nb)
+
+# Fit a negative binomial GLMM using lme4 and MASS
+mod_nb_lme4 <- glmer.nb(feeding_duration_seconds ~ food_source + (1|colony_id) + (1|block),
+                        data = dat_duration_first)
+summary(mod_nb_lme4)
+
+# Check for overdispersion
+overdisp_fun <- function(model) {
+  rdf <- df.residual(model)
+  rp <- residuals(model, type = "pearson")
+  Pearson.chisq <- sum(rp^2)
+  prat <- Pearson.chisq / rdf
+  pval <- pchisq(Pearson.chisq, df = rdf, lower.tail = FALSE)
+  c(chisq = Pearson.chisq, ratio = prat, rdf = rdf, p = pval)
+}
+overdispersion_check <- overdisp_fun(mod_nb)
+print(overdispersion_check)  # close to 1 and thus the model handles over dispersion adequately
+# check if further testing is required...
+
+
 ### does it for now, but check if model assumptions need to be met for this thing and if not consider alternative versions 
 mod <- lmer(sqrt(feeding_duration_seconds) ~ food_source + (1|colony_id) + (1|block), data = dat_duration_first)
 summary(mod)
 Anova(mod)
 compareqqnorm(mod); par(mfrow = c(1,1))
 aov_residuals <- residuals(object = mod)
-shapiro.test(x = aov_residuals) # not significant would be good 
-
+shapiro.test(x = aov_residuals) # not significant would be good, which it is not in this case... 
 
 
 # boxcox transformation: 
 prelim_model <- lm(feeding_duration_seconds ~ food_source, data = dat_duration_first)
-
 bc <- boxcox(prelim_model, lambda = seq(-2, 2, by = 0.1)) # determine the optimal lambda to transform based on max log likelihood
 lambda <- bc$x[which.max(bc$y)]
 if (lambda == 0) {
@@ -408,21 +458,37 @@ if (lambda == 0) {
 } else {
   dat_duration_first$transformed_duration <- (dat_duration_first$feeding_duration_seconds^lambda - 1) / lambda
 }
-
 #full model
 mod <- lmer(transformed_duration ~ food_source + (1 | colony_id) + (1 | block), data = dat_duration_first)
-# Summary of the model
 summary(mod)
-# Anova to check the significance of fixed effects
 Anova(mod)
-# Check residuals for normality
 par(mfrow = c(1, 1))
 aov_residuals <- residuals(object = mod)
 qqnorm(aov_residuals)
 qqline(aov_residuals, col = "red")
-shapiro.test(aov_residuals)
 
-# still not ok... check Nathalies or Adrianos scipts for what they do because it is very easy for norm distribution not to be ok if the dataset is very large
+
+test_norm <- function(resids) { # function from Nathalie 
+  print("Testing normality")
+  if (length(resids) <= 300) {
+    print("Fewer than 300 data points so performing Shapiro-Wilk's test")
+    print(shapiro.test(resids))
+    print("below 0.05, the data significantly deviate from a normal distribution")
+  } else {
+    print("More than 300 data points so using the skewness and kurtosis
+approach")
+    print("Skewness should be between -3 and +3 (best around zero")
+    print(skewness(resids))
+    print("")
+    print("Excess kurtosis (i.e. absolute kurtosis -3) should be less than 4; ideally around zero")
+    print(kurtosis(resids))
+  }
+}
+
+test_norm(aov_residuals)
+
+
+
 
 
 ### colony level summary  
@@ -433,6 +499,12 @@ dat_summary <- dat_duration_first %>%
     total_feeding_duration = sum(feeding_duration_seconds, na.rm = TRUE)
   )
 dat_summary <-  as.data.frame(dat_summary)
+
+dat_summary %>% 
+  group_by(food_source) %>% 
+  summarize(
+    total_duration = sum(total_feeding_duration)
+  )
 
 # number of feeding events per colony per food source 
 mod <- lm(num_feeding_events ~ food_source, data = dat_summary)
@@ -472,9 +544,256 @@ ggplot(dat_summary, aes(x = food_source, y = total_feeding_duration)) +
 
 
 
+#### Exploitation of Food sources over time #### 
+#  plot a time curve showing the exploitation of the two food sources
 
-# then plot a time curve showing the exploitation of the two food sources
-# is first discovery the driving factor? maybe needs another randomisation as above... 
+# Convert feeding_start to a proper datetime format
+dat_duration_first <- dat_duration_first %>%
+  mutate(feeding_start = hms::as_hms(feeding_start))
+
+# Identify discovery times for each colony and food source
+discovery_times <- dat_duration_first %>%
+  group_by(colony_id, food_source) %>%
+  summarize(discovery_time = min(feeding_start, na.rm = TRUE)) %>%
+  ungroup()
+
+# Merge discovery times with the original data
+dat_duration_first <- dat_duration_first %>%
+  left_join(discovery_times, by = c("colony_id", "food_source"))
+
+# Function to check if feeding_start is within 60 minutes of discovery_time
+within_60_minutes <- function(feeding_start, discovery_time) {
+  feeding_start <= (discovery_time + as.duration(minutes(60)))
+}
+
+# Filter data for feedings within 60 minutes of discovery
+dat_duration_60min <- dat_duration_first %>%
+  filter(within_60_minutes(feeding_start, discovery_time))
+
+# Calculate total feeding duration for each colony and food source within 60 minutes
+total_feeding_duration <- dat_duration_60min %>%
+  group_by(colony_id, food_source) %>%
+  summarize(total_duration = sum(feeding_duration_seconds, na.rm = TRUE)) %>%
+  ungroup()
+
+# Compute the average exploitation for each food source
+average_exploitation <- total_feeding_duration %>%
+  group_by(food_source) %>%
+  summarize(average_duration = mean(total_duration, na.rm = TRUE),
+            sd_duration = sd(total_duration, na.rm = TRUE),
+            n = n(),
+            se_duration = sd_duration / sqrt(n)) %>%
+  ungroup()
+
+# Plot the results
+ggplot(average_exploitation, aes(x = food_source, y = average_duration)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  geom_errorbar(aes(ymin = average_duration - se_duration, ymax = average_duration + se_duration), 
+                width = 0.2) +
+  labs(title = "Average Exploitation of Food Sources over 60 Minutes post discovery",
+       x = "Food Source",
+       y = "Average Feeding Duration (seconds)") +
+  theme_minimal()
+
+
+
+
+
+
+
+
+# Convert feeding_start to a proper datetime format
+dat_duration_first <- dat_duration_first %>%
+  mutate(feeding_start = hms::as_hms(feeding_start))
+
+# Calculate time since discovery in seconds
+dat_duration_first <- dat_duration_first %>%
+  mutate(time_since_discovery = as.numeric(feeding_start - discovery_time, units = "secs"))
+
+# Filter data to only include times within 3600 seconds
+dat_duration_first <- dat_duration_first %>%
+  filter(time_since_discovery >= 0 & time_since_discovery <= 3600)
+
+# Create a new column for time bins (e.g., 60-second intervals)
+dat_duration_first <- dat_duration_first %>%
+  mutate(time_bin = floor(time_since_discovery / 60) * 60)
+
+# Calculate cumulative sum of feeding durations within each time bin for each food source
+exploitation_over_time <- dat_duration_first %>%
+  group_by(food_source, time_bin) %>%
+  summarize(total_exploitation = sum(feeding_duration_seconds, na.rm = TRUE)) %>%
+  arrange(food_source, time_bin) %>%
+  group_by(food_source) %>%
+  mutate(cumulative_exploitation = cumsum(total_exploitation)) %>%
+  ungroup()
+
+# Plot the cumulative results
+ggplot(exploitation_over_time, aes(x = time_bin, y = cumulative_exploitation, color = food_source)) +
+  geom_line(size = 1) +
+  labs(title = "Cumulative Exploitation of Food Sources Over Time",
+       x = "Time Since Discovery (seconds)",
+       y = "Cumulative Feeding Duration (seconds)") +
+  scale_x_continuous(breaks = seq(0, 3600, by = 300), limits = c(0, 3600)) +
+  theme_minimal() +
+  theme(legend.title = element_blank())
+
+# is first discovery the driving factor? maybe needs another randomisation as above... check first discovery... 
+
+
+
+
+
+# Convert feeding_start to a proper datetime format
+dat_duration_first <- dat_duration_first %>%
+  mutate(feeding_start = hms::as_hms(feeding_start))
+
+# Calculate time since discovery in seconds
+dat_duration_first <- dat_duration_first %>%
+  mutate(time_since_discovery = as.numeric(feeding_start - discovery_time, units = "secs"))
+
+# Filter data to only include times within 3600 seconds
+dat_duration_first <- dat_duration_first %>%
+  filter(time_since_discovery >= 0 & time_since_discovery <= 3600)
+
+# Create a new column for time bins (e.g., 60-second intervals)
+dat_duration_first <- dat_duration_first %>%
+  mutate(time_bin = floor(time_since_discovery / 60) * 60)
+
+# Calculate total exploitation within each time bin for each colony and food source
+total_exploitation <- dat_duration_first %>%
+  group_by(colony_id, food_source, time_bin) %>%
+  summarize(total_exploitation = sum(feeding_duration_seconds, na.rm = TRUE), .groups = 'drop')
+
+
+# Create a complete grid of colony_id, food_source, and time_bin
+time_bins <- seq(0, 3600, by = 60)
+complete_grid <- expand_grid(
+  colony_id = unique(dat_duration_first$colony_id),
+  food_source = unique(dat_duration_first$food_source),
+  time_bin = time_bins
+)
+
+# Left join the complete grid with the total_exploitation data
+cumulative_per_colony <- complete_grid %>%
+  left_join(total_exploitation, by = c("colony_id", "food_source", "time_bin")) %>%
+  replace_na(list(total_exploitation = 0)) %>%
+  arrange(colony_id, food_source, time_bin) %>%
+  group_by(colony_id, food_source) %>%
+  mutate(cumulative_exploitation = cumsum(total_exploitation)) %>%
+  ungroup()
+cumulative_per_colony <- as.data.frame(cumulative_per_colony)
+
+# Calculate the mean cumulative exploitation across colonies for each food source and time bin
+mean_cumulative_exploitation <- cumulative_per_colony %>%
+  group_by(food_source, time_bin) %>%
+  summarize(mean_cumulative_exploitation = mean(cumulative_exploitation, na.rm = TRUE), .groups = 'drop')
+
+
+# Plot the mean cumulative results
+ggplot(mean_cumulative_exploitation, aes(x = time_bin, y = mean_cumulative_exploitation, color = food_source)) +
+  geom_line(size = 1) +
+  labs(title = "Mean Cumulative Exploitation of Food Sources Over Time",
+       x = "Time Since Discovery (seconds)",
+       y = "Mean Cumulative Feeding Duration (seconds)") +
+  scale_x_continuous(breaks = seq(0, 3600, by = 300), limits = c(0, 3600)) +
+  theme_minimal() +
+  theme(legend.title = element_blank())
+
+
+#### CONTINUE SOMEWEHERE HERE... 
+# To do: make own model, predict data and intervals and plot them! 
+
+# #maybe use Lukes code instead of chatgpt: 
+# model_eff <- lmer(log_efficiency ~ time*treatment+ (1|colony/subset)+(1|week), data = DF_DATA)
+# car::Anova(model_eff, type=3)
+# summary(model_eff)
+# NEW_CH_DATA<-DF_DATA
+# 
+# time_range <- max(NEW_CH_DATA$time)-min(NEW_CH_DATA$time)
+# newdat <- expand.grid(
+#   time=seq(min(NEW_CH_DATA$time)-0.05*time_range,max(NEW_CH_DATA$time)+0.05*time_range,length.out = 100)
+#   ,  treatment=unique(NEW_CH_DATA$treatment)
+# )
+# length(NEW_CH_DATA$time)
+# 
+# newdat$log_efficiency <- predict(model_eff,newdat,re.form=NA)
+# mm <- model.matrix(terms(model_eff),newdat)
+# pvar1 <- diag(mm %*% tcrossprod(vcov(model_eff),mm))
+# cmult <- 1.96 ## could use 1.96
+# newdat <- data.frame(
+#   newdat
+#   , sqrt_ci_lo = newdat$log_efficiency-cmult*sqrt(pvar1)
+#   , sqrt_ci_hi = newdat$log_efficiency+cmult*sqrt(pvar1)
+#   ,sqrt_se_lo  = newdat$log_efficiency-sqrt(pvar1)
+#   ,sqrt_se_hi  = newdat$log_efficiency+sqrt(pvar1)
+# )
+# newdat[c("efficiency","ci_lo","ci_hi","se_lo","se_hi")] <- exp(newdat[c("log_efficiency","sqrt_ci_lo","sqrt_ci_hi","sqrt_se_lo","sqrt_se_hi")])
+# newdat_sham     <- newdat[which(newdat$treatment=="SHAM"),]
+# newdat_pathogen <- newdat[which(newdat$treatment=="PATHOGEN"),]
+# NEW_CH_DATA$treatment <- factor(NEW_CH_DATA$treatment, levels = c("SHAM", "PATHOGEN"))
+# 
+# p_efficiency <- ggplot(data = NEW_CH_DATA, aes(x = time, y = efficiency)) +
+#   #geom_ribbon(data = filter(newdat_sham), aes(ymin = se_lo, ymax = se_hi), fill = alpha(col_sham, linalpha), color = NA) +
+#   #geom_ribbon(data = filter(newdat_pathogen, treatment == "PATHOGEN"), aes(ymin = se_lo, ymax = se_hi), fill = alpha(col_path, linalpha), size=linwidth, color = NA) +
+#   geom_line(data = filter(newdat_sham), size=linwidth, color = col_sham) +
+#   geom_line(data = filter(newdat_pathogen), size=linwidth, color = col_path) +
+#   geom_point(data=NEW_CH_DATA,alpha = alpha, size=pointsize, position = position_jitterdodge(jitter.width=4.2,dodge.width = 9), 
+#              aes(group=treatment, color=treatment)) +
+#   #geom_point(data=NEW_CH_DATA,aes(x = jitter_time), pch = 16, size = 3, color = factor(NEW_CH_DATA$treatment, levels = c("PATHOGEN", "SHAM"))) +
+#   scale_x_continuous(breaks = c(0, 24, 48, 72, 144)) +
+#   xlab("Time since treatment (hours)")+
+#   ylab(expression(paste("Efficiency")))#+
+# 
+# #annotate("text", x = 36.1, y = 0.39, label = "24h,\np=0.802", size = labsize2)+
+# #annotate("text", x = 110, y = 0.39, label = "Treatment X time, p=0.032 *", size = labsize2, fontface='bold')
+
+
+
+
+### from gpt
+# Create new data for predictions ensuring proper structure
+new_data <- expand.grid(
+  time_bin = seq(0, 3600, by = 60),
+  food_source = unique(cumulative_per_colony$food_source),
+  colony_id = unique(cumulative_per_colony$colony_id)
+)
+
+model <- lmer(cumulative_exploitation ~ time_bin * food_source + (1 | colony_id), data = cumulative_per_colony)
+predictions <- predictInterval(model, newdata = new_data, level = 0.95)
+
+# Combine the predictions with new_data
+predictions <- cbind(new_data, predictions)
+
+
+
+
+# Fit the model
+model <- lmer(cumulative_exploitation ~ time_bin * food_source + (1 | colony_id), data = cumulative_per_colony)
+summary(model)
+Anova(model)
+# Create new data for predictions
+new_data <- expand.grid(time_bin = seq(0, 3600, by = 60), food_source = unique(mean_cumulative_exploitation$food_source))
+predictions <- predictInterval(model, newdata = new_data, level = 0.95) # Get predicted values with confidence intervals
+
+
+# Combine the predictions with new_data
+predictions <- cbind(new_data, predictions)
+
+# Plot the mean cumulative results with a fitted line and confidence interval
+ggplot(mean_cumulative_exploitation, aes(x = time_bin, y = mean_cumulative_exploitation, color = food_source)) +
+  geom_line(size = 1) +  # Actual data
+  geom_line(data = predictions, aes(x = time_bin, y = fit, color = food_source), size = 1, linetype = "dashed") +  # Fitted line
+  geom_ribbon(data = predictions, aes(x = time_bin, ymin = lwr, ymax = upr, fill = food_source), alpha = 0.2) +  # Confidence interval
+  labs(title = "Mean Cumulative Exploitation of Food Sources Over Time with Fitted Line",
+       x = "Time Since Discovery (seconds)",
+       y = "Mean Cumulative Feeding Duration (seconds)") +
+  scale_x_continuous(breaks = seq(0, 3600, by = 300), limits = c(0, 3600)) +
+  theme_minimal() +
+  theme(legend.title = element_blank())
+
+
+
+
 
 
 
