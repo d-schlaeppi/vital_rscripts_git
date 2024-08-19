@@ -66,14 +66,18 @@ for (i in 1:length(tracking_data$ants)) {
 print(ID_df)
 }
 
-#copy stuff to the clipboard to insert in excel
+#copy stuff to the clipboard to insert in excel and vice versa
 library(clipr)
-write_clip(paste0(tagID, collapse = "\n"))
-# copy stuff from clipboard into R
-my_data <- read_clip() # read vector
-#or
-my_data <- read_clip_tbl() #read table
-my_data
+write_clip(paste0(tagID, collapse = "\n")) # copy from R to clipboard for pasting e.g. in excel
+my_data <- read_clip() # read vector from clipboard in R
+my_data <- read_clip_tbl() #read table from clipboard in R
+
+
+
+
+
+
+
 
 
 

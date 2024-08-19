@@ -44,30 +44,41 @@ RUN_ANALYSIS_AND_SIMULATIONS_NR <- FALSE
 RUN_ANALYSIS_AND_SIMULATIONS_DURATION <- TRUE
 
 # libraries
+install.packages("pacman")
 library(pacman)
+
+
 pacman::p_load(lubridate, plotrix, scales, car, lme4, Hmisc, 
                dplyr, tidyverse, blmeco, lmtest, lsmeans, lubridate,
                emmeans, multcompView, multcomp, viridis, crayon, 
                e1071, glmmTMB, DHARMa, merTools, tidyr, pheatmap, grid)
 
+
 # functions
 sem <- function(x) {sd(x,na.rm=T)/sqrt(length(na.omit(x)))} # standard error of means
 test_norm <- function(resids) { # function from Nathalie 
-  print("Testing normality")
+  cat(blue("Testing normality\n"))
   if (length(resids) <= 300) {
     print("Fewer than 300 data points so performing Shapiro-Wilk's test")
     print(shapiro.test(resids))
     print("below 0.05, the data significantly deviate from a normal distribution")
   } else {
-    print("More than 300 data points so using the skewness and kurtosis
-approach")
-    print("Skewness should be between -3 and +3 (best around zero")
-    print(skewness(resids))
-    print("")
+    print("More than 300 data points so using the skewness and kurtosis approach")
+    print("Skewness should be between -3 and +3 (best around zero)")
+    skew <- skewness(resids)
+    print(paste0("Skewness = ", skew))
     print("Excess kurtosis (i.e. absolute kurtosis -3) should be less than 4; ideally around zero")
-    print(kurtosis(resids))
+    kurt <- kurtosis(resids)
+    print(paste0("Kurtosis = ", kurt))
+    if(skew >= -3 & skew <= 3 & kurt < 4){
+      cat(green("Model is fine... go ahead \U1F44D"))
+    } else {
+      cat(red("Warning: Adjust or change model!"))
+    }
   }
 }
+
+
 
 # choose directory 
 if (!exists("first_time_use_working_directory") || first_time_use_working_directory == "") {
@@ -228,13 +239,13 @@ summary(mod)
 compareqqnorm(mod)
 aov_residuals <- residuals(object = mod)
 shapiro.test(x = aov_residuals) # just non significant --> assumption of normally distributed residuals is ok
-par(mfrow=c(2,2))
+`par(mfrow=c(2,2))
 scatter.smooth(fitted(mod),resid(mod)); abline(h=0, lty=2)  # residuals vs. fitted
 title("Tukey-Anscombe Plot")
 qqnorm(resid(mod), main="normal QQ-plot, residuals") 
 qqline(resid(mod))  # qq of residuals
 scatter.smooth(fitted(mod), sqrt(abs(resid(mod))))  # homogeneity of variance
-par(mfrow=c(1,1))
+par(mfrow=c(1,1))`
 #pairwise differences
 marginal = lsmeans(mod, ~ status*feeding_session, data = df1)
 CLD = cld(marginal,
@@ -264,7 +275,7 @@ Anova(model)
 
 #### 2.5 Plot nr. of ants over time ####
 # mean number of ants over time
-¨
+
 data_plot <- data %>% group_by(status, time_min) %>% 
   summarise(
     mean = mean(Nb_ants),
@@ -984,18 +995,22 @@ for (start_time in c("start_experiment", "shifted_discovery")) { # could also in
 # Then add predicted values with confidence intervals to plots 
 
 # cumulative exploitation for shifted starting times per food source is already loaded if the code above has been run, if not you need to get it.
+# mod <- lmer(cumulated_exploitation_time ~ food_source*time + (1|colony_id), data = cumulative_explotation_over_time)
+
+cumulative_explotation_over_time$cumulated_exploitation_time[5]
+head(cumulative_explotation_over_time)
+
 mod <- lmer(cumulated_exploitation_time ~ food_source*time + (1|colony_id), data = cumulative_explotation_over_time)
 summary(mod)
 Anova(mod, type=3)
-# include model testing here... 
- 
+resids <- residuals(object = mod)
+test_norm(resids)
+
 data_predic <- cumulative_explotation_over_time
-names(data_predic)
 time_range <- max(data_predic$time)-min(data_predic$time)
 
 new_dat <- expand.grid(
   time = seq(min(data_predic$time), max(data_predic$time), length.out = 100),
-  # time = seq(min(data_predic$time) - 0.05*time_range, max(data_predic$time) + 0.05*time_range, length.out = 100),
   food_source = unique(data_predic$food_source)
 )
 
@@ -1016,110 +1031,105 @@ data_predic$food_source <- factor(data_predic$food_source, levels = c("control",
 
 ### plot predicted values ###
 
-# Define colors and other graphical parameters
-col_control <- "#1f77b4"  # Blue for control
-col_virus <- "#ff7f0e"    # Orange for virus
-linwidth <- 1.2           # Line width
-alpha <- 0.6              # Transparency for points
-pointsize <- 2.5          # Size for points
-linalpha <- 0.2           # Transparency for ribbons
+col_control <- "#CCEBC5"
+col_virus <- "#FBB4AE" 
 
-# Plotting
-p_cum_exploitation <- ggplot(data = cumulative_explotation_over_time, aes(x = time, y = cumulated_exploitation_time)) +
-  # Add ribbons for standard error ranges (optional, uncomment if needed)
-  geom_ribbon(data = new_dat_control, aes(ymin = se_lo, ymax = se_hi), fill = alpha(col_control, linalpha), color = NA) +
-  geom_ribbon(data = new_dat_virus, aes(ymin = se_lo, ymax = se_hi), fill = alpha(col_virus, linalpha), color = NA) +
-  # Add lines for predicted values
-  geom_line(data = new_dat_control, aes(y = cumulated_exploitation_time), size = linwidth, color = col_control) +
-  geom_line(data = new_dat_virus, aes(y = cumulated_exploitation_time), size = linwidth, color = col_virus) +
-  
+p_cum_exploitation <- ggplot(data = new_dat, aes(x = time, y = cumulated_exploitation_time)) +
+  geom_line(data = new_dat_control, aes(y = cumulated_exploitation_time), size = 1.2, color = col_control) +
+  geom_line(data = new_dat_virus, aes(y = cumulated_exploitation_time), size = 1.2, color = col_virus) +
+  geom_ribbon(data = new_dat_control, aes(ymin = ci_lo, ymax = ci_hi), fill = alpha(col_control, 0.2), color = NA) + # ribbons for standard error ranges
+  geom_ribbon(data = new_dat_virus, aes(ymin = ci_lo, ymax = ci_hi), fill = alpha(col_virus, 0.2), color = NA) +
   # Add points for observed data
-  #geom_point(alpha = alpha, size = pointsize, position = position_jitterdodge(jitter.width = 4.2, dodge.width = 9),
+  #geom_point(alpha = 0.5, size = 1, position = position_jitterdodge(jitter.width = 4.2, dodge.width = 9),
   #           aes(group = food_source, color = food_source)) +
-  
-  # Customize axes
-  scale_x_continuous(breaks = c(0, 24, 48, 72, 144)) +
-  xlab("Time (hours)") +
-  ylab("Cumulated Exploitation Time") +
-  
-  # Customize colors
-  scale_color_manual(values = c("control" = col_control, "virus" = col_virus))
-
-# Print the plot
+  xlab("Time (sec)") +
+  ylab("Cumulated Exploitation Time (sec)") +
+  scale_color_manual(values = c("control" = col_control, "virus" = col_virus)) +
+  theme_bw() +
+  theme(legend.title = element_blank())+
+  theme(legend.title = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
 print(p_cum_exploitation)
+# add points and means as line to plot!!!
 
-p_efficiency <- ggplot(data = NEW_CH_DATA, aes(x = time, y = efficiency)) +
-  #geom_ribbon(data = filter(newdat_sham), aes(ymin = se_lo, ymax = se_hi), fill = alpha(col_sham, linalpha), color = NA) +
-  #geom_ribbon(data = filter(newdat_pathogen, treatment == "PATHOGEN"), aes(ymin = se_lo, ymax = se_hi), fill = alpha(col_path, linalpha), size=linwidth, color = NA) +
-  geom_line(data = filter(newdat_sham), size=linwidth, color = col_sham) +
-  geom_line(data = filter(newdat_pathogen), size=linwidth, color = col_path) +
-  geom_point(data=NEW_CH_DATA,alpha = alpha, size=pointsize, position = position_jitterdodge(jitter.width=4.2,dodge.width = 9),
-             aes(group=treatment, color=treatment)) +
-  #geom_point(data=NEW_CH_DATA,aes(x = jitter_time), pch = 16, size = 3, color = factor(NEW_CH_DATA$treatment, levels = c("PATHOGEN", "SHAM"))) +
-  scale_x_continuous(breaks = c(0, 24, 48, 72, 144)) +
-  xlab("Time since treatment (hours)")+
-  ylab(expression(paste("Efficiency"))) #+
+# !not yet sure if that is right
 
-# annotate("text", x = 36.1, y = 0.39, label = "24h,\np=0.802", size = labsize2)+
-#annotate("text", x = 110, y = 0.39, label = "Treatment X time, p=0.032 *", size = labsize2, fontface='bold')
+#### ALternative approach? 
 
-
-
-
-
-
-
-# code Luke already adapted
+# Obtain estimated marginal means
+emm <- emmeans(mod, ~ food_source * time)
+# Extract predictions and confidence intervals
+emm_df <- as.data.frame(emm)
+ggplot(cumulative_explotation_over_time, aes(x = time, y = cumulated_exploitation_time, color = food_source)) +
+  geom_point() +  # Plot actual data
+  geom_line(data = emm_df, aes(x = time, y = emmean, color = food_source), size = 1) +  # Predicted lines
+  geom_ribbon(data = emm_df, aes(x = time, ymin = lower.CL, ymax = upper.CL, fill = food_source), alpha = 0.2) +  # Confidence intervals
+  labs(title = "Exploitation Over Time by Food Source",
+       x = "Time",
+       y = "Cumulated Exploitation Time") +
+  theme_minimal() +
+  scale_color_manual(values = c("red", "blue")) +  # Adjust colors if needed
+  scale_fill_manual(values = c("red", "blue"))    # Adjust colors if needed
 
 
-# model_eff <- lmer(log_efficiency ~ time*treatment+ (1|colony/subset)+(1|week), data = DF_DATA)
-# car::Anova(model_eff, type=3)
-# summary(model_eff)
-# NEW_CH_DATA<-DF_DATA
 
-# 
-# time_range <- max(NEW_CH_DATA$time)-min(NEW_CH_DATA$time)
-# length(NEW_CH_DATA$time)
-# 
-# newdat$log_efficiency <- predict(model_eff,newdat,re.form=NA)
-# mm <- model.matrix(terms(model_eff),newdat)
-# pvar1 <- diag(mm %*% tcrossprod(vcov(model_eff),mm))
 
-# cmult <- 1.96 ## could use 1.96
-# newdat <- data.frame(
-#   newdat
-#   , sqrt_ci_lo = newdat$log_efficiency-cmult*sqrt(pvar1)
-#   , sqrt_ci_hi = newdat$log_efficiency+cmult*sqrt(pvar1)
-#   ,sqrt_se_lo  = newdat$log_efficiency-sqrt(pvar1)
-#   ,sqrt_se_hi  = newdat$log_efficiency+sqrt(pvar1)
-# )
-# newdat[c("efficiency","ci_lo","ci_hi","se_lo","se_hi")] <- exp(newdat[c("log_efficiency","sqrt_ci_lo","sqrt_ci_hi","sqrt_se_lo","sqrt_se_hi")])
 
-# newdat_sham     <- newdat[which(newdat$treatment=="SHAM"),]
-# newdat_pathogen <- newdat[which(newdat$treatment=="PATHOGEN"),]
 
-# NEW_CH_DATA$treatment <- factor(NEW_CH_DATA$treatment, levels = c("SHAM", "PATHOGEN"))
-# 
 
-# p_efficiency <- ggplot(data = NEW_CH_DATA, aes(x = time, y = efficiency)) +
-#   #geom_ribbon(data = filter(newdat_sham), aes(ymin = se_lo, ymax = se_hi), fill = alpha(col_sham, linalpha), color = NA) +
-#   #geom_ribbon(data = filter(newdat_pathogen, treatment == "PATHOGEN"), aes(ymin = se_lo, ymax = se_hi), fill = alpha(col_path, linalpha), size=linwidth, color = NA) +
-#   geom_line(data = filter(newdat_sham), size=linwidth, color = col_sham) +
-#   geom_line(data = filter(newdat_pathogen), size=linwidth, color = col_path) +
-#   geom_point(data=NEW_CH_DATA,alpha = alpha, size=pointsize, position = position_jitterdodge(jitter.width=4.2,dodge.width = 9), 
-#              aes(group=treatment, color=treatment)) +
-#   #geom_point(data=NEW_CH_DATA,aes(x = jitter_time), pch = 16, size = 3, color = factor(NEW_CH_DATA$treatment, levels = c("PATHOGEN", "SHAM"))) +
-#   scale_x_continuous(breaks = c(0, 24, 48, 72, 144)) +
-#   xlab("Time since treatment (hours)")+
-#   ylab(expression(paste("Efficiency")))#+
-# 
-# #annotate("text", x = 36.1, y = 0.39, label = "24h,\np=0.802", size = labsize2)+
-# #annotate("text", x = 110, y = 0.39, label = "Treatment X time, p=0.032 *", size = labsize2, fontface='bold')
+
+
+
+
 
 
 #### 3.3.5 First feeding ####
+names(dat_duration_first)
+head(dat_duration_first)
+
+first_feeding <- dat_duration_first %>% group_by(colony_id, food_source) %>% 
+  summarise(time_first_feeding = as.numeric(min(feeding_start_seconds, na.rm = TRUE))) %>% as.data.frame()
+
+# mean time until first feeding per food source
+mod <- lmer(log10(time_first_feeding) ~ food_source + (1|colony_id), data = first_feeding)
+summary(mod)
+Anova(mod)
+compareqqnorm(mod); par(mfrow=c(1,1))
+resid <- residuals(object = mod) 
+test_norm(resid)
+par(mfrow=c(2,2))
+scatter.smooth(fitted(mod),resid(mod)); abline(h=0, lty=2)  # residuals vs. fitted
+title("Tukey-Anscombe Plot")
+qqnorm(resid(mod), main="normal QQ-plot, residuals") 
+qqline(resid(mod))  # qq of residuals
+scatter.smooth(fitted(mod), sqrt(abs(resid(mod))))  # homogeneity of variance
+par(mfrow=c(1,1))
+
+
+# on average the virus food is feasted upon earlier than the control food source
+food_first_eaten_from <- first_feeding %>% group_by(colony_id) %>% 
+  arrange(colony_id, time_first_feeding) %>%
+  slice(1) %>% dplyr::select(colony_id, food_first_eaten_from = food_source, time_earliest_feeding = time_first_feeding) %>% as.data.frame()
+  
+t2 <- table(food_first_eaten_from$food_first_eaten_from)
+barplot(t2, main = "", xlab = "food source", ylab = "number of first feedings", ylim = c(0,14), xaxt="n")
+axis(1, at=c(0.7, 1.95), labels=c("control", "virus"))
+segments(x0 = 0.7, y0 =12.5, x1 = 1.9)
+text(x = 1.3, y = 13, label = "p = 0.07 (prop.test)", font = 2, cex = 1.1)
+
+n_virus_eaten_first <- sum(food_first_eaten_from$food_first_eaten_from == "virus")
+n_max <- nrow(food_first_eaten_from)
+binom.test(n_virus_eaten_first, n_max, p = 0.5)
+prop.test(n_virus_eaten_first, n_max, alternative = "two.sided", p = 0.5)
+
+# there might be a trend but it is just not significant
+
+
+
 
 #### 3.3.6 Randomization test ####
+
 
 
 
