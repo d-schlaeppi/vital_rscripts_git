@@ -1399,8 +1399,8 @@ if (RUN_ANALYSIS_AND_SIMULATIONS_DURATION) { # RUN_ANALYSIS_AND_SIMULATIONS_DURA
   }
 }
 
-
-
+#### consider plotting the cumulative exploitation with random data somehow? 
+#### go over this script with Nathalie ... ?!
 
 
 
