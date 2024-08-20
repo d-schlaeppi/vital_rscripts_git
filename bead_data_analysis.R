@@ -1,30 +1,85 @@
-rm(list = setdiff(ls(), "first_time_use_working_directory"))
+rm(list = setdiff(ls(), "first_time_use_working_directory_bead_data"))
 
 ### ### ### ### ### ### ### ### ### ### ### 
 ### Preliminary bead data analysis  ### ###
 ### ### ### ### ### ### ### ### ### ### ### 
 
-#### Read Me ####
+#### 1. Read Me ####
 # First look at the flow cytometry bead data to get an idea on the food consumption and distribution in ant colonies
 # Note: Controls had one for their food source defined as the "virus corresponding food source" in a ~ paired fashion rather randomly... 
 
-#### Prerequisites ####
-if (!exists("first_time_use_working_directory") || first_time_use_working_directory == "") {
+# Preliminary bead data analysis INDEX
+
+#' 1. Read Me
+#' 2. Prerequisites & Dataprep
+#' 2.1 Compiling of Data frames
+#' 2.2 Draw up the bead variable in its final form
+#' 3. INITIAL BEAD ANALYSES
+#' 3.1 BLUE vs YELLOW BEADS
+#' 3.2 Colony level food consumption
+#' 3.3 Feeding Duration (annotations) vs. nuber of Beads
+#' 3.4 Feeding duration vs. Food source 
+#' 3.5 Beads in Brood
+#' 3.6 Beads in  Workers - Individual level analyse
+#' 3.6.1 Treated Workers
+#' 3.6.2 Nestmates (non-treated workers)
+
+
+#### 2. Prerequisites ####
+if (!exists("first_time_use_working_directory_bead_data") || first_time_use_working_directory_bead_data == "") {
   library(tcltk)
   setwd(tk_choose.dir(default = "~/", caption = "Select Working Directory")) # Direct it to where you have config_user_and_hd.R which should be in the script_directory
-  first_time_use_working_directory <- getwd()
-  setwd(first_time_use_working_directory)
-} else {setwd(first_time_use_working_directory)}
+  first_time_use_working_directory_bead_data <- getwd()
+  setwd(first_time_use_working_directory_bead_data)
+} else {setwd(first_time_use_working_directory_bead_data)}
 
-setwd(first_time_use_working_directory)
+setwd(first_time_use_working_directory_bead_data)
 source("config_user_and_hd.R") # contains getUserOptions() that defines usr and hd and the clean() function
 
 # # should now also work on windows and if not quickly define inputs manually:
 # DATADIR <- "D:/DISK_B/vital/fc2"
 # SCRIPTDIR <- "D:/DISK_B/vital/vital_rscripts_git"
-  
 
-#### Creating the different dataframes used for the Analyses ####
+test_norm <- function(mod) { # function from Nathalie # resids
+  cat(blue("Testing normality of residuals for lm or lmer \n
+           (different testing of model assumptions required for other types of models)"))
+  resids <- residuals(object = mod)
+  if (length(resids) <= 300) {
+    print("Fewer than 300 data points so performing Shapiro-Wilk's test")
+    shapiro_result <- shapiro.test(resids)
+    print(shapiro_result)
+    p_value <- shapiro_result$p.value
+    if(p_value >= 0.05) {
+      cat(green("Data is normally distributed\n --> Model is fine... go ahead \U1F44D"))
+      } else {
+        cat(red("Warning: p value below 0.05\n-->  Data significantly deviate from a normal distribution. \nAdjust or change model!"))
+    }
+  } else {
+    print("More than 300 data points so using the skewness and kurtosis approach")
+    print("Skewness should be between -3 and +3 (best around zero)")
+    skew <- skewness(resids)
+    print(paste0("Skewness = ", skew))
+    print("Excess kurtosis (i.e. absolute kurtosis -3) should be less than 4; ideally around zero")
+    kurt <- kurtosis(resids)
+    print(paste0("Kurtosis = ", kurt))
+    if(skew >= -3 & skew <= 3 & kurt < 4){
+      cat(green("Model is fine... go ahead \U1F44D"))
+    } else {
+      cat(red("Warning: Adjust or change model!"))
+    }
+  }
+}
+overdispersion_test <- function(model) {
+  rdf <- df.residual(model)
+  rp <- residuals(model, type = "pearson")
+  Pearson_chisq <- sum(rp^2)
+  prat <- Pearson_chisq / rdf
+  pval <- pchisq(Pearson_chisq, df = rdf, lower.tail = FALSE)
+  c(chisq = Pearson_chisq, ratio = prat, rdf = rdf, p = pval)
+}
+
+
+#### 2.1 Creating the different dataframes used for the Analyses ####
 # read tables
 bead_data <- read.csv("vital_bead_data.csv", header = TRUE) # flowcytometry bead data for all workers that were analysed
 brood <- read.csv("vital_brood_bead_data.csv", header = TRUE) # flowcytometry bead data for all brood (pooled larva samples from each colony)
@@ -123,7 +178,7 @@ combined_bead_data[cols_to_adjust] <- lapply(combined_bead_data[cols_to_adjust],
 
 
 
-#### creating the virus bead variable ####
+#### 2.2 creating the virus bead variable ####
 # disentangling bead color form food source for individual metadata as well as for brood
 brood_data <- subset(combined_bead_data, combined_bead_data$flowjo_sampletype == "sample_brood")
 
@@ -245,12 +300,11 @@ for (df_name in my_dataframes) {
 updated_df_individuals$is_virus_positive <- ifelse( updated_df_individuals$food_1v > 0, "yes", "no") 
 
 
-### ### ### ### ### ### ### ### ### ### ### 
-#### Analyses #### 
-### ### ### ### ### ### ### ### ### ### ###
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 3. INITIAL BEAD ANALYSES #### 
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
 
-
-#### BLUE vs YELLOW BEADS ####
+#### 3.1 BLUE vs YELLOW BEADS ####
 # compare overall number of blue and yellow beads to see if the number of beads (proxy for consumed food) is different between the two colors
 # using controls only as there might to avoid a potential bias 
 updated_df_individuals %>%
@@ -271,7 +325,7 @@ boxplot(log10(updated_df_individuals[updated_df_individuals$treatment_simple == 
         xlab = "color", ylab = "count (log10)", 
         col = c("#FFF2AE", "skyblue"))
 segments(1, 4, 2, 4, lwd = 2)
-text(1.5, 4.2, "p=0.55", cex = 2)
+text(1.5, 4.2, "p=0.55 (wilcox)", cex = 1)
 
 ### noteworthy --> the two beads are equal - NICE, there appears to be no systematic error or random preference for one of the bead colors.
 # --> still, will be including bead color as a random factor when modeling
@@ -281,7 +335,7 @@ text(1.5, 4.2, "p=0.55", cex = 2)
 
 
 
-#### Colony level food consumption ####
+#### 3.2 Colony level food consumption ####
 
 # mean total sum of beads per food source per colony for the two treatments
 
@@ -357,22 +411,41 @@ for (who in c("untreated_only","treated_only", "everyone")){ # who = "everyone" 
 
 
 
+#### 3.3 Feeding Duration (annotations) vs. nuber of Beads  ####
 
-### stats
 # check if bead data reflects manual feeding observations
-
 # for treated individuals correlate bead count with individual feeding time.
 treated_ants <- updated_df_individuals %>% filter(IsTreated == TRUE)
+hist(treated_ants$feeding_duration)
+
+# capping any feeding event longer than 5 minutes. 
+cap_threshold <- 6 * 60  # capping threshold in seconds
+treated_ants$feeding_duration_capped <- ifelse( 
+  treated_ants$feeding_duration > cap_threshold,
+  cap_threshold,
+  treated_ants$feeding_duration)
+hist(treated_ants$feeding_duration_capped)
 
 feeding_summary_colonies <- treated_ants %>% 
   group_by(colony_id) %>% 
-  summarize(colony_total_feeding_duration = sum(feeding_duration, na.rm = TRUE))
-feeding_summary_colonies <- as.data.frame(feeding_summary_colonies)
+  summarize(colony_total_feeding_duration        = sum(feeding_duration, na.rm = TRUE),
+            colony_total_feeding_duration_capped = sum(feeding_duration_capped, na.rm = TRUE)) %>% as.data.frame()
 
 # merge with feeding colony bead data
 feeding_data_merged <- merge(feeding_summary_colonies, colony_sum, by = "colony_id")
-correlation <- cor(feeding_data_merged$colony_total_feeding_duration, feeding_data_merged$total_beads_combined )
-print(paste("Correlation coefficient:", correlation))
+variables <- c("colony_total_feeding_duration", "colony_total_feeding_duration_capped")
+for (var in variables) { # var <-  "colony_total_feeding_duration"
+  correlation <- cor(feeding_data_merged[[var]], feeding_data_merged$total_beads_combined, use = "complete.obs")
+  print(paste("Correlation coefficient:", correlation))
+  p <- ggplot(feeding_data_merged, aes_string(x = var, y = "total_beads_combined")) +
+    geom_point() +
+    geom_smooth(method = "lm", col = "blue") +
+    ggtitle(paste("Scatter Plot and Regression Line (Correlation: ", round(correlation, 2), ")", sep = "")) +
+    xlab("Colony Total Feeding Duration") +
+    ylab("Total Beads Combined") +
+    theme_minimal()
+  print(p)
+}
 
 ggplot(feeding_data_merged, aes(x = colony_total_feeding_duration, y = total_beads_combined)) +
   geom_point() +
@@ -382,51 +455,87 @@ ggplot(feeding_data_merged, aes(x = colony_total_feeding_duration, y = total_bea
   ylab("Total Beads Combined") +
   theme_minimal()
 
-# no correlation - surprising, but it is what it is... we are not really using the manual feeding annotations for anythign so it does not matter
+# feeding duration maybe not the best predictor but look at individual level first: 
+
 # Looking at individual level feeders only and food source they fed on only:
 cor_df <- NULL
 for (i in 1:nrow(treated_ants)) { # i = 1
-  colony_id <- treated_ants$colony_id[i]
-  treatment <- treated_ants$treatment[i]
-  tagID <- treated_ants$tagID[i]
+  colony_id        <- treated_ants$colony_id[i]
+  treatment        <- treated_ants$treatment[i]
+  treatment_simple <- treated_ants$treatment_simple[i]
+  tagID            <- treated_ants$tagID[i]
   feeding_duration <- treated_ants$feeding_duration[i]
-  color <- treated_ants$bead_colour[i]
-  nr_beads <- ifelse(color == "yellow", treated_ants$yellow_beads_cor[i], treated_ants$blue_beads_cor[i])
-  nr_other_beads <- ifelse(color == "yellow", treated_ants$blue_beads_cor[i], treated_ants$yellow_beads_cor[i])
+  feeding_duration_capped <- treated_ants$feeding_duration_capped[i]
+  food_source      <- treated_ants$food_source[i]
+  color            <- treated_ants$bead_colour[i]
+  nr_beads         <- ifelse(color == "yellow", treated_ants$yellow_beads_cor[i], treated_ants$blue_beads_cor[i])
+  nr_other_beads   <- ifelse(color == "yellow", treated_ants$blue_beads_cor[i], treated_ants$yellow_beads_cor[i])
   right_color_of_beads_dominant <- ifelse(nr_beads-nr_other_beads >= 0, "yes", "no")
-  cor_df <-  rbind(cor_df,data.frame(colony_id,
-                                     treatment,
-                                     tagID,
-                                     feeding_duration,
-                                     nr_beads,
-                                     nr_other_beads, 
+  cor_df <-  rbind(cor_df,data.frame(colony_id,               treatment,
+                                     treatment_simple,
+                                     tagID,                   feeding_duration,
+                                     feeding_duration_capped, food_source, 
+                                     nr_beads,                nr_other_beads, 
                                      right_color_of_beads_dominant,
                                      stringsAsFactors = F ))
 }
 
-
-# check if the right colour of bead is dominant or at least equal to the other beads
-cor_df %>% 
-  group_by(colony_id) %>% 
-  summarize(
-    treatment = unique(treatment), 
-    yes = sum(right_color_of_beads_dominant == "yes", na.rm = TRUE),
-    no = sum(right_color_of_beads_dominant == "no", na.rm = TRUE))
-
-# now it is finally looking fine... maybe it is now time to correlate individual feeding duration... and amount of the corresponding beads. 
+# correlate feeding duration and amount of the corresponding beads. 
 cor(cor_df$feeding_duration, cor_df$nr_beads, use = "complete.obs")
 cor.test(cor_df$feeding_duration, cor_df$nr_beads, method = "pearson") # still significant despite the fact that this is after the food is shared with nestmates so the manual feeding annotations were not completely off...
-# Plot the correlation
 plot(cor_df$feeding_duration, cor_df$nr_beads,
      xlab = "Feeding Duration", ylab = "Number of Beads",
      main = "Scatter plot of Feeding Duration vs Number of Beads")
 abline(lm(cor_df$nr_beads ~ cor_df$feeding_duration), col = "blue")
 
 
+#### 3.4 Feeding duration vs. Food source ####
+# compare feeding duration among treated ants 
+boxplot(cor_df$feeding_duration ~ cor_df$food_source)
+boxplot(cor_df$feeding_duration_capped ~ cor_df$food_source)
+cor_df %>% 
+  group_by(treatment_simple, food_source) %>% 
+  summarize(
+    mean_duration = mean(feeding_duration_capped, na.rm = TRUE),
+    sd_duration   = sd(feeding_duration_capped, na.rm = TRUE)
+  )
+
+cor_df %>%
+  filter(!is.na(food_source)) %>%
+  group_by(treatment_simple, food_source) %>%
+  summarize(
+    mean_duration = mean(feeding_duration_capped, na.rm = TRUE),
+    sd_duration   = sd(feeding_duration_capped, na.rm = TRUE),
+    .groups = "drop") %>% as.data.frame()
+
+colors <- c("control" = "#CCEBC5", "virus" = "#FBB4AE")
+ggplot(treated_ants %>% filter(!is.na(food_source)), aes(x = treatment_simple, y = feeding_duration_capped, fill = food_source)) +
+  geom_boxplot() +
+  scale_fill_manual(values = colors) +
+  labs(title = "Feeding Duration by Food Source and Treatment",
+       x = "Treatment",
+       y = "Feeding Duration") +
+  theme_classic()
+
+# decide what model is right: 
+# mod <- lmer(feeding_duration_capped ~ food_source + (1|treatment_simple)  + (1|colony_id), data = treated_ants, family = "poisson") # data not normally distributed
+# mod <- glmer(feeding_duration_capped ~ food_source + (1|treatment_simple)  + (1|colony_id), data = treated_ants, family = "poisson") # quite ok but data is overdispersed which is not ok for poisson?!
+mod <- glmmTMB(feeding_duration_capped ~ food_source + (1|treatment_simple)  + (1|colony_id), data = treated_ants, family = nbinom2) # ration is between 0-1 so should mean that this model is fine
+mod <- glmmTMB(feeding_duration_capped ~ food_source + (1|colony_id), data = treated_ants, family = nbinom2) # variance of treatment_simple is extremely small (1.272e-07), which suggests that this random effect might not be contributing much to the model and was thus removed to improve the model
+#resids <- residuals(object = mod)
+#hist(resids)
+#summary(mod)
+Anova(mod)
+#compareqqnorm(mod); par(mfrow = c(1,1))
+#test_norm(mod)
+overdispersion_test(mod)
 
 
-#### Brood ####
-head(updated_df_brood)
+
+
+
+
+#### 3.5 Beads in Brood ####
 
 # Check if the brood has beads
 updated_df_brood %>%
@@ -438,7 +547,8 @@ updated_df_brood %>%
             food_positive = sum(beads_combined > 0, na.rm = TRUE),
             all_food = mean(beads_combined, na.rm = TRUE))
 
-# only in six colonies (3x control, 3x virus) there is brood with beads indicating that food was delivered to them via the trophallxis feeding chain
+# only in six colonies (3x control, 3x virus) there is brood with beads indicating that food was delivered to them via the trophallxis feeding chain 
+# but in the time window looked at it did not happen very much.
 # the number of beads in all six cases is very low
 
 # plot the bead count by treatment and food type
@@ -457,10 +567,12 @@ ggplot(long_df_brood, aes(x = treatment_simple, y = bead_count, fill = bead_sour
   theme_minimal() +
   scale_fill_manual(values = c("food_1v" = "blue", "food_2c" = "green"))
 
-###Individual analyses
+#### 3.6 Beads in  Workers - Individual level analyses ####
+
 long_df_individuals <- as.data.frame(long_df_individuals)
 long_df_individuals$IsPositive <- as.numeric(long_df_individuals$bead_count>0)
-#### Treated Workers ####
+
+#### 3.6.1 Treated Workers ####
 # get a feel for the data
 updated_df_individuals %>% 
   filter(status_ant == "treated") %>%
@@ -477,29 +589,16 @@ updated_df_individuals %>%
 aggregate(IsPositive ~ treatment_simple + bead_source , FUN=mean, data=long_df_individuals[long_df_individuals$IsTreated==T,])
 ### plot
 treated_workers_long <- subset(long_df_individuals, status_ant == "treated" & !is.na(bead_count))
-ggplot(treated_workers_long, aes(x = treatment_simple, y = bead_count, fill = bead_source)) +
-  geom_boxplot() +
-  geom_text(data = labels_df, aes(label = bead_source, y = coordinates - 0.7), 
-            position = position_dodge(width = 0.75), vjust = 0) +
-  labs(title = "Bead Count by Treatment and Food Type",
-       x = "Treatment Simple",
-       y = "Bead Count") +
-  theme_minimal() +
-  scale_fill_manual(values = c("food_1v" = "blue", "food_2c" = "green"))
 
 ggplot(treated_workers_long, aes(x = treatment_simple, y = log(bead_count+0.5), fill = bead_source)) +
   geom_boxplot() +
   geom_text(data = labels_df, aes(label = bead_source, y = coordinates - 1.5), 
             position = position_dodge(width = 0.75), vjust = 0) +
-  labs(title = "Bead Count by Treatment and Food Type",
+  labs(title = "Treated Workers - Bead Count by Treatment and Food Type",
        x = "Treatment Simple",
        y = "log(Bead Count+0.5)") +
   theme_minimal() +
-  scale_fill_manual(values = c("food_1v" = "blue", "food_2c" = "green"))
-
-#virus only
-treated_workers_long_virus_only <-subset(treated_workers_long, treatment_simple == "virus")
-boxplot(log(treated_workers_long_virus_only$bead_count+0.5) ~ treated_workers_long_virus_only$bead_source)
+  scale_fill_manual(values = c("food_1v" = "#FBB4AE", "food_2c" = "#CCEBC5"))
 
 # figure out the stats... 
 # data not normally distributed and zero inflated and needs, random factors 
@@ -509,41 +608,33 @@ boxplot(log(treated_workers_long_virus_only$bead_count+0.5) ~ treated_workers_lo
 
 
 
-
-
-
-
-
 #### Nestmates (non-treated workers) ####
 
 # feel for the data
-updated_df_individuals %>% 
+scales <- c("treatment", "treatment_simple")
+
+for (scale in scales) {
+to_print <- updated_df_individuals %>% 
   filter(status_ant == "untreated") %>%
-  group_by(treatment) %>%
+  group_by(across(all_of(scale))) %>%
   summarize(nr_nestmates = n(),
             nr_f1_pos = sum(food_1v > 0, na.rm = TRUE),
             mean_f1 = mean(food_1v, na.rm = TRUE),
             nr_f2_pos = sum(food_2c > 0, na.rm = TRUE),
             mean_f2 = mean(food_2c, na.rm = TRUE),
             food_positive = sum(beads_combined > 0, na.rm = TRUE),
-            all_food = mean(beads_combined, na.rm = TRUE))
-aggregate(IsPositive ~ treatment_simple + bead_source , FUN=mean, data=long_df_individuals[long_df_individuals$IsTreated==F,])
-aggregate(IsPositive ~ treatment_simple + bead_source , FUN=std.error, data=long_df_individuals[long_df_individuals$IsTreated==F,])
+            all_food = mean(beads_combined, na.rm = TRUE)) %>% as.data.frame()
+print(to_print)
+}
+
+
+
+
 
 ### plot
 nestmates_long <- subset(long_df_individuals, status_ant == "untreated" & !is.na(bead_count))
 nestmates_long <- as.data.frame(nestmates_long)
 nestmates_long$food1_colour <- substr(nestmates_long$treatment,2,2)
-
-ggplot(nestmates_long, aes(x = treatment_simple, y = bead_count, fill = bead_source)) +
-  geom_boxplot() +
-  geom_text(data = labels_df, aes(label = bead_source, y = coordinates - 0.7), 
-            position = position_dodge(width = 0.75), vjust = 0) +
-  labs(title = "Bead Count by Treatment and Food Type",
-       x = "Treatment Simple",
-       y = "Bead Count") +
-  theme_minimal() +
-  scale_fill_manual(values = c("food_1v" = "blue", "food_2c" = "green"))
 
 ggplot(nestmates_long, aes(x = treatment_simple, y = log(bead_count+0.5), fill = bead_source)) +
   geom_boxplot() +
@@ -553,10 +644,29 @@ ggplot(nestmates_long, aes(x = treatment_simple, y = log(bead_count+0.5), fill =
        x = "Treatment Simple",
        y = "log(Bead Count+0.5)") +
   theme_minimal() +
-  scale_fill_manual(values = c("food_1v" = "blue", "food_2c" = "green"))
+  scale_fill_manual(values = c("food_1v" = "#FBB4AE", "food_2c" = "#CCEBC5"))
+
+
+#### Nestmates Binomial Analysis ####
+# aggregate means & std errors
+mean_data <- aggregate(IsPositive ~ treatment_simple + bead_source, 
+                       FUN = mean, data = long_df_individuals[long_df_individuals$IsTreated == FALSE,])
+std_error_data <- aggregate(IsPositive ~ treatment_simple + bead_source, 
+                            FUN = std.error,  data = long_df_individuals[long_df_individuals$IsTreated == FALSE,])
+names(std_error_data)[names(std_error_data) == "IsPositive"] <- "std_error"
+binomial_data_mean_std <- left_join(mean_data, std_error_data, by = c("treatment_simple", "bead_source"))
+
+ggplot(binomial_data_mean_std, aes(x = treatment_simple, y = IsPositive, fill = bead_source)) +
+  geom_bar(stat = "identity", position = position_dodge(), color = "black") +
+  geom_errorbar(aes(ymin = IsPositive - std_error, ymax = IsPositive + std_error), 
+                position = position_dodge(0.9), width = 0.25) +
+  labs(title = "Mean IsPositive by Treatment and Bead Source",
+       x = "Treatment",
+       y = "Mean IsPositive") +
+  scale_fill_manual(values = c("food_2c" = "#CCEBC5", "food_1v" = "#FBB4AE")) +
+  theme_classic()
 
 ### stats
-
 model_binomial <- glmer ( IsPositive ~ treatment_simple * bead_source + (1|food1_colour)  + (1|colony_id) + (1|colony_id/antID ) , family=binomial, data=nestmates_long)
 Anova(model_binomial)
 if(Anova(model_binomial)["treatment_simple:bead_source","Pr(>Chisq)"]<0.05){
@@ -567,31 +677,38 @@ if(Anova(model_binomial)["treatment_simple:bead_source","Pr(>Chisq)"]<0.05){
                         "Control_F2 minus Virus_F2"=c(0,-1,0,-1),
                         "Virus_F1 minus Virus_F2"=c(0,0,-1,-1))
   print(summary(glht(model_binomial,linfct=contrast_mat),test=adjusted("BH")))
-  
 }
+
 
 # stats number of ants positive in the virus treatment: 
 # Create a data frame with all the relevant information
 data <- data.frame(
   treatment = rep(c("Control", "Virus"), each = 2),
   food_type = rep(c("Control", "Control", "Virus", "Control")),
-  positive = c(365, 375, 465, 389),
-  total = c(1015, 1015, 1023, 1023)
+  positive = c(355, 385, 345, 377),
+  total = c(1015, 1015, 771, 771)
 )
-# Fit a logistic regression model
-model <- glm(cbind(positive, total - positive) ~ treatment + food_type, data = data, family = binomial)
-summary(model)
-# ants are more significantly more likely to positive for the virus food source compared to the control food source
-# indicates that virus food sources might be overproportinally shared with nestmates
 
-# is the number of beads also higher?
+# Fit a logistic regression model
+model <- glmer(cbind(positive, total - positive) ~ food_type + (1|treatment), data = data, family = binomial)
+summary(model)
+# not significant so maybe no effect of food source on the number of recipients? 
+
 # probably some generalized mixed model with poisson distribution and random factors for colony, bead color and individual but taking into account zero inflation???
 mod <- glmmTMB(bead_count ~ food_type + (1|colony_id) + (1|bead_color) , data = nestmates_long, ziformula = ~1)
 summary(mod)
-
 # nonparametric test to see if the number of beads is higher for the virus food source within the virus treatment... 
 wilcox.test(nestmates_long$bead_count[nestmates_long$treatment_simple == "virus" & nestmates_long$bead_source == "food_2c"], 
             nestmates_long$bead_count[nestmates_long$treatment_simple == "virus" & nestmates_long$bead_source == "food_1v"])
 
+
+
+
+#### IMPORTANT TO DOS ####
+#' 1 -  Check random assignment of control food source and pairing with treatment colonies?!
+#' 2 -  Finally do Network analyses to see if there are any differences among the treatments!!!
+#' 3 -  Check out the tandem running paper
+#' 4 -  See what analyses to run to see the spread of the bead food sources based on temporal networks - information flow.
+#' ``
 
 
