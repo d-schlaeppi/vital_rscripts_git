@@ -6,8 +6,8 @@ rm(list = setdiff(ls(), "first_time_use_working_directory"))
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
 
 #### READ ME ####
-#' This script was written by Nathalie Stroexmeyt and Daniel Schläppi
-#' It contains the analysis of the binary food choice experient conducted prior to the vital tracking experiment
+#' This script was written by Nathalie Stroeymeyt and Daniel Schläppi
+#' It contains the analysis of the binary food choice experiment conducted prior to the vital tracking experiment
 #' Of 16 colonies 2 feeding events were recorded (one week apart) at each the ants were presented with a virus or a control food source
 #' the side of the where the virus was placed has been chosen pseudo randomly to avoid learning effects from 1th to 2nd feeding
 #' The first data table contains the information on the number of ants present at each of the food sources at any given time 
@@ -40,11 +40,9 @@ rm(list = setdiff(ls(), "first_time_use_working_directory"))
 
 #### 1. Prerequisites ####
 
-
 # choose directory 
 if (!exists("first_time_use_working_directory") || first_time_use_working_directory == "") {
-  library(tcltk)
-  setwd(tk_choose.dir(default = "~/", caption = "Select Working Directory"))
+  setwd(tcltk::tk_choose.dir(default = "~/", caption = "Select Working Directory"))
   first_time_use_working_directory <- getwd()
   setwd(first_time_use_working_directory)
   cat(blue(getwd()))
@@ -57,25 +55,24 @@ dat_duration <- read.csv("vital_fc1_data_feedingdurations.csv", header = TRUE)
 
 # libraries
 # install.packages("pacman")
-library(pacman)
 pacman::p_load(lubridate, plotrix, scales, car, lme4, Hmisc, 
                dplyr, tidyverse, blmeco, lmtest, lsmeans, lubridate,
                emmeans, multcompView, multcomp, viridis, crayon, 
                e1071, glmmTMB, DHARMa, merTools, tidyr, pheatmap, grid,
-               progress)
+               progress, ggplot2)
 
 # functions
 sem <- function(x) {sd(x,na.rm=T)/sqrt(length(na.omit(x)))} # standard error of means
 source("func_test_norm.R")  # adds test_norm() to the environment.
 
 # parameters
-RUN_ANALYSIS_AND_SIMULATIONS_NR <- FALSE
+RUN_ANALYSIS_AND_SIMULATIONS_NR <- TRUE
 RUN_ANALYSIS_AND_SIMULATIONS_DURATION <- TRUE
 
 # create time point vecotr (13 time points from t00, t05...t60)
-# Time_points_to_include <- 1:13 # full hour 
-Time_points_to_include <- 1:5  # first 20 minutes (was significant in the past)
-total_iterations <- 1000 # number of iterations in randomization loops
+Time_points_to_include <- 1:13 # full hour 
+# Time_points_to_include <- 1:5  # first 20 minutes (was significant in the past)
+total_iterations <- 500 # number of iterations in randomization loops
 
 
 
@@ -193,7 +190,6 @@ df1 <- group_by(data, colony_id, feeding_session, status) %>%
     first_source_discovered = first(first_source_discovered)
   )
 boxplot(df1$mean ~ df1$status) #plotting the two feeding sessions pooled (two means per colony)
-boxplot(df1$mean ~ df1$status + df1$feeding_session) #boxplot feeding session separately
 
 par(mar=c(5.1, 4.5, 4.1, 1.8),
     cex.lab=1.3, 
@@ -350,7 +346,7 @@ ggplot(data_plot2_wide, aes(x = factor(feeding_session), fill = factor(first_dis
   geom_bar(position = "stack") +
   scale_fill_manual(values = c("0" = "#CCEBC5", "1" = "#FBB4AE"), 
                     labels = c("0" = "Control", "1" = "Virus")) +
-  labs(x = "Week", y = "Count of first discovery", fill = "First Discovered") +
+  labs(x = "Feeding Session", y = "Count of first discovery", fill = "First Discovered") +
   scale_y_continuous(limits = c(0, 18), breaks = c(0, 4, 8, 12, 16)) +
   theme_classic() +
   annotate("text", x = 1.9 , y = 18, label = "p = 0.07 (glmer bino)", 
@@ -361,7 +357,7 @@ ggplot(data_plot2_wide, aes(x = factor(feeding_session), fill = factor(first_dis
 heatmap_data <- data_plot2_wide %>%
   dplyr::select(colony_id, feeding_session, first_discovered_binomial) %>%
   pivot_wider(names_from = feeding_session, values_from = first_discovered_binomial) %>%
-  column_to_rownames(var = "colony_id") %>%
+  tibble::column_to_rownames(var = "colony_id") %>%
   as.matrix()
 pheatmap(heatmap_data, 
          cluster_rows = FALSE,
@@ -371,7 +367,7 @@ pheatmap(heatmap_data,
          labels_col = c("Week 1", "Week 2"),
          show_rownames = TRUE,
          show_colnames = TRUE)
-# Not really a trend visible...
+# Not trend visible, would require more data
 
 
 
@@ -404,6 +400,7 @@ ggplot(data = data_plot3, aes(x = time_min, y = mean, color = status)) +
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
 
 if (RUN_ANALYSIS_AND_SIMULATIONS_NR) { # RUN_ANALYSIS_AND_SIMULATIONS_NR <- TRUE
+  
  for (time_origin in c("same","shifted")){ # time_origin <- "same"
   ### get dynamic data
   dynamic_dat_Nb      <- get(paste("dynamic_dat",time_origin,"t0","Nb",sep="_")) 
@@ -484,6 +481,13 @@ if (RUN_ANALYSIS_AND_SIMULATIONS_NR) { # RUN_ANALYSIS_AND_SIMULATIONS_NR <- TRUE
   random_data_dynamic_Nb <- NULL
   random_data_Diff       <- NULL 
   
+  pb <- progress_bar$new(
+    format = "Progress: :current/:total [:bar] :percent ETA: :eta",
+    total = total_iterations,
+    clear = FALSE,
+    width = 60
+  )
+  
   for (i in 1 : total_iterations){ ### randomisation loop # i <- 1
     rand_Nb   <- NULL
     rand_Diff <- NULL
@@ -523,7 +527,8 @@ if (RUN_ANALYSIS_AND_SIMULATIONS_NR) { # RUN_ANALYSIS_AND_SIMULATIONS_NR <- TRUE
     ### and we concatenate
     random_data_dynamic_Nb <- rbind(random_data_dynamic_Nb,data.frame(RAND=i, feeding_session=session, mean_rand_dat_Nb))
     random_data_Diff       <- rbind(random_data_Diff      ,data.frame(RAND=i, feeding_session=session, mean_rand_dat_Diff))
-  }
+    pb$tick()
+    }
   
   ### Plot expected vs observed, Delta ants
   xmin <- min (c(random_data_Diff$Delta_Nb_ants),observed_Diff[,"Delta_Nb_ants"])
@@ -547,7 +552,6 @@ if (RUN_ANALYSIS_AND_SIMULATIONS_NR) { # RUN_ANALYSIS_AND_SIMULATIONS_NR <- TRUE
   }
  }
 }
-
 
 
 
@@ -766,8 +770,8 @@ mod <- lmer(log10(total_feeding_duration) ~ food_source + (1|colony_id) , data =
 summary(mod)
 Anova(mod)
 compareqqnorm(mod)
-aov_residuals <- residuals(object = mod)
-shapiro.test(x = aov_residuals) # not significant good
+test_norm(mod)
+
 
 ggplot(dat_summary, aes(x = food_source, y = total_feeding_duration, fill = food_source)) +
   geom_boxplot() +
@@ -791,70 +795,14 @@ ggplot(dat_summary, aes(x = food_source, y = total_feeding_duration, fill = food
 # plot a time curve showing the exploitation of the two food sources
 # plot a the rate of exploitation over time 
 
-# ### OLD bin approach (Replaced by loop below)
-# # Convert feeding_start to a proper datetime format
-# dat_duration_first_bin <- dat_duration_first %>%
-#   mutate(feeding_start = hms::as_hms(feeding_start))
-# # Identify discovery times for each colony and food source and add to data
-# discovery_times <- dat_duration_first_bin %>%
-#   group_by(colony_id, food_source) %>%
-#   summarize(discovery_time = min(feeding_start, na.rm = TRUE)) %>%
-#   ungroup()
-# dat_duration_first_bin <- dat_duration_first_bin %>%
-#   left_join(discovery_times, by = c("colony_id", "food_source"))
-# # Calculate time since discovery in seconds and filter to only the feeding events starting within the 60 min (3600s) window since discovery of the food source
-# dat_duration_first_bin <- dat_duration_first_bin %>%
-#   mutate(time_since_discovery = as.numeric(feeding_start - discovery_time, units = "secs"))
-# dat_duration_60min <- dat_duration_first_bin %>%
-#   filter(time_since_discovery >= 0 & time_since_discovery <= 3600)
-# # time bin column (e.g., 60-second intervals)
-# dat_duration_60min <- dat_duration_60min %>%
-#   mutate(time_bin = floor(time_since_discovery / 60) * 60)
-# # Calculate total exploitation within each time bin for each colony and food source
-# total_exploitation <- dat_duration_60min %>%
-#   group_by(colony_id, food_source, time_bin) %>%
-#   summarize(total_exploitation = sum(feeding_duration_seconds, na.rm = TRUE), .groups = 'drop')
-# # Make sure all colonies have all time bins even if there is no feeding event at any given time
-# time_bins <- seq(0, 3600, by = 60) # complete grid of colony_id, food_source, and time_bin
-# complete_grid <- expand_grid(
-#   colony_id = unique(dat_duration_60min$colony_id),
-#   food_source = unique(dat_duration_60min$food_source),
-#   time_bin = time_bins
-# )
-# # Left join the complete grid with the total_exploitation data
-# cumulative_per_colony <- complete_grid %>%
-#   left_join(total_exploitation, by = c("colony_id", "food_source", "time_bin")) %>%
-#   replace_na(list(total_exploitation = 0)) %>%
-#   arrange(colony_id, food_source, time_bin) %>%
-#   group_by(colony_id, food_source) %>%
-#   mutate(cumulative_exploitation = cumsum(total_exploitation)) %>%
-#   ungroup()
-# cumulative_per_colony <- as.data.frame(cumulative_per_colony)
-# # Calculate the mean cumulative exploitation across colonies for each food source and time bin
-# mean_cumulative_exploitation <- cumulative_per_colony %>%
-#   group_by(food_source, time_bin) %>%
-#   summarize(mean_cumulative_exploitation = mean(cumulative_exploitation, na.rm = TRUE), .groups = 'drop')
-# # Plot the mean cumulative results
-# ggplot(mean_cumulative_exploitation, aes(x = time_bin, y = mean_cumulative_exploitation, color = food_source)) +
-#   geom_line(size = 1) +
-#   labs(title = "Mean Cumulative Exploitation of Food Sources Over Time",
-#        x = "Time Since Discovery (seconds)",
-#        y = "Mean Cumulative Feeding Duration (seconds)") +
-#   scale_x_continuous(breaks = seq(0, 3600, by = 300), limits = c(0, 3600)) +
-#   scale_color_manual(values = c("virus" = "#FBB4AE", "control" = "#CCEBC5")) +
-#   theme_bw() +
-#   theme(legend.title = element_blank())+
-#   theme(legend.title = element_blank(),
-#         panel.grid.major = element_blank(),
-#         panel.grid.minor = element_blank())
-
-
 # create a full grid with seconds, food_source and colonies and add in the the original data:
+
+# transform time to seconds
 dat_duration_first$feeding_start_seconds <- period_to_seconds(hms(dat_duration_first$feeding_start))
 dat_duration_first$feeding_end_seconds <- dat_duration_first$feeding_start_seconds + dat_duration_first$feeding_duration_seconds_capped
 
 # run the below for shifted or non shifted time points....
-for (start_time in c( "discovery_first_food", "shifted_discovery", "start_experiment")) { # could also include discovery of first food but has been removed to save time: "discovery_first_food", 
+for (start_time in c("start_experiment", "discovery_first_food", "shifted_discovery")) { # keep shifted for last...
   if (start_time == "start_experiment") {
     subsetted_data <- dat_duration_first
   }
@@ -973,9 +921,8 @@ for (start_time in c( "discovery_first_food", "shifted_discovery", "start_experi
 
 # cumulative exploitation for shifted starting times per food source is already loaded if the code above has been run, if not you need to get it.
 # mod <- lmer(cumulated_exploitation_time ~ food_source*time + (1|colony_id), data = cumulative_explotation_over_time)
-
+cumulative_explotation_over_time %>% as.data.frame()
 cumulative_explotation_over_time$cumulated_exploitation_time[5]
-head(cumulative_explotation_over_time)
 
 mod <- lmer(cumulated_exploitation_time ~ food_source*time + (1|colony_id), data = cumulative_explotation_over_time)
 summary(mod)
@@ -1016,8 +963,8 @@ p_cum_exploitation <- ggplot(data = new_dat, aes(x = time, y = cumulated_exploit
   geom_ribbon(data = new_dat_control, aes(ymin = ci_lo, ymax = ci_hi), fill = alpha(col_control, 0.2), color = NA) + # ribbons for standard error ranges
   geom_ribbon(data = new_dat_virus, aes(ymin = ci_lo, ymax = ci_hi), fill = alpha(col_virus, 0.2), color = NA) +
   # Add points for observed data
-  #geom_point(alpha = 0.5, size = 1, position = position_jitterdodge(jitter.width = 4.2, dodge.width = 9),
-  #           aes(group = food_source, color = food_source)) +
+  geom_point(alpha = 0.5, size = 0.1, position = position_jitterdodge(jitter.width = 4.2, dodge.width = 9),
+            aes(group = food_source, color = food_source)) +
   xlab("Time (sec)") +
   ylab("Cumulated Exploitation Time (sec)") +
   scale_color_manual(values = c("control" = col_control, "virus" = col_virus)) +
@@ -1028,6 +975,43 @@ p_cum_exploitation <- ggplot(data = new_dat, aes(x = time, y = cumulated_exploit
         panel.grid.minor = element_blank())
 print(p_cum_exploitation)
 # add points and means as line to plot!!!
+
+### the combined plot with predicted values and real data does not work yet, but it can wait.
+
+# mean_exploitation_time <- cumulative_explotation_over_time %>%
+#   group_by(time, food_source) %>%
+#   summarize(mean_time = mean(cumulated_exploitation_time, na.rm = TRUE),
+#             sd = sd(cumulated_exploitation_time, na.rm = TRUE), 
+#             sem = sem(cumulated_exploitation_time)) %>% as.data.frame()
+# 
+# combined_plot <- ggplot(mean_exploitation_time, aes(x = time, y = mean_time, color = food_source)) +
+#   geom_line(size = 1) +
+#   geom_ribbon(aes(ymin = mean_time - sem, ymax = mean_time + sem, fill = food_source), alpha = 0.2) +
+#   geom_line(data = new_dat_control, aes(x = time, y = cumulated_exploitation_time), size = 1.2, color = col_control) +
+#   geom_ribbon(data = new_dat_control, aes(x = time, ymin = ci_lo, ymax = ci_hi), fill = alpha(col_control, 0.2), color = NA) +
+#   
+#   # Plotting actual data for the virus group
+#   geom_line(data = new_dat_virus, aes(x = time, y = cumulated_exploitation_time), size = 1.2, color = col_virus) +
+#   geom_ribbon(data = new_dat_virus, aes(x = time, ymin = ci_lo, ymax = ci_hi), fill = alpha(col_virus, 0.2), color = NA) +
+# 
+#   labs(
+#     title = title_lab_1,
+#     x = "Time",
+#     y = "Mean Cumulated Exploitation Time (seconds)"
+#   ) +
+#   scale_color_manual(values = c("virus" = "#FBB4AE", "control" = "#CCEBC5")) +
+#   theme_bw() +
+#   theme(legend.title = element_blank(),
+#         panel.grid.major = element_blank(),
+#         panel.grid.minor = element_blank())
+# 
+# # Print the combined plot
+# print(combined_plot)
+
+
+
+
+
 
 # !not yet sure if that is right
 
@@ -1054,8 +1038,6 @@ print(p_cum_exploitation)
 
 
 #### 3.3.5 First feeding ####
-names(dat_duration_first)
-head(dat_duration_first)
 
 first_feeding <- dat_duration_first %>% group_by(colony_id, food_source) %>% 
   summarise(time_first_feeding = as.numeric(min(feeding_start_seconds, na.rm = TRUE))) %>% as.data.frame()
@@ -1094,8 +1076,6 @@ prop.test(n_virus_eaten_first, n_max, alternative = "two.sided", p = 0.5)
 # there might be a trend but it is just not significant --> nonetheless, randomization required to disentangle effect of first discovery from a potential preference or whatever it is.
 
 
-#### 3.3.6 Randomization II ####
-
 
 
 #### 3.3.6 Randomization II #### 
@@ -1121,7 +1101,7 @@ colony_metadata <- dat_duration_first %>%
 
 if (RUN_ANALYSIS_AND_SIMULATIONS_DURATION) { # RUN_ANALYSIS_AND_SIMULATIONS_DURATION <- TRUE
   ### Get data calculate and plot cumulative exploitation and exploitation rate
-  for (start_time in c( "discovery_first_food", "shifted_discovery", "start_experiment")) { # Loop over three different definitions of †0 # start_time = "discovery_first_food"
+  for (start_time in c( "discovery_first_food", "shifted_discovery")) { # Loop over different definitions of †0 an other option would be # "start_experiment" # start_time = "discovery_first_food"
     time_origin <- start_time
     # get subsetted data
     if (start_time == "start_experiment") {
@@ -1379,6 +1359,7 @@ if (RUN_ANALYSIS_AND_SIMULATIONS_DURATION) { # RUN_ANALYSIS_AND_SIMULATIONS_DURA
     ### Plot expected vs observed Exploitation rate
     xmin <- min (c(mean_random_data_dynamic_dur_DIFF$delta_exploitation_rate),observed_Diff[,"delta_exploitation_rate"])
     xmax <- max (c(mean_random_data_dynamic_dur_DIFF$delta_exploitation_rate),observed_Diff[,"delta_exploitation_rate"])
+    hist(mean_random_data_dynamic_dur_DIFF$delta_exploitation_rate,col=alpha("grey",0.5),xlim=c(xmin,xmax),main=paste("Observed vs Expected,",capitalize(time_origin),"T0"), xlab=expression(paste(Delta, " exploitation rate")))
     hist(mean_random_data_dynamic_dur_DIFF$delta_exploitation_rate,col=alpha("grey",0.5),xlim=c(xmin,xmax),main=paste("Observed vs Expected,",capitalize(time_origin),"T0"), xlab=expression(paste(Delta, " exploitation rate")))
     arrows(x0=observed_Diff[,"delta_exploitation_rate"],
            y0=0,
