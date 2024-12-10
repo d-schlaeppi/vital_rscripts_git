@@ -1,6 +1,8 @@
-#### Test Normaldistribution of Residuals ####
-#' Short function to test the wether the distribution of residuals from linear models (lm and lmer) deviates from a normal distribution 
-#' Glmer might require other testing as other assumptions are made...
+#### Test Normal distribution of Residuals ####
+#' Function to test the whether the distribution of residuals from linear models (lm and lmer) deviates from a normal distribution 
+#' Glmer requires other testing as other assumptions are made... depending on the family argument
+#' 
+#' Literatur on the skewness and kurtosis approach: doi: 10.5395/rde.2013.38.1.52
 
 test_norm <- function(mod) { # function from Nathalie # resids
   cat(blue("Testing normality of residuals for lm or lmer \n(assumptions likely different other types of models)\n"))

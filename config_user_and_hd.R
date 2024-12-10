@@ -12,113 +12,19 @@
 # additionally it loads a couple of libraries and functions required in other scripts further down the analysis pipelines
 
 #### Libraries ####
-library(tcltk)
-# library(adehabitatHR)
-# library(adehabitatLT)
-# library(changepoint)
-# library(e1071)
-library(igraph)
-# library(gtools)
-library(Rcpp)   # contains sourceCpp()
-library(survival) #contains coxph() function
-# library(entropy)
-library(moments) # contains skewness function... 
-library(crayon) # cloring messages in the terminal
-library(tcltk)
-library(dplyr)
-library(tidyr)
-library(ggplot2)
-library(lme4)
-library(car)
-library(glmmTMB)
-library(multcomp)
-library(multcompView)
-library(plotrix)
-library(blmeco) #model testing comqqnorm
-library(DHARMa) # model testing
-library(emmeans)
-
-# getUserOptions <- function() {
-#   # select user
-#   options <- list(
-#     "2A13_Office_Daniel" = "gw20248",
-#     "Nath_office" = "bzniks",
-#     "AEL-laptop" = "ael",
-#     "mac_gismo" = "gismo",
-#     "2A13_Office_Adriano" = "cf19810",
-#     "other Linux computer" = "to_be_defined"
-#   )
-#   usr_index <- menu(names(options), title = "Select USER option:")
-#   usr <- options[[names(options)[usr_index]]]
-#   if (usr == "to_be_defined") {
-#     usr <- basename(tk_choose.dir(default = paste0("~/"), caption = "Select User - just press ok"))
-#   }
-#   if (is.na(usr)) {
-#     stop("User canceled the selection.")
-#   }
-#   # select hard drive
-#   hd <- basename(tk_choose.dir(default = paste0("/media/", usr), caption = "Select Hard Drive - doubleclick HD and press ok")) # Opens a directory dialog for selecting the hard drive
-#   if (is.na(hd) || hd == "") {
-#     stop("User canceled the selection.")
-#   }
-#   
-#   # output
-#   cat("Selected USER:", usr, "\n")
-#   cat("Selected HD:", hd, "\n")
-#   assign("usr", usr, envir = .GlobalEnv)
-#   assign("hd", hd, envir = .GlobalEnv)
-# }
+pacman::p_load(
+  tcltk, igraph, dplyr, tidyr, ggplot2, lme4, car, glmmTMB, multcomp, multcompView, crayon, plotrix, emmeans,
+  Rcpp,   # contains sourceCpp()
+  survival, #contains coxph() function
+  moments, # contains skewness function
+  DHARMa, blmeco, #model testing comqqnorm
+  )
+# further libraries used by adriano but probably not required
+# adehabitatHR, adehabitatLT, changepoint, e1071, gtools, entropy
 
 
-### old version opening user interface with buttons... but too much clicking when repeatedly rerunning the script ###
-# getUserOptions <- function() {
-#   ## old version using a little user interface to load user...
-#   # win <- tktoplevel()
-#   # tkwm.title(win, "Are you using Linux or is this Daniel messing around on his mac?")
-#   # tkwm.geometry(win, "600x100")
-#   # choice <- tclVar("") # Variable to store the user's choice
-#   # on_button_click <- function(os) { # Function to handle button clicks
-#   #   tclvalue(choice) <- os
-#   #   tkdestroy(win)
-#   # }
-#   # # Create and position buttons
-#   # button_linux <- tkbutton(win, text = "Linux", command = function() on_button_click("Linux"), font = tkfont.create(size = 15)) 
-#   # button_mac <- tkbutton(win, text = "Mac", command = function() on_button_click("Mac"), font = tkfont.create(size = 15))
-#   # button_else <- tkbutton(win, text = "else", command = function() on_button_click("else"), font = tkfont.create(size = 15))
-#   # tkpack(button_linux, side = "left", padx = 10)
-#   # tkpack(button_mac, side = "left", padx = 10)
-#   # tkpack(button_else, side = "left", padx = 10)
-#   # tkwait.window(win) # Wait for the user to click a button
-#   os <- Sys.info()["sysname"]
-#   usr <- ""
-#   hd <- ""
-#   mac <- FALSE
-#   if (os == "Linux") { #use tclvalue(choice) isntead of os with the old version
-#     usr <- system("whoami", intern = TRUE)
-#     media_drives <- list.dirs(paste0("/media/", usr), full.names = TRUE, recursive = FALSE)
-#     if (length(media_drives) == 1) { # if only one hd is plugged in it should be automatically detected
-#       hd <- basename(media_drives)
-#     } else {
-#       hd <- basename(tk_choose.dir(default = paste0("/media/", usr), caption = "Select Hard Drive - double click HD and press ok"))  # select hd if more than one is loaded
-#     }
-#   } else if (os == "Darwin") {
-#     usr <- Sys.info()["user"]
-#     hd <- basename(tk_choose.dir(default = "/Volumes", caption = "Select Hard Drive - double click HD and press ok"))
-#     cat(red(paste("Warning: The code below has been coded for Linux and might not work as intended on this device")), "\n")
-#     mac <- TRUE
-#   }  else if (os == "Windows") {
-#     DATADIR <- "D:/r_data/"
-#     SCRIPTDIR <- "D:/r_data/"
-#   }else if (tclvalue(choice) == "else") {
-#     cat(red(paste("Warning: Please define usr (User) and hd (hard drive) manually and adjust code to get data if necessary")), "\n")
-#   }
-#   # Output
-#   cat("Selected USER:", usr, "\n")
-#   cat("Selected HD:", hd, "\n")
-#   assign("usr", usr, envir = .GlobalEnv);  assign("hd", hd, envir = .GlobalEnv);  assign("mac", mac, envir = .GlobalEnv)
-# }
-# getUserOptions()
 
+#### get information on operation system, user and hard drive ####
 getUserOptions <- function() {
   os <- Sys.info()["sysname"]
   usr <- ""
@@ -163,8 +69,12 @@ getUserOptions <- function() {
   assign("hd", hd, envir = .GlobalEnv)
   assign("os", os, envir = .GlobalEnv)
 }
+
 getUserOptions()
 
+
+
+#### define data paths based on user information ####
 set_directories <- function(os, hd, usr) {
   if (os == "Linux") {
     DATADIR <- paste("/media", usr, hd, "vital/fc2", sep = "/")
@@ -188,8 +98,11 @@ set_directories <- function(os, hd, usr) {
   cat("SCRIPTDIR:", SCRIPTDIR, "\n")
   cat(blue(paste("Current working directory:", DATADIR)), "\n")
 }
+
 set_directories(os, hd, usr)
 
+
+#### Additional Functions ####
 plot_model_diagnostics <- function(model) {
   x <- compareqqnorm(model)   # Compare QQ plot
   cat("Press Enter to continue...")
@@ -212,7 +125,7 @@ plot_model_diagnostics <- function(model) {
 } # simple finction to display some model plots - not sure what models it works for... should be ok for lmer
 
 
-#### functions #### 
+
 choose_data_path <- function() {
   if (os == "Windows") {
     cat(red("Warning: Does not work on Windows\n"))
