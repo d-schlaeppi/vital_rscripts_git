@@ -1,31 +1,28 @@
-rm(list=ls())
+rm(list = setdiff(ls(), "first_time_use_working_directory"))
+
 ### ### ### ### ### ### ### ### ### ### 
 #### 20 Statistic and plots ####
 ### ### ### ### ### ### ### ### ### ### 
 
 #### Read me ####
 # Code written by Daniel Schläppi based on a previous version written by Nathalie Stroeymeyt and Adriano Wanderlingh
-# Run all the previous scirpt from the main analysis (Vital_main_analysis.R) to have all the processed data ready.
+# Run all the previous scripts from the main analysis (Vital_main_analysis.R) to have all the processed data ready for this code.
 
-#### Todo's ####
-# merge with the bead analysis
-# finish the trophallaxis stuff first to have those networks in the right format as well
 
 
 #### prerequisites ####
 
-USER <- "2A13_Office" # Nath_office 
-DISK <-  "Seagate Portable Drive" #"DISK4"
+# Set working directory, datapaths and define user 
+if (!exists("first_time_use_working_directory") || first_time_use_working_directory == "") {
+  library(tcltk)
+  setwd(tk_choose.dir(default = "~/", caption = "Select Working Directory")) # Direct it to where you have config_user_and_hd.R which should be in the script_directory
+  first_time_use_working_directory <- getwd()
+  setwd(first_time_use_working_directory)
+} else {setwd(first_time_use_working_directory)}
+
+source("config_user_and_hd.R") 
 
 
-if (USER == "2A13_Office") {
-  usr <- "cf19810"
-  source_path <- paste0("/home/",usr,"/Ant_Tracking/Scripts/code_Social_Network_Plasticity_Exp_2018_AW/2_statistics_and_plotting/source")
-} else {
-  usr <- "bzniks"
-  warning("the up to date code is in https://github.com/AdrianoWanderlingh/PhD-Ant_Colonies_Tracking_Analysis/. \n\nPlease use git clone <URL> to download")
-  #source_path  <- "~/Dropbox/Papers/4_Lausanne/5_OI/2_Science/SHARED_DATA_SCIENCE_REPOSITORIES/code/2_statistics_and_plotting_Adriano/source"
-}
 
 #### Overall parameters and functions #### 
 
@@ -41,15 +38,18 @@ period_order    <- c("pre","post")
 task_group_order <- c("queen","nurse","forager","untreated","treated")
 
 ####source programs
-source(paste(source_path,"/libraries.R",sep=""))
-source(paste(source_path,"/plotting_parameters.R",sep=""))
-source(paste(source_path,"/functions_new.R",sep=""))
-source(paste(source_path,"/analysis_parameters.R",sep=""))
 
-RUN_UNSCALED_NETS <- F
+#check as we move along which of the following scripts are actually neede
 
-fixed_aspect_theme <- theme(aspect.ratio = 2) #move to plotting_parmas.R
-fixed_aspect_theme_PRE <- theme(aspect.ratio = 4) #move to plotting_parmas.R
+# source(paste(source_path,"/libraries.R",sep=""))
+# source(paste(source_path,"/plotting_parameters.R",sep=""))
+# source(paste(source_path,"/functions_new.R",sep=""))
+# source(paste(source_path,"/analysis_parameters.R",sep=""))
+
+# RUN_UNSCALED_NETS <- F
+# 
+# fixed_aspect_theme <- theme(aspect.ratio = 2) #move to plotting_parmas.R
+# fixed_aspect_theme_PRE <- theme(aspect.ratio = 4) #move to plotting_parmas.R
 
 
 # NOTES
