@@ -41,22 +41,19 @@ rm(list = setdiff(ls(), "first_time_use_working_directory"))
 #### 1. Prerequisites ####
 
 # choose directory - set it to the folder containing the data files (in my case vital_fc1)
-set_directory <- function() {
-  if (!exists("first_time_use_working_directory") || first_time_use_working_directory == "") {
-    selected_dir <- tcltk::tk_choose.dir(default = "~/", caption = "Select Working Directory")
-    if (is.null(selected_dir) || selected_dir == "") {
-      cat("No directory selected. Exiting.\n")
-      return()
-    }
-    setwd(selected_dir)
-    first_time_use_working_directory <<- getwd()
-    cat(crayon::blue(getwd()))
-  } else {
-    setwd(first_time_use_working_directory)
-    cat(crayon::blue(getwd()))
-  }
-}
-set_directory()
+
+if (!exists("first_time_use_working_directory") || first_time_use_working_directory == "") {
+  selected_dir <- tcltk::tk_choose.dir(default = "~/", caption = "Select Working Directory")
+  if (is.null(selected_dir) || selected_dir == "") {
+    cat("No directory selected. Exiting.\n")
+    return()}
+  setwd(selected_dir)
+  first_time_use_working_directory <<- getwd()
+  cat(crayon::blue(getwd()))
+} else { setwd(first_time_use_working_directory)
+  cat(crayon::blue(getwd())) }
+
+
 
 
 
@@ -70,10 +67,15 @@ dat_duration <- dat_duration[!is.na(dat_duration$feeding_duration), ]
 # libraries
 # install.packages("pacman")
 pacman::p_load(lubridate, plotrix, scales, car, lme4, Hmisc, 
-               dplyr, tidyverse, blmeco, lmtest, lsmeans, lubridate,
+               dplyr, blmeco, lmtest, lsmeans, lubridate,
                emmeans, multcompView, multcomp, viridis, crayon, 
-               e1071, glmmTMB, DHARMa, merTools, tidyr, pheatmap, grid,
-               progress, ggplot2)
+               e1071, DHARMa, merTools, tidyr, pheatmap, grid,
+               progress, tidyverse, ggplot2, glmmTMB) 
+
+
+
+
+
 
 # functions
 sem <- function(x) {sd(x,na.rm=T)/sqrt(length(na.omit(x)))} # standard error of means
@@ -239,7 +241,7 @@ marginal = lsmeans(mod, ~ status*feeding_session, data = df1)
 CLD = cld(marginal,
           alpha=0.5,
           Letters=letters,
-          adjust="BH")
+          adjust="Tukey")
 CLD
 
 # # When using fewer time points (e.g. only the first 20 min the above model is should be replaced with glmer becasue of the distribution of residuals)

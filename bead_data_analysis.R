@@ -34,9 +34,9 @@ if (!exists("first_time_use_working_directory_bead_data") || first_time_use_work
   setwd(first_time_use_working_directory_bead_data)
 } else {setwd(first_time_use_working_directory_bead_data)}
 
-setwd(first_time_use_working_directory_bead_data)
+
 source("config_user_and_hd.R") # contains getUserOptions() that defines usr and hd and the clean() function
-source("vital_fc1/func_test_norm.R")
+source(paste0(SCRIPTDIR,"/vital_fc1/func_test_norm.R"))
 
 # # should now also work on windows and if not quickly define inputs manually:
 # DATADIR <- "D:/DISK_B/vital/fc2"
