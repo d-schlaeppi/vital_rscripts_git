@@ -1,4 +1,6 @@
-rm(list = ls())
+#rm(list = ls())
+rm(list = setdiff(ls(), "first_time_use_working_directory"))
+
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
 #### TABLES TO MATCH STROEYMEYT ET AL., 2018, SCIENCE ####
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
@@ -28,31 +30,41 @@ rm(list = ls())
 #### 1. Prerequisites ####
 
 # tables from metadata information
-library(tcltk) 
-library(reshape2)
-library(dplyr)
-library(FortMyrmidon)
-library(circular)
 
+pacman::p_load(tcltk,reshape2,dplyr,FortMyrmidon,circular)
 FRAME_RATE <- 6
-setwd(tk_choose.dir(default = "~/", caption = "Select Working Directory"))
-source("config_user_and_hd.R")
+# setwd(tk_choose.dir(default = "~/", caption = "Select Working Directory"))
+if (!exists("first_time_use_working_directory") || first_time_use_working_directory == "") { # direct it to where you have config_user_and_hd.R (typically the script folder or github folder)
+  selected_dir <- tcltk::tk_choose.dir(default = "~/", caption = "Select Working Directory")
+  if (is.null(selected_dir) || selected_dir == "") {
+    cat("No directory selected. Exiting.\n")
+    return()}
+  setwd(selected_dir)
+  first_time_use_working_directory <<- getwd()
+  cat(crayon::blue(getwd()))
+} else { setwd(first_time_use_working_directory)
+  cat(crayon::blue(getwd())) }
 
-if (usr != "mac_gismo") {
-  DATADIR   <- paste("/media", usr, hd, "vital/fc2",sep="/") 
-  SCRIPTDIR <- paste("/home" , usr, "Documents/vital_rscripts_git",sep="/")
-  SAVEDIR   <- paste("/media" , usr, hd,"vital/fc2/vital_experiment/main_experiment/original_data",sep="/")
-  } else {
-  DATADIR   <- paste("/Volumes", hd, "vital/fc2", sep="/") 
-  SCRIPTDIR <- paste("/Users", usr, "Documents/GitHub/vital_rscripts_git",sep="/")
-  SAVEDIR   <- paste("/Volumes", hd, "vital/fc2/vital_experiment/main_experiment/original_data",sep="/")
-  }
+source("config_user_and_hd.R")
+SAVEDIR   <- paste("/media" , usr, hd,"vital/fc2/vital_experiment/main_experiment/original_data",sep="/")
+
+
+# if (usr != "mac_gismo") {
+#   DATADIR   <- paste("/media", usr, hd, "vital/fc2",sep="/") 
+#   SCRIPTDIR <- paste("/home" , usr, "Documents/vital_rscripts_git",sep="/")
+#   SAVEDIR   <- paste("/media" , usr, hd,"vital/fc2/vital_experiment/main_experiment/original_data",sep="/")
+#   } else {
+#   DATADIR   <- paste("/Volumes", hd, "vital/fc2", sep="/") 
+#   SCRIPTDIR <- paste("/Users", usr, "Documents/GitHub/vital_rscripts_git",sep="/")
+#   SAVEDIR   <- paste("/Volumes", hd, "vital/fc2/vital_experiment/main_experiment/original_data",sep="/")
+#   }
 
 
 #### 2. To dos and Notes ####
 # AT SOME POINT IT MIGHT BE NECESSARY TO CHANGE TO THE FACET NETWORK TASK DEFINITION VARIABLE INSTEAD OF THE ONE BASED ON PROPORTION OF TIME IN OR OUR THE NEST
-# HOWEVER, THIS SCRIPT NEEDS TO BE RUN BEFORE THE FACET NET ONE... So we might want to come back to at at some point.
-# note, seed files etc are all calculated based on the old task definition which was based on the percentage of time spent inside or outside the nest. 
+# HOWEVER, THIS SCRIPT NEEDS TO BE RUN BEFORE THE FACET NET ONE... So we might want to come back to at at some point. --> Facet Net was just run afterwards and its information was added in addition to the space use one
+# note, seed files etc are all calculated based on the old task definition which was based on the percentage of time spent inside or outside the nest. --> maybe this step still needs to be adjusted.
+
 
 # CHECK WHICH BELOW IS REFERRING TO BEAD LOAD AND ADJUST ADRIANOS PATHOGEN LOAD. 
 # pathogen_load <- read.csv("/media/cf19810/DISK4/EXP1_base_analysis/Personal_Immunity/Pathogen_Quantification_Data/Adriano_qPCR_pathogen_load_MASTER_REPORT.csv")
@@ -64,17 +76,17 @@ if (usr != "mac_gismo") {
 # AntTask -> AntTask1perc
 # I did not have pathogen load but bead load which is included in the metadata table. 
 # As I had only 1 Treatment some variable will be different to Adriano and Linda.
-# However, I will need to adjust things once I get to further down in the pipeline to address the issue of bead colors.
+# However, I will need to adjust things once I get to further down in the pipeline to address the issue of bead colors. --> should be sorted in the bead data analysis. 
 
 # Time aggregation info might also be needed for the trophallaxis network... check later... if running simulations along the trophallaxis network. 
 
 
 #### 3. Load data ####
 #  meta data
-metadata_present <- read.table(paste(DATADIR, "/individual_metadata_vital.txt", sep = ""), header = T, stringsAsFactors = F, sep = ",") 
+metadata_present <- read.table(paste(DATADIR, "/individual_metadata_vital.txt", sep = ""), header = T, stringsAsFactors = F, sep = ",")
 source(paste0(SCRIPTDIR,"/vital_meta_data.R")) # will add colony_metadata data frame to the environment so it can be accessed within this script (in my case containing bodylenght information)
 
-#remove dead ants
+#remove dead ants / only keep the ones that are alive
 metadata_present <- metadata_present[which(metadata_present$IsAlive==TRUE),]
 # ants with rotated tags (retaged with the same tags) appear as duplicates ->
 # remove duplicates: however have different start and stop times as well as surv time. As those variables are not used they can be set to zero and then we can eliminate lines that are not distinct. 
@@ -106,7 +118,22 @@ task_groups <- data.frame(colony = metadata_present$colony_id,
                           task_group_prop = metadata_present$AntTask1perc,
                           treatment = metadata_present$treatment_simple,
                           REP_treat= paste0(metadata_present$colony_id, "_" ,metadata_present$treatment_simple))
-write.table(task_groups, file = file.path(SAVEDIR,"task_groups.txt"), append = F, col.names = T, row.names = F, quote = F, sep = "\t")
+# write.table(task_groups, file = file.path(SAVEDIR,"task_groups.txt"), append = F, col.names = T, row.names = F, quote = F, sep = "\t")
+
+# added check to not overwrite the task_group file in case you are coming back from the facet net community detection which adds additional variables to this table.
+file_path <- file.path(SAVEDIR, "task_groups.txt")
+if (file.exists(file_path)) {
+  cat(red("\n !!! WARNING: !!! \n")); cat(yellow("\n The file task_groups.txt already exists! \n"))
+  user_response <- readline(prompt = paste(" Do you want to overwrite it? (y/n): "))
+  if (tolower(user_response) == "y") {
+    write.table(task_groups, file = file_path, append = FALSE, col.names = TRUE, row.names = FALSE, quote = FALSE, sep = "\t")
+    cat(green("The file has been overwritten.\n"))
+  } else {cat(blue("The file was not overwritten.\n"))
+    task_groups <- read.table(paste0(SAVEDIR,"/task_groups.txt"), header = TRUE) }
+} else {
+  write.table(task_groups, file = file_path, append = FALSE, col.names = TRUE, row.names = FALSE, quote = FALSE, sep = "\t")
+  cat(blue("The file has been written.\n"))}
+
 
 
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
@@ -133,7 +160,7 @@ write.table(treated_worker_list, file = file.path(SAVEDIR,"treated_worker_list.t
 
 # flag to determine if selecting 10% of the colony size (T) or the same N as the real exposed ants (F)
 select_fixed_N <- F
-# !!!! that is something to think about: Do it once with the same number of workers that were in the treatment groups and once with the same number of workers that I deem worth including! i.e. that did not drown themselves.
+# !!!! that is something to think about: Do it once with the same number of workers that were in the treatment groups and once with the same number of workers that I deem worth including! i.e. that did not drown themselves?
 
 # same as above : treated_workers.txt
 # treated workers simulation is to compare effects with the observed post-exposure changes
@@ -145,7 +172,7 @@ write.table(treated_worker_list, file = file.path(SAVEDIR,"seeds/treated_workers
 # - compare how transmission is compared to observed post (seed: treated workers). simulation shows what is the expected in the post-networks and it can be compared with the actual post-net qPCR data
 # - what would have happened if the exposed where the foragers/nurses/random_workers. This simulation is to study the effects in the pre-period (constitutive properties)
 
-# For simulations, ants where randomly selected from the pool of nurses, foragers or all of the workers, matching the number of exposed nurses in each colony.
+# For simulations, ants where randomly selected from the pool of nurses, foragers or all of the workers, matching the number of exposed workers in each colony.
 # select the N of EXPOSED ants that where alive (present in metadata_present)
 # Calculate N_exposed_alive as the number of Exposed per colony = TRUE
 metadata_present$N_exposed_alive <- ave(metadata_present$IsTreated, metadata_present$colony, FUN = function(x) sum(x))
@@ -167,12 +194,12 @@ for (GROUP in c("nurse","forager","random_worker")) {
     #   sample_n(ifelse(status == "Big", 18, 3)) %>% # replace FALSE means do not re-sample rows if there are less than N to be sliced
     #   ungroup()
   }else{
+    set.seed(69) # for reproducibility of random sampling
     metadata_GROUPs_seed <- metadata_GROUP %>%
       group_by(colony) %>%
-      sample_n(first(N_exposed_alive)) %>%  # wondering if it should be random or whether we are better of sampling the first rows?
+      sample_n(first(N_exposed_alive)) %>%
       ungroup()
   }
-  
   metadata_GROUPs_seed <- metadata_GROUPs_seed[,c("colony_id","antID","treatment_simple","AntTask1perc")]
   names(metadata_GROUPs_seed)[which(names(metadata_GROUPs_seed)=="colony_id")] <- "colony"
   names(metadata_GROUPs_seed)[which(names(metadata_GROUPs_seed)=="treatment_simple")] <- "treatment"
@@ -182,6 +209,43 @@ for (GROUP in c("nurse","forager","random_worker")) {
   
   write.table(metadata_GROUPs_seed, file = file.path(SAVEDIR,paste0("seeds/",GROUP,"s.txt")), append = F, col.names = T, row.names = F, quote = F, sep = "\t")
 }
+
+
+
+### If the first part of the facet net script has been run to get the task group allocation instead space use we create additional seed files based on this 
+
+if ("task_group_FACETNET_0.5" %in% colnames(task_groups)) { # if that already exists run the following
+# rename variables from task_groups to match with metadata_present
+  task_groups_sub <- task_groups %>% rename(
+      antID = tag,  # tag to antID
+      colony_id = colony)   %>%  # colony to colony_id
+      dplyr::select(colony_id, antID, task_group_FACETNET_0.5, Forager_score) # relevant variables
+# add the facet net variables task_group_FACETNET_0.5 and forager score to metadata_present 
+  metadata_present <- metadata_present %>% 
+    left_join(task_groups_sub , by = c("colony_id", "antID"))  # colony_id and antID used as identifiers for the join
+# rerun the selection of workers for seed files based on facet net task allocation
+for (GROUP in c("nurse","forager","random_worker")) { # GROUP <-"nurse"
+  if (!(GROUP %in% c("nurse","forager"))) {
+    metadata_GROUP <- metadata_present[which(metadata_present$task_group_FACETNET_0.5!="queen"),]
+  }else{
+    metadata_GROUP <- metadata_present[which(metadata_present$task_group_FACETNET_0.5==GROUP),]
+  }
+  # if (select_fixed_N) { # currently always false (see above) }else{
+  set.seed(69) # for reproducibility of random sampling
+  metadata_GROUPs_seed <- metadata_GROUP %>%
+      group_by(colony) %>%
+      sample_n(first(N_exposed_alive)) %>%
+      ungroup() # }
+  metadata_GROUPs_seed <- metadata_GROUPs_seed[,c("colony_id","antID","treatment_simple","task_group_FACETNET_0.5")]
+  names(metadata_GROUPs_seed)[which(names(metadata_GROUPs_seed)=="colony_id")] <- "colony"
+  names(metadata_GROUPs_seed)[which(names(metadata_GROUPs_seed)=="treatment_simple")] <- "treatment"
+  names(metadata_GROUPs_seed)[which(names(metadata_GROUPs_seed)=="antID")] <- "tag"
+  metadata_GROUPs_seed <- metadata_GROUPs_seed %>%
+    mutate(REP_treat = paste0(colony, "_", treatment))
+  
+  write.table(metadata_GROUPs_seed, file = file.path(SAVEDIR,paste0("seeds/",GROUP,"s_facetnet.txt")), append = F, col.names = T, row.names = F, quote = F, sep = "\t")
+}} else {  cat(yellow("Facet net task allocation not defined yet \nTo get this, run the first part of 19_Facetnet_community_detection_DS.R\nOr skip for now and come back later"))}
+
 
 
 
@@ -226,7 +290,7 @@ write.table(info, file = file.path(SAVEDIR,"info.txt"), append = F, col.names = 
 #                         REP_treat= pathogen_load$Colony)
 # write.table(qPCR_file, file = file.path(SAVEDIR,"qPCR","qPCR_file.txt"), append = F, col.names = T, row.names = F, quote = F, sep = "\t")
 
-bead_file <- metadata_present  %>% select(-treatment)
+bead_file <- metadata_present  %>% dplyr::select(-treatment)
 names(bead_file)[which(names(bead_file)=="treatment_simple")] <- "treatment"
 names(bead_file)[which(names(bead_file)=="tagIDdecimal")] <- "tag"
 bead_file <- bead_file %>% mutate(REP_treat = paste0(colony, "_", treatment))
@@ -247,7 +311,7 @@ files_list <- list.files(DATADIR, pattern="CapsuleDef2018.myrmidon")
 files_list <- files_list[which(!grepl("c29",files_list))] # getting a list of each colony
 # files_list <- files_list[which(grepl("c11",files_list))]
 
-for (file in files_list) { # file <- files_list[11]
+for (file in files_list) { # file <- files_list[12]
   colony_id <- unlist(strsplit(file,split="_"))[grepl("c",unlist(strsplit(file,split="_")))]
   colony <- colony_id
   # get base info for this colony
@@ -266,7 +330,7 @@ for (file in files_list) { # file <- files_list[11]
   
   # create tag file and populate it...
   tag_file <- NULL
-  for (ant in exp.Ants){  # ant <- exp.Ants[[91]] | ant <- exp.Ants[[2]]
+  for (ant in exp.Ants){  # ant <- exp.Ants[[92]] | ant <- exp.Ants[[2]]
     if(all(ant$getValues("IsAlive")["values"]$values)){ #making just making sure there is no false, i.e. ant is alive
       for (id in ant$identifications){ # id <- ant$identifications[[1]]
         if (capture.output(ant$identifications[[1]]$start)=="-∞") {   #DS: Changed from $start)=="+∞" to avoid loosing queen of colony 11 ### THIS EXCLUDES one instance of THE ANTS WITH ROTATED TAGS (or dead ants which should already be excluded anyways) ### skip lines for ants that had the tag rotated which were deleted as duplicates above in metadata present. 
@@ -287,8 +351,10 @@ for (file in files_list) { # file <- files_list[11]
                                               headwidth = 0,
                                               death = 0,  #all alive, dead not included
                                               age = 0,
-                                              final_status = ifelse(metadata_present[which(metadata_present$tagIDdecimal == id$tagValue & metadata_present$colony_id==colony_id),"IsAlive"]==T,"alive","dead"),
-                                              group = metadata_present[which(metadata_present$tagIDdecimal == id$tagValue & metadata_present$colony_id==colony_id),"AntTask1perc"],
+                                              #final_status = ifelse(metadata_present[which(metadata_present$tagIDdecimal == id$tagValue & metadata_present$colony_id==colony_id),"IsAlive"]==T,"alive","dead"),   ### needed fixing as it caused an error for retagged ants with two identifications: removing one of the duplicates in metadata_present means that there not all tag values are still there -> thus we refer to antID instead.
+                                              final_status = ifelse(metadata_present[which(metadata_present$antID == id$targetAntID & metadata_present$colony_id==colony_id),"IsAlive"]==T,"alive","dead"),
+                                              #group = metadata_present[which(metadata_present$tagIDdecimal == id$tagValue & metadata_present$colony_id==colony_id),"AntTask1perc"],
+                                              group =               metadata_present[which(metadata_present$antID == id$targetAntID & metadata_present$colony_id==colony_id),"AntTask1perc"],
                                               REP_treat = REP_treat,
                                               stringsAsFactors = F))
  
@@ -296,7 +362,7 @@ for (file in files_list) { # file <- files_list[11]
       }
     }
    }
-  tag_file <- tag_file[which(tag_file$final_status=="alive"),] #remove dead (none should be there anyway)
+  tag_file <- tag_file[which(tag_file$final_status=="alive"),] # just making sure that there are indeed no dead ants
   tag_file <- tag_file[!duplicated(tag_file$tag),]  # remove duplicated tag ant rows and keep single one (first row)
   write.table(tag_file, file = file.path(SAVEDIR,"tag_files",paste0(colony,"_",treatment,".txt")), append = F, col.names = T, row.names = F, quote = F, sep = "\t")
 }
@@ -304,8 +370,9 @@ for (file in files_list) { # file <- files_list[11]
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
 ####                 4.7 time_aggregation_info                 ####
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+
 # needed by the simulations
-# ev. I need to do the same for the trophallaxis interaction network. However, not sure whether it does mach as I only had one 3h time block for the pre and the post treatment duration.
+# ev. I need to do the same for the trophallaxis interaction network. However, but probably not as I only had one 3h time block for the pre and the post treatment duration.
 
 # file format: colony020_pathogen_PostTreatment.txt
 
@@ -343,7 +410,9 @@ for (SOURCE in source_folders){ # SOURCE <-  source_folders[1]
   }
 }
 
-
+###
+#' You should now have finished postprocessing, vital_base_analysis and tables_to_match_stroeymeyt meaning you can move on to vital_main_analysis
+#' Where you first run the facet_net_community detectino to get a different definition of foragers and nurses.
 
 
 

@@ -1,4 +1,5 @@
-rm(list = ls())
+#rm(list = ls())
+rm(list = setdiff(ls(), "first_time_use_working_directory"))
 gc()
 Sys.sleep(3)
 mallinfo::malloc.trim(0L) # forced memory cleaning after every gc() | # install in terminal: > sudo apt-get install libtcmalloc-minimal4
@@ -25,52 +26,53 @@ mallinfo::malloc.trim(0L) # forced memory cleaning after every gc() | # install 
 
 
 #### 1. LIBRARIES ####
-{
-library(data.table)
-library(lubridate)
-library(pals)
-library(dplyr)
-library(adehabitatHR)
-library(adehabitatLT)
-library(changepoint)
-library(e1071)
-library(igraph)
-library(gtools)
-library(Rcpp)
-library(survival)
-library(MALDIquant)
-}
+pacman::p_load(data.table,lubridate,pals,dplyr,adehabitatHR,adehabitatLT,changepoint,e1071,igraph,gtools,Rcpp,survival,MALDIquant)
+
 #### 2. Starting parameters & directories ####
-{
-USER <- "AEL-laptop"  # Replace with the desired USER option: Nath_office, 2A13_Office_Adriano, 2A13_Office_Daniel, AEL-laptop
-HD <- "/DISK_B" # One of the harddrives with the vital extrapolated data: possible values > Nathalies hd "/DISK_B" ; Daniels hds >  "/gismo_hd5" or  "/gismo_hd2" | just make sure to put the name of your HD in here
-setUserAndHD <- function(USER, HD) {
-  usr <- NULL  # Default value in case of an unrecognized USER option
-  if (USER == "Nath_office") {
-    usr <- "bzniks"
-  } else if (USER == "2A13_Office_Adriano") {
-    usr <- "cf19810"
-  } else if (USER == "2A13_Office_Daniel") {
-    usr <- "gw20248"
-  } else if (USER == "AEL-laptop") {
-    usr <- "ael"
-  }
-  if (!is.null(usr)) {print(usr)} else {print("define new user if necessary")}
-  hd <- NULL
-  hd <- HD
-  if (!is.null(hd)) {print(hd)} else {print("define new hd if necessary")}
-  assign("hd", hd, envir = .GlobalEnv)  # Assign to the global environment
-  assign("usr", usr, envir = .GlobalEnv)  # Assign to the global environment
-}
-setUserAndHD(USER, HD)
+# setwd("/home/ael/Documents/vital_rscripts_git")
+if (!exists("first_time_use_working_directory") || first_time_use_working_directory == "") { # direct it to where you have config_user_and_hd.R (typically the script folder or github folder)
+  selected_dir <- tcltk::tk_choose.dir(default = "~/", caption = "Select Working Directory")
+  if (is.null(selected_dir) || selected_dir == "") {
+    cat("No directory selected. Exiting.\n")
+    return()}
+  setwd(selected_dir)
+  first_time_use_working_directory <<- getwd()
+  cat(crayon::blue(getwd()))
+} else { setwd(first_time_use_working_directory)
+  cat(crayon::blue(getwd())) }
+
+source("config_user_and_hd.R") # contains getUserOptions() that defines usr and hd and the clean() function
+
+# {
+# USER <- "AEL-laptop"  # Replace with the desired USER option: Nath_office, 2A13_Office_Adriano, 2A13_Office_Daniel, AEL-laptop
+# HD <- "/DISK_B" # One of the harddrives with the vital extrapolated data: possible values > Nathalies hd "/DISK_B" ; Daniels hds >  "/gismo_hd5" or  "/gismo_hd2" | just make sure to put the name of your HD in here
+# setUserAndHD <- function(USER, HD) {
+#   usr <- NULL  # Default value in case of an unrecognized USER option
+#   if (USER == "Nath_office") {
+#     usr <- "bzniks"
+#   } else if (USER == "2A13_Office_Adriano") {
+#     usr <- "cf19810"
+#   } else if (USER == "2A13_Office_Daniel") {
+#     usr <- "gw20248"
+#   } else if (USER == "AEL-laptop") {
+#     usr <- "ael"
+#   }
+#   if (!is.null(usr)) {print(usr)} else {print("define new user if necessary")}
+#   hd <- NULL
+#   hd <- HD
+#   if (!is.null(hd)) {print(hd)} else {print("define new hd if necessary")}
+#   assign("hd", hd, envir = .GlobalEnv)  # Assign to the global environment
+#   assign("usr", usr, envir = .GlobalEnv)  # Assign to the global environment
+# }
+# setUserAndHD(USER, HD)
 
 # directories
-WORKDIR <- paste("/media/",usr, hd, "/vital/fc2",sep="") 
-DATADIR <- paste(WORKDIR, sep = "/") # working directory and directory where the tracking data is saved (was not the same for Adriano, but for me the same
-SAVEDIR <- paste("/media/",usr, hd,"/vital/fc2/vital_experiment/summary_data",sep="") # where to save the interactions - I added a folder summary data to  vital_experiment within the science folder structure
-INTDIR <- paste("/media/",usr, hd, "/vital/fc2/vital_experiment/main_experiment/intermediary_analysis_steps",sep="") # remember to use the same folder structure as as for Science 2018
-BEHDIR <- paste("/media/",usr, hd, "/vital/fc2/vital_experiment/main_experiment/processed_data/individual_behaviour",sep="")
-SCRIPTDIR <- paste("/home/",usr,"/Documents/vital_rscripts_git",sep="") # place where the needed r scripts are stored
+WORKDIR <- DATADIR
+# DATADIR <- paste(WORKDIR, sep = "/") # working directory and directory where the tracking data is saved (was not the same for Adriano, but for me the same
+SAVEDIR <- paste("/media/",usr,"/", hd,"/vital/fc2/vital_experiment/summary_data",sep="") # where to save the interactions - I added a folder summary data to  vital_experiment within the science folder structure
+INTDIR <- paste("/media/",usr,"/", hd, "/vital/fc2/vital_experiment/main_experiment/intermediary_analysis_steps",sep="") # remember to use the same folder structure as as for Science 2018
+BEHDIR <- paste("/media/",usr,"/", hd, "/vital/fc2/vital_experiment/main_experiment/processed_data/individual_behaviour",sep="")
+# SCRIPTDIR <- paste("/home/",usr,"/Documents/vital_rscripts_git",sep="") # place where the needed r scripts are stored
 BEH_FUNCTIONS <-  paste(SCRIPTDIR, "/Trophallaxis_Classifier",sep="") 
 
 # source and set additional data (meta), functions, parameters and additional scripts
@@ -110,9 +112,9 @@ SPACE_USE_PRE <-  file.path(BEHDIR,"pre_treatment","network_position_vs_time_out
 
 # FLAGS
 RUN_LOOP         <- TRUE
-RUN_INTERACT     <- FALSE 
-RUN_SPACEUSE     <- FALSE
-RUN_NETWORKS     <- FALSE  # this part of the code seems is not up to date and behind #s
+RUN_INTERACT     <- TRUE 
+RUN_SPACEUSE     <- TRUE
+RUN_NETWORKS     <- FALSE  # this part of the code seems is not up to date is cancelled out below --> FALSE
 warning(paste("RUN_INTERACT is set to:",RUN_INTERACT,
               "\nRUN_SPACEUSE is set to:",RUN_SPACEUSE,
               "\nRUN_NETWORKS is set to:",RUN_NETWORKS,sep="\t"))
@@ -124,7 +126,7 @@ files_list <- files_list[which(!grepl("c29",files_list))]
 
 # create to_keep which will contain variables that should not be deleted when clearing memory between runs
 to_keep <- c(ls(), c("to_keep", "loop_start_time")) 
-}
+
 
 
 #### 3. Loop over each colony to calculate basic interactions and space use ####
@@ -373,7 +375,7 @@ if (RUN_LOOP){
   
 
 #### To dos #### 
-# move on to the next analysis scripts i.e. vital_main_analysis
+# move on to the next analysis scripts i.e. first the Tables_to_match_stroeymeyt script and then the vital_main_analysis script
 # Dont forget to correct when going through the downstream pipeline:
 # In another script, 12_simulate_transmission.R (which is part of the 2018 Social Plasticity code and can be found here on Adriano's github), we discovered that the output of the Surv() function has changed the name for one of its columns, which is being referred to in lines 261 & 265: "rmean" (new) instead of "*rmean" (old); due to a library update perhaps? Please be aware of this since it does not give an error but just NAs for those specific cases.
 
@@ -383,7 +385,7 @@ if (RUN_LOOP){
 # if not specified differently, the script version used in the pipeline is in the top git hub folder or in the folder with trophallacis_classifier. 
 # previous version is either in the _old folder or in a folder referring to another person e.g Adriano or Linda.
 # At some point make a cleaner github version of all this...
-# Further, what ever I do with the interactions, make sure to do the same things with the trophallaxis interactions?
+# Further, what ever I do with the interactions, make sure to do the same things with the trophallaxis interactions...
   
 
 

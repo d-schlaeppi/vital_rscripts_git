@@ -37,9 +37,10 @@ size_order      <- c("small","big")
 period_order    <- c("pre","post")
 task_group_order <- c("queen","nurse","forager","untreated","treated")
 
+
 ####source programs
 
-#check as we move along which of the following scripts are actually neede
+# check as we move along which of the following scripts are actually needed
 
 # source(paste(source_path,"/libraries.R",sep=""))
 # source(paste(source_path,"/plotting_parameters.R",sep=""))

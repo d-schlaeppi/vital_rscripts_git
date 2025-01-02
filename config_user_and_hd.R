@@ -17,7 +17,7 @@ pacman::p_load(
   Rcpp,   # contains sourceCpp()
   survival, #contains coxph() function
   moments, # contains skewness function
-  DHARMa, blmeco #model testing comqqnorm
+  DHARMa, blmeco, FortMyrmidon, progress #model testing comqqnorm
   )
 # further libraries used by adriano but probably not required
 # adehabitatHR, adehabitatLT, changepoint, e1071, gtools, entropy

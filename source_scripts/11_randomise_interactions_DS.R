@@ -17,8 +17,8 @@ to_keep_ori <- to_keep
 Sys.setenv("PKG_CXXFLAGS"="-std=c++11")
 sourceCpp(paste(code_path,"/randomise_edges.cpp",sep=""))
 
-# Get all interaction lists for which randomized versions will be created:
 
+# Get all interaction lists for which randomized versions will be created:
 timings <- c("PreTreatment", "PostTreatment") # Specify timings
 interact_list <- list()
 
@@ -31,18 +31,28 @@ for (timing in timings) {
   }
 }
 
-to_keep <- c(ls(),"to_keep","i","interac")
+to_keep <- c(ls(),"to_keep","i","interac", "pb")
 
-for (i in 1:100){ ### perform 100 randomization                  
-  print(paste("Performing randomisations",i,"out of 100..."))
+total_iterations <- 100 
+# Progress bar
+pb <- progress_bar$new(
+  format = "Progress Randomisation: :current/:total [:bar] :percent ETA: :eta",
+  total = total_iterations,
+  clear = FALSE,
+  width = 80
+)
+
+cat(blue("Performing randomisations"))
+for (i in 1:total_iterations){ ### perform 100 randomization                  
+  # print(paste("Performing randomisations",i,"out of 100..."))
   for (interac in interact_list){ # interac <- interact_list[[1]]
-    folder_name <- dirname(interac) 
+    folder_name <- dirname(interac)
     file_name <- basename(interac)
     outputfolder       <- gsub("observed", paste("random",sep=""),folder_name)
     if (!file.exists(outputfolder)){dir.create(outputfolder)}
     new_file_name <- paste0(sub("\\.txt$", "", file_name),"_random_",paste(rep(0,3-nchar(i)),collapse=""),i, ".txt")
     outfile <- paste(outputfolder, new_file_name,sep="/")
-    
+
     if (!file.exists(outfile)){
       interactions                 <- read.table(interac,header=T,stringsAsFactors=F, sep = "\t")
       randomised_partners          <- randomise_edges(interactions[c("Tag1","Tag2","Starttime","Stoptime")])
@@ -52,6 +62,9 @@ for (i in 1:100){ ### perform 100 randomization
     }
     clean();
   }
+  #Sys.sleep(0.1) for testing the progress bar.
+  pb$tick()  # update progress bar
+  flush.console()
 }
 
 to_keep <- to_keep_ori

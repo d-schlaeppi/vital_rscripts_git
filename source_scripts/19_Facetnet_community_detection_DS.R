@@ -17,16 +17,16 @@
 # Set up directories and parameters
 
 # FACENET community partition parameters
-m            <- 2   ## how many communities do we want to instruct FACETNET to search for...? Nurses and Foragers so 2?
-alpha        <- 0.5 ## used for modulating the `memory` - how much the community structure @ time t influences that at t+1 - only matters when we ask facetnet to pay attention to this...
-t_step       <- 0   ## not important
-N_ITERATIONS <- 69
-DISPLAY_RESULTS <- F   # optional plotting of results from the facet net thingy... 
-UPDATE_DATA <- F    ## as far as I can see optional updating of a variety of tables... Maybe not needed... or can maybe be changed and added to an updated metadata table at some point. 
+m                <- 2          ## how many communities do we want to instruct FACETNET to search for...? Nurses and Foragers so 2?
+alpha            <- 0.5        ## used for modulating the `memory` - how much the community structure @ time t influences that at t+1 - only matters when we ask facetnet to pay attention to this...
+t_step           <- 0          ## not important
+N_ITERATIONS     <- 100        ## number of iterations to find best modularity: the modularity of the found solutions vary quite a bit --> repeat multiple times & select the highest-modularity solution 
+DISPLAY_RESULTS  <- TRUE       ## optional plotting of results
+UPDATE_DATA      <- FALSE      ## as far as I can see optional updating of a variety of tables... Maybe not needed... or can maybe be changed and added to an updated metadata table at some point. 
 
-# set directories to match original version of script
-DATADIR <- paste("/media",usr, hd, "vital/fc2",sep="/") 
-SCRIPTDIR <- paste("/home",usr,"Documents/vital_rscripts_git",sep="/") #does not (yet) work on the mac
+# set directories to match original version of script ### should already be defined as we are sourcing this from the main_analysis script anyways. 
+# DATADIR <- paste("/media",usr, hd, "vital/fc2",sep="/") 
+# SCRIPTDIR <- paste("/home",usr,"Documents/vital_rscripts_git",sep="/") # does not (yet) work on mac - just keep working on linux
 
 # to match with the code below
 data_path <- paste0(DATADIR, "/vital_experiment/main_experiment")
@@ -155,7 +155,7 @@ for (input_folder in input_folders){ # input_folder <- input_folders[1]
         }else{
           write.table (Modules, file=Module_File, row.names=F, col.names=T, quote=F, append=F)  }  ## if the file doesn't exist, create it
       }
-    }##ITER
+    } ##ITER
     
     ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
     #### PART 3: Find the top-modularity solution & assign biological labels to both communities       ####
@@ -218,7 +218,10 @@ for (input_folder in input_folders){ # input_folder <- input_folders[1]
         
         if(DISPLAY_RESULTS){
           ## tally the agreement between the original and new (facetnet) task labels
-          Agreement <- table(Combined$task_group, Combined$task_group_FACETNET_0.5); rownames(Agreement) <- paste("orig", rownames(Agreement),sep="_"); colnames(Agreement) <- paste("facet", colnames(Agreement), sep="_"); print(Agreement)
+          Agreement <- table(Combined$task_group_prop, Combined$task_group_FACETNET_0.5)
+          rownames(Agreement) <- paste("orig", rownames(Agreement),sep="_")
+          colnames(Agreement) <- paste("facet", colnames(Agreement), sep="_")
+          print(Agreement)
         }
         
         # Save output to the task_groups file
@@ -252,12 +255,9 @@ for (input_folder in input_folders){ # input_folder <- input_folders[1]
 
 
 
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
 
-
-
-
-##########################################################################################################################################
-# DS: Continue updating below.... not touched yet. 
+if (RUN_19_SUBSECTION_ONLY != TRUE) {
 
 #### DISPLAY RESULTS  ####
 
@@ -269,7 +269,7 @@ if(DISPLAY_RESULTS){
   ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
   # # Define directory and patterns
   folder_pattern <- "FACETNET_iters"
-  file_pattern <- "interactionsModularities.txt"
+  file_pattern <- "interactions_Modularities.txt"
   data <- NULL
   
   # Get list of folders matching the pattern
@@ -310,24 +310,30 @@ if(DISPLAY_RESULTS){
   ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### 
   ##### ##### ##### #####         PLOT results of OBSERVED ONLY           ##### ##### ##### ##### ##### #####
   ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### 
-  task_groups_A    <- read.table("/media/cf19810/Seagate Portable Drive/Lasius-Bristol_pathogen_experiment/main_experiment/original_data/task_groups.txt",header=T,stringsAsFactors = F)
+  # task_groups_A    <- read.table("/media/cf19810/Seagate Portable Drive/Lasius-Bristol_pathogen_experiment/main_experiment/original_data/task_groups.txt",header=T,stringsAsFactors = F)
+  task_group_file <- paste(data_path, "original_data/task_groups.txt", sep = "/" )
+  task_groups_A    <- read.table(task_group_file ,header=T,stringsAsFactors = F)
   
-  size_order      <- c("small","big")
-  task_groups_A$size     <- unlist(lapply( task_groups_A$treatment, function(x)  unlist(strsplit(x,split="\\.") )[2]  ))
-  task_groups_A$size      <- factor(task_groups_A$size    , levels=size_order   [which(size_order%in%task_groups_A$size )])
+  # size_order      <- c("small","big") # Adriano specific? might need ordering of my treatment?
+  # task_groups_A$size     <- unlist(lapply( task_groups_A$treatment, function(x)  unlist(strsplit(x,split="\\.") )[2]  ))
+  # task_groups_A$size      <- factor(task_groups_A$size    , levels=size_order   [which(size_order%in%task_groups_A$size )])
+  task_groups_A$treatment      <- as.factor(task_groups_A$treatment) 
   
   # Generate plots of Social Maturity
-  ggplot(task_groups_A, aes(x = Forager_score, colour = size)) + 
+  ggplot(task_groups_A, aes(x = Forager_score, colour = treatment)) + 
     #geom_density(alpha = 0.6,size=1.5, adjust=1/1.2) + # 'adjust' changes the smoothing
-    geom_line(aes(color=size,group = colony), stat="density", size=1, alpha=0.2, adjust=1/1.2) +
-    geom_line(aes(color=size), stat="density", size=2, alpha=1, adjust=1/1.2) +
+    geom_line(aes(color=treatment,group = colony), stat="density", size=1, alpha=0.2, adjust=1/1.2) +
+    geom_line(aes(color=treatment), stat="density", size=2, alpha=1, adjust=1/1.2) +
     geom_vline(aes(xintercept = 0.5), linetype = "dashed",colour="grey20") + 
     geom_vline(aes(xintercept = 1/4), linetype = "dashed",colour="grey20") + 
     #facet_wrap(~ colony, scales = "free") +
     theme_minimal() +
     xlab("Social maturity (duration contacts)")
   
-  ## CHECK WHEN THE BEST MODULARITY VALUE IS ACHIEVED
+  
+  
+  
+  ### CHECK WHEN THE BEST MODULARITY VALUE IS ACHIEVED
   
   data_obs <- data[which(data$randy=="observed"),]
   
@@ -372,17 +378,23 @@ if(DISPLAY_RESULTS){
     theme_minimal()
 }
 
+### Not really sure what the last plot is supposed to show? If we run the script as above, then there is only one value per colony? and I do not see ŵhy iteration matters?
+### This probably only matters if we are looking at multiple time bins? I only look at one three hour block while usually it is multiple 3h bins. --> confirm if this is true when doing Flugus
 
 
 
 
 
-# #Merge cluster output
-# # Set the path to the directory
-# path <- "/media/cf19810/Seagate Portable Drive/Lasius-Bristol_pathogen_experiment/main_experiment/Soft_community_scores_duration/"
+# maybe the following needs to be run with once the randomised or simulated things are ones are run as well? so we have observed or simulated in addition to observed? 
+
+
+#### Merge cluster output ####
+# Set the path to the directory
+
+# path <- paste0(data_path,"/Soft_community_scores_duration") 
 # 
 # # List all the text files in the directory
-# files <- list.files(path, pattern = "\\.txt$", full.names = TRUE)
+# files <- list.files(path, pattern = "\\.txt$", full.names = TRUE)   ### somehow I do not have any textfiles here? 
 # 
 # # Read and combine all the files
 # combined_data <- do.call(rbind, lapply(files, read.table, header=TRUE, stringsAsFactors=FALSE))
@@ -393,20 +405,16 @@ if(DISPLAY_RESULTS){
 # # Save the combined data to a new file
 # output_path <- "/media/cf19810/Seagate Portable Drive/Lasius-Bristol_pathogen_experiment/main_experiment/Soft_community_scores_duration_1ITER_0.5alpha_full.txt"
 # write.table(combined_data, file=output_path, row.names=FALSE, sep="\t", quote=FALSE)
-# 
 
 
 
 
+### Continue adjusting here once the randomisations have been run?!
 
-
-
-
-
-##############
+#### Update Data ####
+# add Facet net info to relevant files
 
 if(UPDATE_DATA){
-  #add this info to all the relevant files
   combined_data <- read.table( "/media/cf19810/Seagate Portable Drive/Lasius-Bristol_pathogen_experiment/main_experiment/Soft_community_scores_duration_1ITER_0.5alpha_full.txt", header=TRUE, stringsAsFactors=FALSE)
   combined_data$colony <- paste0("colony",combined_data$colony)
   combined_data$treatment <- paste(combined_data$treatment,combined_data$colony_size,sep=".")
@@ -416,6 +424,17 @@ if(UPDATE_DATA){
   combined_data$time_of_day <- as.numeric(gsub("TD","",combined_data$TD)); combined_data$TD <- NULL
   combined_data$modularity_FacetNet <- combined_data$MODULARITY; combined_data$MODULARITY <- NULL
   combined_data$randy <- combined_data$ObsRand; combined_data$ObsRand <- NULL
+  
+  # combined_data_file <- paste0(data_path,"/Soft_community_scores_duration_1ITER_0.5alpha_full.txt")
+  # combined_data <- read.table(combined_data_file, header=TRUE, stringsAsFactors=FALSE)
+  # combined_data$colony <- paste0("colony",combined_data$colony)
+  # combined_data$treatment <- paste(combined_data$treatment,combined_data$colony_size,sep=".")
+  # combined_data$colony_size <- NULL
+  # combined_data$period <- tolower(gsub("Treatment", "", combined_data$period))
+  # combined_data$time_hours <- as.numeric(gsub("TH","",combined_data$bin)); combined_data$bin <- NULL
+  # combined_data$time_of_day <- as.numeric(gsub("TD","",combined_data$TD)); combined_data$TD <- NULL
+  # combined_data$modularity_FacetNet <- combined_data$MODULARITY; combined_data$MODULARITY <- NULL
+  # combined_data$randy <- combined_data$ObsRand; combined_data$ObsRand <- NULL
   
   
   outputfolder <- "/media/cf19810/Seagate Portable Drive/Lasius-Bristol_pathogen_experiment/main_experiment/processed_data/network_properties_edge_weights_duration"
@@ -480,3 +499,4 @@ if(UPDATE_DATA){
     }
   }
 }
+}  

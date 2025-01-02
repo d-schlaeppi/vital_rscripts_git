@@ -11,6 +11,8 @@
 ### Adaptations by Adriano Wanderlingh & Linda Sartoris
 ### Adjusted to the needs of Daniel Schläppi
 
+### TODO's -- Adjust so that it also runs for trophallacic interaction networks / interaction lists with the parameterisation adjusted... !!!!!
+
 #### Data preparation ####
 
 cat(red(paste("### ### ### Starting transmission simulations for ", interaction_type, "### ### ###")), "\n")
@@ -35,7 +37,7 @@ input_files <- list.files(path = input_path, pattern = "interactions", recursive
 ### arguments 
 N_SIM  <- 500 # N_SIM  <- 2  
 #if (!grepl("survival",data_path)){ # DS never has survival
-  seed_files <- c("treated_workers.txt","random_workers.txt","foragers.txt","nurses.txt")
+  seed_files <- c("treated_workers.txt","random_workers.txt","foragers.txt","nurses.txt", "foragers_facetnet.txt","nurses_facetnet.txt")  ### facet net seed files added. 
 # }else{
 #   seed_files <- c("treated_workers.txt")
 # }
@@ -75,7 +77,9 @@ for (seed_file in seed_files ){ # seed_file <- "treated_workers.txt"
         treatment          <- unlist(strsplit(root_name, split="_"))[2]
         period_detail      <- sub("(.*)Treatment.*", "\\1", unlist(strsplit(root_name,split="_"))[3]) # pre post?
         if (grepl("Pre",root_name)){period="before"}else{period="after"}
-        cat(blue(paste0("starting ", colony, " ",  period_detail, "Treatment - ",  tolower(interaction_type)), " - ", interac_folder, "\n"))
+        # cat(blue(paste0("starting ", colony, " ",  period_detail, "Treatment - ",  tolower(interaction_type)), " - ", interac_folder, "\n"))
+        cat(blue(paste0("Iteration: ", colony, " ",  period_detail, "Treatment - ",  tolower(interaction_type)), " - ", interac_folder, "                         ","\r"))
+        
             
         ### read interactions
         interaction_table <- read_table_with_auto_delim(interac) # DS using function to read file to work both with space and tab separated tables (observed and randomized might have different format)
@@ -182,7 +186,8 @@ for (seed_file in seed_files ){ # seed_file <- "treated_workers.txt"
         
         
         #### Perform simulations ####
-        cat(yellow(paste("Performing simulations...")), "\n")
+        # cat(yellow(paste("Performing simulations...")), "\n")
+        cat(yellow(paste0("Iteration: ", colony, " ",  period_detail, "Treatment - ",  tolower(interaction_type)), " - ", interac_folder, " --- running simulations"), "\r")
         simulations <- NULL
         for (i in 1:N_SIM){ # i=1
           simulations <- rbind(simulations, 

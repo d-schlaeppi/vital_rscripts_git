@@ -6,9 +6,13 @@
 
 # Takes an interaction list as an input, builds a network, and analyses its properties
 # Created by Nathalie Stroeymeyt
-# Modified by Adriano Wanderlingh to work with FORT formicidae Tracking data. Mods tagged with the comment "AW". script wide mods cited here below.
+# Modified by Adriano Wanderlingh to work with FORT formicidae Tracking data.
 # Modified by Nathalie Stroeymeyt to include number of events in addition to duration
 # with adaptations by Linda Sartoris and then adjusted to the needs of Daniel Schläppi's data
+
+### HMMM... It seems to work... but what is produced and what to do with it?
+### and might need additions for trophallactic interactions? 
+
 
 
 ### ### ### ### ### ### ### ### ### ### ### ###
@@ -301,9 +305,9 @@ for (input_folder in input_folders){ # input_folder <- input_folders[1]
         ## Density
         density  <- igraph::edge_density(net)
         ## Diameter
-        diameter <- igraph::diameter(net,directed=F,unconnected=TRUE,weights=(1/E(net)$weight)) ###here use the inverse of the weights, because the algorithm considers weights as distances rather than strengths of connexion
+        diameter <- igraph::diameter(net,directed=F,unconnected=TRUE,weights=(1/E(net)$weight)) ### here use the inverse of the weights, because the algorithm considers weights as distances rather than strengths of connexion
         ## Efficiency
-        net_dist                    <- shortest.paths(net, weights=1/E(net)$weight, mode="all") ##again use the inverse of the weights, because the algorithm considers weights as distances rather than strengths of connexion
+        net_dist                    <- shortest.paths(net, weights=1/E(net)$weight, mode="all") ## again use the inverse of the weights, because the algorithm considers weights as distances rather than strengths of connexion
         net_dist[net_dist==0]       <- NA ##remove distances to self
         efficiency                  <- 1/net_dist ##transform each distance into an efficiency
         efficiency <- (1/((vcount(net)*(vcount(net)-1))))*(sum(efficiency,na.rm=TRUE))
@@ -441,3 +445,6 @@ if (!grepl("survival",data_path)){
   write.table(queen_community_summary,file=paste(outputfolder,"/random_vs_observed/queen_community.dat",sep=""),append=F,quote=F,row.names=F,col.names=T)
 }
 to_keep <- to_keep_ori
+
+
+

@@ -11,7 +11,7 @@
 # Modified by Adriano Wanderlingh to work with FORT formicidae Tracking data. Mods tagged with the comment "AW". script wide mods cited here below.
 # Modified by Nathalie Stroeymeyt to include number of events in addition to duration
 # with adaptations by Linda Sartoris
-# Adjusted to specific needs of the vital experiment by Daniel Schläppi
+# Adjusted to specific needs of the vital experiment by Daniel Schläppi... 
 
 # Script wide mods AW
 # - replaced before/after with pre/post
