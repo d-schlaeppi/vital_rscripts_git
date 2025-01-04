@@ -5,12 +5,14 @@
 #### Read me ####
 
 # Takes an interaction list as an input, builds a network, and analyses its properties
+
 # Created by Nathalie Stroeymeyt
 # Modified by Adriano Wanderlingh to work with FORT formicidae Tracking data.
 # Modified by Nathalie Stroeymeyt to include number of events in addition to duration
 # with adaptations by Linda Sartoris and then adjusted to the needs of Daniel Schläppi's data
 
 ### HMMM... It seems to work... but what is produced and what to do with it?
+### Check what results are produced and where to see them. 
 ### and might need additions for trophallactic interactions? 
 
 
@@ -45,7 +47,10 @@ if (!grepl("survival",data_path)){ #DS never has survival
 queen_community_summary <- NULL
 to_keep <- c(ls(),"to_keep","input_folder","network_files","options","option","summary_collective","summary_individual","outputfolder","network_file","queenid", "edge_weights", "edge_weight")
 for (input_folder in input_folders){ # input_folder <- input_folders[1]
-  print(input_folder)
+  # print(input_folder)
+
+  cat(yellow(paste0(input_folder, "                                            ")), "\r")
+  
   setwd(input_path)
   network_files <- list.files(path=paste("PreTreatment/",input_folder,sep=""),full.names=T)
   if (input_folder=="observed"){

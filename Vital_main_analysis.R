@@ -55,8 +55,8 @@ RUN_TROPHALLACTIC_INTERACTIONS     <- FALSE
 # Define what analysis step to run: 
 RUN_11_randomise_interactions_DS.R        <- FALSE
 RUN_12_simulate_transmission_DS.R         <- FALSE
-RUN_13_network_analysis_DS.R              <- TRUE
-RUN_14_summarise_interactions_DS.R        <- FALSE
+RUN_13_network_analysis_DS.R              <- FALSE
+RUN_14_summarise_interactions_DS.R        <- TRUE
 RUN_19_Facetnet_community_detection_DS.R  <- FALSE
 RUN_19_SUBSECTION_ONLY                    <- FALSE  # Community detection on observed data only for task allocation --> run only the first section of the script (subsetted) -- Usually this is set to false, unless you are opening this script for the first time and want to get task allocation via the facet net method as alternative to the space use method in base analysis
 }
@@ -161,7 +161,7 @@ if (TRUE) {
 
 #### 3.3 13_network_analysis.R ####
 #  conducts network analysis on interaction data
-if (RUN_13_network_analysis_DS.R) {
+  if (RUN_13_network_analysis_DS.R) {
     print("running 13_network_analysis_DS.R")
     for (interaction_type in names(data_paths)) { # interaction_type <- "CLASSIC_INTERACTIONS" or interaction_type <- "TROPHALLACTIC_INTERACTIONS"
       data_path <- data_paths[[interaction_type]] 
@@ -171,100 +171,68 @@ if (RUN_13_network_analysis_DS.R) {
         print(paste(interaction_type, "ALL DONE", "\U0001F973"))
         clean()
       } else {
-        print(paste("Skipping", interaction_type))}
-      }} else {print("skipping 13_network_analysis_DS.R")}
+        print(paste("Skipping network analysis for", interaction_type))}
+    }
+    print(paste("Network analysis", "ALL DONE", "\U0001F973", sep = " "))
+  } else {
+    print("skipping 13_network_analysis_DS.R")
+  }
   
 
+
+  
 
   
 #### 3.4 14_summarise_interactions.R ####
   
-if (RUN_14_summarise_interactions_DS.R){ 
-  print("summarize interactions currently being prepared and tested for Daniel")
-  for (interaction_type in names(data_paths)) { # interaction_type <- "CLASSIC_INTERACTIONS" or interaction_type <- "TROPHALLACTIC_INTERACTIONS"
-    data_path <- data_paths[[interaction_type]] 
-    if (!is.null(data_path)) {
-      print(paste("Processing files for", interaction_type, "\U0001F91D"))
-      source(paste(code_path,"/14_summarise_interactions_DS.R",sep=""))
-      clean()
-      print(paste(interaction_type, "ALL DONE", "\U0001F973"))
-    } else {
-      print(paste("Skipping", interaction_type))}
-  }} else {print("skipping 14_summarise_interactions_DS.R")}
+  if (RUN_14_summarise_interactions_DS.R) {
+    print(paste(Sys.time(), ": running 14_summarise_interactions_DS.R")); loop_start_time <- Sys.time()
+    for (interaction_type in names(data_paths)) { # interaction_type <- "CLASSIC_INTERACTIONS" or interaction_type <- "TROPHALLACTIC_INTERACTIONS"
+      data_path <- data_paths[[interaction_type]]
+      if (!is.null(data_path)) {
+        print(paste("Processing files for", interaction_type, "\U0001F91D"))
+        source(paste(code_path, "/14_summarise_interactions_DS.R", sep = ""))
+        clean()
+        print(paste(interaction_type, "ALL DONE", "\U0001F973"))
+      } else {
+        print(paste("Skipping interaction summary for", interaction_type))}
+    }
+    print(paste(Sys.time(),"Summary of interactions", "ALL DONE", "\U0001F973", sep = " ")); loop_end_time <- Sys.time()
+    print(paste("Summary of interactions took ", as.numeric(difftime(loop_end_time, loop_start_time, units = "mins")), " minutes to complete"))
+  } else {
+    print("skipping 14_summarise_interactions_DS.R")
+  }
 
 
   
 #### 3.5 19_Facetnet_community_detection.R ####
-if (RUN_19_Facetnet_community_detection_DS.R){
+  if (RUN_19_Facetnet_community_detection_DS.R){
     print(paste(Sys.time(), ":    running 19_Facetnet_community_detection.R"))
     loop_start_time <- Sys.time()
     source(paste(code_path,"/19_Facetnet_community_detection_DS.R",sep=""))
     clean()
     loop_end_time <- Sys.time()
-    print(paste(Sys.time(), ":    ALL DONE", "\U0001F973"))
-    print(paste("script took ", as.numeric(difftime(loop_end_time, loop_start_time, units = "mins")), " minutes to complete"))
-} else { print("skipping 19_Facetnet_community_detection_DS.R")} 
-  
-  
+    print(paste(Sys.time(), ":  Facetnet community detection ALL DONE", "\U0001F973"))
+    print(paste("FacetNet community detection took ", as.numeric(difftime(loop_end_time, loop_start_time, units = "mins")), " minutes to complete"))
+  } else {
+    print("skipping 19_Facetnet_community_detection_DS.R")
+  } 
   
 
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
 } 
+
 
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
 #### END OF THE LOOP OVER ALL FUNCTIONS ####
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
+
 ### NEXT: Move on the analysis of the data using script "Vital_stats_and_plots_R"
+file.edit(paste(SCRIPTDIR, "Vital_stats_and_plots.R", sep = "/"))
 
 
 
 
-
-
-
-
-#### 4. All available analysis programs ####
-# check adrianos github for all the scripts should they be needed 
-
-# source(paste(code_path,"/1_trackconverter.R",sep=""))
-# clean()
-# source(paste(code_path,"/2_define_deaths.R",sep=""))
-# clean()
-# source(paste(code_path,"/3_apply_rotation_to_datfiles.R",sep=""))
-# clean()
-# source(paste(code_path,"/4_retagged_ant_modifications.R",sep=""))
-# clean()
-# source(paste(code_path,"/5_zoneconverter_nest.R",sep=""))
-# clean()
-# source(paste(code_path,"/6_time_investment.R",sep=""))
-# clean()
-# source(paste(code_path,"/7_trajectory.R",sep=""))
-# clean()
-# source(paste(code_path,"/8_process_trajectory_files.R",sep=""))
-# clean()
-# source(paste(code_path,"/9_interaction_detection.R",sep=""))
-# clean()
-# source(paste(code_path,"/10_process_interaction_files.R",sep=""))
-# clean()
-
-# TO USE AW:
-# source(paste(code_path,"/11_randomise_interactions.R",sep=""))
-# clean()
-# source(paste(code_path,"/12_simulate_transmission.R",sep=""))
-# clean()
-# source(paste(code_path,"/13_network_analysis.R",sep=""))
-# clean()
-# source(paste(code_path,"/14_summarise_interactions.R",sep=""))
-# clean()
-# source(paste(code_path,"/15_heatmaps_individual.R",sep=""))
-# clean()
-# source(paste(code_path,"/16_heatmaps_groups.R",sep=""))
-# clean()
-# source(paste(code_path,"/17_brood_location.R",sep=""))
-# clean()
-# source(paste(code_path,"/18_process_heatmaps.R",sep=""))
-# clean()
-# source(paste(code_path,"/19_Facetnet_community_detection.R",sep=""))
-# clean()
+#______________________________________________________________________________________________________________________________________________________________________________________________________________________

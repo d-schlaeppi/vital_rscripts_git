@@ -6,7 +6,7 @@ rm(list = setdiff(ls(), "first_time_use_working_directory"))
 
 #### Read me ####
 # Code written by Daniel Schläppi based on a previous version written by Nathalie Stroeymeyt and Adriano Wanderlingh
-# Run all the previous scripts from the main analysis (Vital_main_analysis.R) to have all the processed data ready for this code.
+# Run all the previous scripts from the main analysis (Vital_main_analysis.R) to have data processed and ready for this code.
 
 
 

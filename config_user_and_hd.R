@@ -14,6 +14,7 @@
 #### Libraries ####
 pacman::p_load(
   tcltk, igraph, dplyr, tidyr, ggplot2, lme4, car, glmmTMB, multcomp, multcompView, crayon, plotrix, emmeans,
+  reshape2, circular,
   Rcpp,   # contains sourceCpp()
   survival, #contains coxph() function
   moments, # contains skewness function
@@ -21,7 +22,6 @@ pacman::p_load(
   )
 # further libraries used by adriano but probably not required
 # adehabitatHR, adehabitatLT, changepoint, e1071, gtools, entropy
-
 
 
 #### get information on operation system, user and hard drive ####

@@ -12,7 +12,13 @@ rm(list = setdiff(ls(), "first_time_use_working_directory"))
 # Should be compatible with Fort 0.8.1 and 0.8.3
 
 # When running this you will create a couple of tables in the right format with the right names for variables so it should match 
-# the data structure of Stroeymeyt 2018 which will help running the remaining analysis pipeline.
+# the data structure of in the analysis pipeline of Stroeymeyt 2018 which is required to run the remaining scripts
+
+# For the definition of castes/task groups (nurses and foragers) it is recommended to run the first part of the Facetnet community detection script 
+# instead of relying on an arbitrary space use cutoff (proportion inside or outside of the nest). Do so, if you want to add that definition to the tables and seed files created below in addition to the old version
+# However, running the facet net script requires you to run this script first. --> Run this script with facetNet_run set to FALSE, then run the first part of the facet net script
+# Then come back to rerun this script with facetNet_run to TRUE
+# At some point this could be simplified. Unofortunately the Facetnet script was developed later and now is not the time to reorganize the whole pipeline.
 
 # Index
 # 1. Prerequisites
@@ -29,9 +35,11 @@ rm(list = setdiff(ls(), "first_time_use_working_directory"))
 
 #### 1. Prerequisites ####
 
-# tables from metadata information
+# Have you already run the first part of the FacetNet community detection script to identify nurses and foragers based on community instead of space use?
+# set to TRUE or FALSE
+facetNet_run <- TRUE 
 
-pacman::p_load(tcltk,reshape2,dplyr,FortMyrmidon,circular)
+
 FRAME_RATE <- 6
 # setwd(tk_choose.dir(default = "~/", caption = "Select Working Directory"))
 if (!exists("first_time_use_working_directory") || first_time_use_working_directory == "") { # direct it to where you have config_user_and_hd.R (typically the script folder or github folder)
@@ -49,39 +57,17 @@ source("config_user_and_hd.R")
 SAVEDIR   <- paste("/media" , usr, hd,"vital/fc2/vital_experiment/main_experiment/original_data",sep="/")
 
 
-# if (usr != "mac_gismo") {
-#   DATADIR   <- paste("/media", usr, hd, "vital/fc2",sep="/") 
-#   SCRIPTDIR <- paste("/home" , usr, "Documents/vital_rscripts_git",sep="/")
-#   SAVEDIR   <- paste("/media" , usr, hd,"vital/fc2/vital_experiment/main_experiment/original_data",sep="/")
-#   } else {
-#   DATADIR   <- paste("/Volumes", hd, "vital/fc2", sep="/") 
-#   SCRIPTDIR <- paste("/Users", usr, "Documents/GitHub/vital_rscripts_git",sep="/")
-#   SAVEDIR   <- paste("/Volumes", hd, "vital/fc2/vital_experiment/main_experiment/original_data",sep="/")
-#   }
-
-
 #### 2. To dos and Notes ####
-# AT SOME POINT IT MIGHT BE NECESSARY TO CHANGE TO THE FACET NETWORK TASK DEFINITION VARIABLE INSTEAD OF THE ONE BASED ON PROPORTION OF TIME IN OR OUR THE NEST
-# HOWEVER, THIS SCRIPT NEEDS TO BE RUN BEFORE THE FACET NET ONE... So we might want to come back to at at some point. --> Facet Net was just run afterwards and its information was added in addition to the space use one
-# note, seed files etc are all calculated based on the old task definition which was based on the percentage of time spent inside or outside the nest. --> maybe this step still needs to be adjusted.
+
+# Column names might be slightly different based on experimental design
+# AntTask -> AntTask1perc (based on space use with a 1% cutoff) to differentiate from task definition based on facet net
 
 
-# CHECK WHICH BELOW IS REFERRING TO BEAD LOAD AND ADJUST ADRIANOS PATHOGEN LOAD. 
-# pathogen_load <- read.csv("/media/cf19810/DISK4/EXP1_base_analysis/Personal_Immunity/Pathogen_Quantification_Data/Adriano_qPCR_pathogen_load_MASTER_REPORT.csv")
-# bead_load <- read.csv("path to table containing the information of the beads for each individual: blue, yellow") ### UPDATE AS SOON AS POSSIBLE and also update the part below regarding the bead load. 
-# Anything further down in the pipeline referring to the pathogen_load table needs to be run with metadata instead.
 
-
-# Column names might be slightly different based on experimental design...
-# AntTask -> AntTask1perc
-# I did not have pathogen load but bead load which is included in the metadata table. 
-# As I had only 1 Treatment some variable will be different to Adriano and Linda.
-# However, I will need to adjust things once I get to further down in the pipeline to address the issue of bead colors. --> should be sorted in the bead data analysis. 
-
-# Time aggregation info might also be needed for the trophallaxis network... check later... if running simulations along the trophallaxis network. 
 
 
 #### 3. Load data ####
+
 #  meta data
 metadata_present <- read.table(paste(DATADIR, "/individual_metadata_vital.txt", sep = ""), header = T, stringsAsFactors = F, sep = ",")
 source(paste0(SCRIPTDIR,"/vital_meta_data.R")) # will add colony_metadata data frame to the environment so it can be accessed within this script (in my case containing bodylenght information)
@@ -89,22 +75,25 @@ source(paste0(SCRIPTDIR,"/vital_meta_data.R")) # will add colony_metadata data f
 #remove dead ants / only keep the ones that are alive
 metadata_present <- metadata_present[which(metadata_present$IsAlive==TRUE),]
 # ants with rotated tags (retaged with the same tags) appear as duplicates ->
-# remove duplicates: however have different start and stop times as well as surv time. As those variables are not used they can be set to zero and then we can eliminate lines that are not distinct. 
+# remove duplicates: have different start and stop times as well as surv time. As those variables are not used they can be set to zero and then we can eliminate lines that are not distinct. 
 nrow(metadata_present)
 metadata_present <- metadata_present %>% distinct(colony_id, antID, .keep_all = TRUE) # In my case: before 4242 and after 4235.
 nrow(metadata_present)
 # for ants which are alive but because of the loss of the tag or another reasong did not get assigned a Task,
-# assign task "nurse" (total of 5 ants). NOT DOING SO causes issues with assortativity_nominal in 13_network_measures.
+# assign task "nurse" (total of 5 ants). NOT DOING SO might cause issues downstream in the pipeline e.g. with assortativity_nominal in 13_network_measures. 
 # Excluding them altogether causes issues with the 11_transmission_simulation as interactions will be in the interactions lists but not in the tag_list
 metadata_present[which(is.na(metadata_present$AntTask1perc)),"AntTask1perc"] <- "nurse"
 
-# ADD EXTRA COLS TO METADATA and conform naming to Stroeymeyt science 2018 
-# colony code
-metadata_present$colony <- metadata_present$colony_id
 
-# colony_status + treatment (Adriano and Linda had more treatments so they used different naming... I simplified but kept some names just in case...)
+### Adjusting formatting to match the Stroeymeyt 2018 pipeline (renaming and adding of variables)
+
+metadata_present$colony <- metadata_present$colony_id
+# colony_status + treatment (Adriano and Linda had more treatments so they used different naming. DS: simplified for me but the variables are kept just in case)
 metadata_present$status_char       <- metadata_present$treatment_simple
 metadata_present$colony_status     <- metadata_present$treatment_simple
+
+
+
 
 #### 4. Create tables ####
 
@@ -113,6 +102,7 @@ metadata_present$colony_status     <- metadata_present$treatment_simple
 ####              4.1 task_groups.txt                          ####
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
 
+
 task_groups <- data.frame(colony = metadata_present$colony_id,
                           tag =  metadata_present$antID,
                           task_group_prop = metadata_present$AntTask1perc,
@@ -120,7 +110,11 @@ task_groups <- data.frame(colony = metadata_present$colony_id,
                           REP_treat= paste0(metadata_present$colony_id, "_" ,metadata_present$treatment_simple))
 # write.table(task_groups, file = file.path(SAVEDIR,"task_groups.txt"), append = F, col.names = T, row.names = F, quote = F, sep = "\t")
 
-# added check to not overwrite the task_group file in case you are coming back from the facet net community detection which adds additional variables to this table.
+
+
+# added double check to make sure the task_group file does not get overwritten in case you are coming back from the facet net community detection which adds additional variables to this table.
+
+if (facetNet_run != TRUE) {
 file_path <- file.path(SAVEDIR, "task_groups.txt")
 if (file.exists(file_path)) {
   cat(red("\n !!! WARNING: !!! \n")); cat(yellow("\n The file task_groups.txt already exists! \n"))
@@ -133,7 +127,9 @@ if (file.exists(file_path)) {
 } else {
   write.table(task_groups, file = file_path, append = FALSE, col.names = TRUE, row.names = FALSE, quote = FALSE, sep = "\t")
   cat(blue("The file has been written.\n"))}
-
+} else {
+  print(paste("Saving skipped to avoid overwritting of the task_group.txt file containing informatino from the facetnet community detection script"))
+  task_groups <- read.table(paste0(SAVEDIR,"/task_groups.txt"), header = TRUE)}
 
 
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
@@ -141,14 +137,12 @@ if (file.exists(file_path)) {
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
 
 metadata_treated <- metadata_present[which(metadata_present$IsTreated==TRUE),]
-
 treated_worker_list <- data.frame(colony = metadata_treated$colony_id,
                                   tag =  metadata_treated$antID,
                                   survived_treatment = T,
                                   treatment = metadata_treated$treatment_simple,
                                   REP_treat= paste0(metadata_treated$colony_id, "_" ,metadata_treated$treatment_simple),
                                   AntTask= metadata_treated$AntTask1perc)
-
 write.table(treated_worker_list, file = file.path(SAVEDIR,"treated_worker_list.txt"), append = F, col.names = T, row.names = F, quote = F, sep = "\t")
 
 
@@ -157,22 +151,20 @@ write.table(treated_worker_list, file = file.path(SAVEDIR,"treated_worker_list.t
 ####              4.3 seed files                               ####
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
 
+# simulation of transmission - simulations on pre- and post-networks
+# - compare how transmission is compared to observed post (seed: treated workers). simulation shows what is the expected in the post-networks and it can be compared with the actual post-net qPCR data
+# - what would have happened if the exposed where the foragers/nurses/random_workers. This simulation is to study the effects in the pre-period (constitutive properties)
 
 # flag to determine if selecting 10% of the colony size (T) or the same N as the real exposed ants (F)
 select_fixed_N <- F
-# !!!! that is something to think about: Do it once with the same number of workers that were in the treatment groups and once with the same number of workers that I deem worth including! i.e. that did not drown themselves?
 
+### treated workers seed file
 # same as above : treated_workers.txt
 # treated workers simulation is to compare effects with the observed post-exposure changes
 write.table(treated_worker_list, file = file.path(SAVEDIR,"seeds/treated_workers.txt"), append = F, col.names = T, row.names = F, quote = F, sep = "\t")
 
-# simulation of transmission
-# simulations on pre- and post-networks
-# Pre networks:
-# - compare how transmission is compared to observed post (seed: treated workers). simulation shows what is the expected in the post-networks and it can be compared with the actual post-net qPCR data
-# - what would have happened if the exposed where the foragers/nurses/random_workers. This simulation is to study the effects in the pre-period (constitutive properties)
 
-# For simulations, ants where randomly selected from the pool of nurses, foragers or all of the workers, matching the number of exposed workers in each colony.
+# For simulations, ants will be randomly selected from the pool of nurses, foragers or all of the workers, matching the number of exposed workers in each colony.
 # select the N of EXPOSED ants that where alive (present in metadata_present)
 # Calculate N_exposed_alive as the number of Exposed per colony = TRUE
 metadata_present$N_exposed_alive <- ave(metadata_present$IsTreated, metadata_present$colony, FUN = function(x) sum(x))
@@ -208,29 +200,26 @@ for (GROUP in c("nurse","forager","random_worker")) {
     mutate(REP_treat = paste0(colony, "_", treatment))
   
   write.table(metadata_GROUPs_seed, file = file.path(SAVEDIR,paste0("seeds/",GROUP,"s.txt")), append = F, col.names = T, row.names = F, quote = F, sep = "\t")
+  print(paste0(GROUP, " seed file created with task/caste allocation based on space use"))
 }
+
 
 
 
 ### If the first part of the facet net script has been run to get the task group allocation instead space use we create additional seed files based on this 
 
-if ("task_group_FACETNET_0.5" %in% colnames(task_groups)) { # if that already exists run the following
-# rename variables from task_groups to match with metadata_present
-  task_groups_sub <- task_groups %>% rename(
+if ("task_group_FACETNET_0.5" %in% colnames(task_groups)) { # If facet net com detection has been run this exists and the following can be run.
+  # rename variables from task_groups to match with metadata_present
+    task_groups_sub <- task_groups %>% rename(
       antID = tag,  # tag to antID
       colony_id = colony)   %>%  # colony to colony_id
       dplyr::select(colony_id, antID, task_group_FACETNET_0.5, Forager_score) # relevant variables
-# add the facet net variables task_group_FACETNET_0.5 and forager score to metadata_present 
+ # add the facet net variables task_group_FACETNET_0.5 and forager score to metadata_present 
   metadata_present <- metadata_present %>% 
     left_join(task_groups_sub , by = c("colony_id", "antID"))  # colony_id and antID used as identifiers for the join
-# rerun the selection of workers for seed files based on facet net task allocation
-for (GROUP in c("nurse","forager","random_worker")) { # GROUP <-"nurse"
-  if (!(GROUP %in% c("nurse","forager"))) {
-    metadata_GROUP <- metadata_present[which(metadata_present$task_group_FACETNET_0.5!="queen"),]
-  }else{
-    metadata_GROUP <- metadata_present[which(metadata_present$task_group_FACETNET_0.5==GROUP),]
-  }
-  # if (select_fixed_N) { # currently always false (see above) }else{
+ # rerun the selection of workers for seed files based on facet net task allocation
+ for (GROUP in c("nurse","forager")) { # GROUP <-"nurse"   ### random worker does not need to be rerun as it does not rely on the way tasks are defined/allocated
+  metadata_GROUP <- metadata_present[which(metadata_present$task_group_FACETNET_0.5==GROUP),]
   set.seed(69) # for reproducibility of random sampling
   metadata_GROUPs_seed <- metadata_GROUP %>%
       group_by(colony) %>%
@@ -242,8 +231,9 @@ for (GROUP in c("nurse","forager","random_worker")) { # GROUP <-"nurse"
   names(metadata_GROUPs_seed)[which(names(metadata_GROUPs_seed)=="antID")] <- "tag"
   metadata_GROUPs_seed <- metadata_GROUPs_seed %>%
     mutate(REP_treat = paste0(colony, "_", treatment))
-  
+  # save
   write.table(metadata_GROUPs_seed, file = file.path(SAVEDIR,paste0("seeds/",GROUP,"s_facetnet.txt")), append = F, col.names = T, row.names = F, quote = F, sep = "\t")
+  print(paste0(GROUP, " seed file created with task/caste allocation based on facetnet community detection"))
 }} else {  cat(yellow("Facet net task allocation not defined yet \nTo get this, run the first part of 19_Facetnet_community_detection_DS.R\nOr skip for now and come back later"))}
 
 
@@ -302,6 +292,9 @@ if (!file.exists(dirname(bead_file_path))) {dir.create(dirname(bead_file_path), 
 write.table(bead_file, file = bead_file_path, append = F, col.names = T, row.names = F, quote = F, sep = "\t")
 
 
+
+
+
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
 ####                 4.6 tag_files.txt                         ####
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
@@ -311,61 +304,66 @@ files_list <- list.files(DATADIR, pattern="CapsuleDef2018.myrmidon")
 files_list <- files_list[which(!grepl("c29",files_list))] # getting a list of each colony
 # files_list <- files_list[which(grepl("c11",files_list))]
 
-for (file in files_list) { # file <- files_list[12]
-  colony_id <- unlist(strsplit(file,split="_"))[grepl("c",unlist(strsplit(file,split="_")))]
-  colony <- colony_id
-  # get base info for this colony
-  treatment <- colony_metadata[which(colony_metadata$colony_id==colony_id),"treatment_simple"]
-  tracking_system <-colony_metadata[which(colony_metadata$colony_id==colony_id),"tracking_system_main"]
-  REP_treat <- paste(treatment, tracking_system, colony_id, sep="_") 
-  colony_status <- treatment
-  print(paste(REP_treat,colony,treatment,sep=" | "))
-  e <- fmExperimentOpen(paste(DATADIR,file, sep = "/"))
-  exp.Ants  <- e$ants
-  exp_end   <- colony_metadata[which(colony_metadata$colony_id==colony_id),"time_treatment_end"]#fmQueryGetDataInformations(e)$end
-  treatment_start <-  as.POSIXct(colony_metadata[which(colony_metadata$colony_id==colony_id),"time_treatment_start"], format="%Y-%m-%dT%H:%M:%OSZ",  origin="1970-01-01", tz="GMT" ) #fmQueryGetDataInformations(e)$start
-  exp_start <- fmTimeCreate(treatment_start-24*3600)
-  rec_start <- as.POSIXct(fmQueryGetDataInformations(e)$start, format="%Y-%m-%dT%H:%M:%OSZ",  origin="1970-01-01", tz="GMT" )  # the time at which the recording started (variable for each treatment as I sometimes included the acclimatisation time and sometimes did not)
-  tag_stats <- fmQueryComputeTagStatistics(e)
-  
-  # create tag file and populate it...
-  tag_file <- NULL
-  for (ant in exp.Ants){  # ant <- exp.Ants[[92]] | ant <- exp.Ants[[2]]
-    if(all(ant$getValues("IsAlive")["values"]$values)){ #making just making sure there is no false, i.e. ant is alive
-      for (id in ant$identifications){ # id <- ant$identifications[[1]]
-        if (capture.output(ant$identifications[[1]]$start)=="-∞") {   #DS: Changed from $start)=="+∞" to avoid loosing queen of colony 11 ### THIS EXCLUDES one instance of THE ANTS WITH ROTATED TAGS (or dead ants which should already be excluded anyways) ### skip lines for ants that had the tag rotated which were deleted as duplicates above in metadata present. 
-        tag_file <- rbind(tag_file, data.frame(tag =  ant$ID,
-                                              count = tag_stats[which(tag_stats$tagDecimalValue == id$tagValue),"count"],
-                                              # version 1:
-                                              # last_det = 27*3600*FRAME_RATE, #not entirely clear: simple like adriano: last_det = 51*60*60 * 8, #fixed= sll alive, so it is the n of frames for 51 hours.tag_stats[which(tag_stats$tagDecimalValue == id$tagValue),"lastSeen"],
-                                              # version 2 or 3: number of frames since official starting of tracking 24 h before treatment until last seen? But could also be number of frames since recording starts which would be experiment start instead of treatment start -12 
-                                              last_det = round(as.numeric(difftime(tag_stats[which(tag_stats$tagDecimalValue == id$tagValue),"lastSeen"], treatment_start-24*3600, units="secs"))*FRAME_RATE),
-                                              # last_det = round(as.numeric(difftime(tag_stats[which(tag_stats$tagDecimalValue == id$tagValue),"lastSeen"], rec_start, units="secs"))*FRAME_RATE),
-                                              rot = round(deg(id$antAngle),3), # assumed to be the the relative angle of the ant to the tag
-                                              displacement_distance = 0, #id$antPosition one of the two measures
-                                              displacement_angle = 0,
-                                              antenna_reach = NA,
-                                              trapezoid_length = NA,
-                                              type = "N", #what does it mean?
-                                              size = 0,
-                                              headwidth = 0,
-                                              death = 0,  #all alive, dead not included
-                                              age = 0,
-                                              #final_status = ifelse(metadata_present[which(metadata_present$tagIDdecimal == id$tagValue & metadata_present$colony_id==colony_id),"IsAlive"]==T,"alive","dead"),   ### needed fixing as it caused an error for retagged ants with two identifications: removing one of the duplicates in metadata_present means that there not all tag values are still there -> thus we refer to antID instead.
-                                              final_status = ifelse(metadata_present[which(metadata_present$antID == id$targetAntID & metadata_present$colony_id==colony_id),"IsAlive"]==T,"alive","dead"),
-                                              #group = metadata_present[which(metadata_present$tagIDdecimal == id$tagValue & metadata_present$colony_id==colony_id),"AntTask1perc"],
-                                              group =               metadata_present[which(metadata_present$antID == id$targetAntID & metadata_present$colony_id==colony_id),"AntTask1perc"],
-                                              REP_treat = REP_treat,
-                                              stringsAsFactors = F))
- 
+if (TRUE) {
+  cat(blue("Creating tag files for each colony. Currently processing: \n"))
+  for (file in files_list) { # file <- files_list[12]
+    colony_id <- unlist(strsplit(file,split="_"))[grepl("c",unlist(strsplit(file,split="_")))]
+    colony <- colony_id
+    # get base info for this colony
+    treatment <- colony_metadata[which(colony_metadata$colony_id==colony_id),"treatment_simple"]
+    tracking_system <-colony_metadata[which(colony_metadata$colony_id==colony_id),"tracking_system_main"]
+    REP_treat <- paste(treatment, tracking_system, colony_id, sep="_") 
+    colony_status <- treatment
+    cat(yellow(paste(REP_treat,colony,treatment,sep=" | "), "          \r"))
+    e <- fmExperimentOpen(paste(DATADIR,file, sep = "/"))
+    exp.Ants  <- e$ants
+    exp_end   <- colony_metadata[which(colony_metadata$colony_id==colony_id),"time_treatment_end"]#fmQueryGetDataInformations(e)$end
+    treatment_start <-  as.POSIXct(colony_metadata[which(colony_metadata$colony_id==colony_id),"time_treatment_start"], format="%Y-%m-%dT%H:%M:%OSZ",  origin="1970-01-01", tz="GMT" ) #fmQueryGetDataInformations(e)$start
+    exp_start <- fmTimeCreate(treatment_start-24*3600)
+    rec_start <- as.POSIXct(fmQueryGetDataInformations(e)$start, format="%Y-%m-%dT%H:%M:%OSZ",  origin="1970-01-01", tz="GMT" )  # the time at which the recording started (variable for each treatment as I sometimes included the acclimatisation time and sometimes did not)
+    tag_stats <- fmQueryComputeTagStatistics(e)
+    
+    # create tag file and populate it...
+    tag_file <- NULL
+    for (ant in exp.Ants){  # ant <- exp.Ants[[92]] | ant <- exp.Ants[[2]]
+      if(all(ant$getValues("IsAlive")["values"]$values)){ #making just making sure there is no false, i.e. ant is alive
+        for (id in ant$identifications){ # id <- ant$identifications[[1]]
+          if (capture.output(ant$identifications[[1]]$start)=="-∞") {   #DS: Changed from $start)=="+∞" to avoid loosing queen of colony 11 ### THIS EXCLUDES one instance of THE ANTS WITH ROTATED TAGS (or dead ants which should already be excluded anyways) ### skip lines for ants that had the tag rotated which were deleted as duplicates above in metadata present. 
+            tag_file <- rbind(tag_file, data.frame(tag =  ant$ID,
+                                                   count = tag_stats[which(tag_stats$tagDecimalValue == id$tagValue),"count"],
+                                                   # version 1:
+                                                   # last_det = 27*3600*FRAME_RATE, #not entirely clear: simple like adriano: last_det = 51*60*60 * 8, #fixed= sll alive, so it is the n of frames for 51 hours.tag_stats[which(tag_stats$tagDecimalValue == id$tagValue),"lastSeen"],
+                                                   # version 2 or 3: number of frames since official starting of tracking 24 h before treatment until last seen? But could also be number of frames since recording starts which would be experiment start instead of treatment start -12 
+                                                   last_det = round(as.numeric(difftime(tag_stats[which(tag_stats$tagDecimalValue == id$tagValue),"lastSeen"], treatment_start-24*3600, units="secs"))*FRAME_RATE),
+                                                   # last_det = round(as.numeric(difftime(tag_stats[which(tag_stats$tagDecimalValue == id$tagValue),"lastSeen"], rec_start, units="secs"))*FRAME_RATE),
+                                                   rot = round(deg(id$antAngle),3), # assumed to be the the relative angle of the ant to the tag
+                                                   displacement_distance = 0, #id$antPosition one of the two measures
+                                                   displacement_angle = 0,
+                                                   antenna_reach = NA,
+                                                   trapezoid_length = NA,
+                                                   type = "N", #what does it mean?
+                                                   size = 0,
+                                                   headwidth = 0,
+                                                   death = 0,  #all alive, dead not included
+                                                   age = 0,
+                                                   #final_status = ifelse(metadata_present[which(metadata_present$tagIDdecimal == id$tagValue & metadata_present$colony_id==colony_id),"IsAlive"]==T,"alive","dead"),   ### needed fixing as it caused an error for retagged ants with two identifications: removing one of the duplicates in metadata_present means that there not all tag values are still there -> thus we refer to antID instead.
+                                                   final_status = ifelse(metadata_present[which(metadata_present$antID == id$targetAntID & metadata_present$colony_id==colony_id),"IsAlive"]==T,"alive","dead"),
+                                                   #group = metadata_present[which(metadata_present$tagIDdecimal == id$tagValue & metadata_present$colony_id==colony_id),"AntTask1perc"],
+                                                   group =          metadata_present[which(metadata_present$antID == id$targetAntID & metadata_present$colony_id==colony_id),"AntTask1perc"],
+                                                   group_facetNet = ifelse(facetNet_run == TRUE, 
+                                                                           metadata_present[which(metadata_present$antID == id$targetAntID & metadata_present$colony_id == colony_id), "task_group_FACETNET_0.5"], 
+                                                                           NA),
+                                                   REP_treat = REP_treat,
+                                                   stringsAsFactors = F))
+            
+          }
         }
       }
     }
-   }
-  tag_file <- tag_file[which(tag_file$final_status=="alive"),] # just making sure that there are indeed no dead ants
-  tag_file <- tag_file[!duplicated(tag_file$tag),]  # remove duplicated tag ant rows and keep single one (first row)
-  write.table(tag_file, file = file.path(SAVEDIR,"tag_files",paste0(colony,"_",treatment,".txt")), append = F, col.names = T, row.names = F, quote = F, sep = "\t")
-}
+    tag_file <- tag_file[which(tag_file$final_status=="alive"),] # just making sure that there are indeed no dead ants
+    tag_file <- tag_file[!duplicated(tag_file$tag),]  # remove duplicated tag ant rows and keep single one (first row)
+    write.table(tag_file, file = file.path(SAVEDIR,"tag_files",paste0(colony,"_",treatment,".txt")), append = F, col.names = T, row.names = F, quote = F, sep = "\t")
+  }}
 
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
 ####                 4.7 time_aggregation_info                 ####

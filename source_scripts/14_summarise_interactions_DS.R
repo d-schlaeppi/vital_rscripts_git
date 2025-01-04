@@ -18,9 +18,12 @@
 # when ran for the grooming interactions it should only be run for the "observed" folders
 
 # TO DO's
-# See if and how to implement the trophallactic interaction in this script instead of the grooming interactions which will probably be ignored because of the framerate...
+#' Line 50: Check what is needed for trophallactic interactions... potentially the same as main so that we can look at pro and post treatmnet
+#' See if and how to implement the trophallactic interaction in this script instead of the grooming interactions which will probably be ignored because of the framerate...
+#' Check what to use for task groups... probably Facet Net!!!! update accordingly! 
+# 
 
-
+### Why only for PreTreatment at the beginning?
 
 ### ### ### ### ### ### ### ### ### ### ### ###
 to_keep_ori <- to_keep
@@ -41,6 +44,7 @@ if (!file.exists(outputfolder1))  {dir.create(outputfolder1,recursive = T)}
 
 summary_dol <- NULL
 to_keep <- c(ls(),"to_keep","input_folder","network_file","network_files","summary_interactions","summary_interactions_grooming","summary_pairs","all_interactions")
+
 for (input_folder in input_folders){ # input_folder <- "observed"
   print(input_folder)
   setwd(input_path)
@@ -50,39 +54,40 @@ for (input_folder in input_folders){ # input_folder <- "observed"
   }
   summary_interactions <- NULL
   summary_interactions_grooming <- NULL
+  # summary_interactions_trophy <- NULL
   summary_pairs        <- NULL
   all_interactions     <- NULL
   
   for (network_file in network_files){ # network_file <- network_files[1]
+    
     #### collect information on network file and get interactions ####
-    cat("\r",network_file) # DS: reminder to myself: The carriage return (\r) is an escape sequence that moves the cursor back to the beginning of the current line without advancing to the next line so cat keeps printing on the current line without moving on in the console
+    cat(yellow("\r",network_file)) 
     
     ### get file metadata
     root_name          <- gsub("_interactions.txt","",unlist(strsplit(network_file,split="/"))[grepl("interactions",unlist(strsplit(network_file,split="/")))]) 
     components         <- unlist(strsplit(root_name,split="_"))
     colony             <- unlist(strsplit(root_name,split="_"))[1] 
-    treatment          <- info[which(info$colony==colony),"treatment"] #AW: no need for as.numeric() 
+    treatment          <- info[which(info$colony==colony),"treatment"]
     colony_size        <- info[which(info$colony==colony),"colony_size"]
-    
-    if (!all(!grepl("PreTreatment",components))){period <- "pre"}else{period <- "post"} 
+    period             <- ifelse(any(grepl("PreTreatment", components)), "pre", "post") # if (!all(!grepl("PreTreatment",components))){period <- "pre"}else{period <- "post"}
     time_hours         <- as.numeric(gsub("TH","",components[which(grepl("TH",components))]))
     time_of_day        <- as.numeric(gsub("TD","",components[which(grepl("TD",components))]))
     
-    # DS here code specific to Linda and Adriano was cleaned out
+    # NOTE DS here code specific to Linda and Adriano was cleaned out
 
     ### get appropriate task_group list, treated list and tag
-    colony_treated     <- treated[which(treated$colony==colony),"tag"] #AW
+    colony_treated     <- treated[which(treated$colony==colony),"tag"]
     colony_task_group  <- task_groups[which(task_groups$colony==colony),]
     queenid            <- as.character(colony_task_group[which(colony_task_group$task_group_prop =="queen"),"tag"]) # has to be a character to work with igraph
-    tag <- read.tag(tag_list, colony) #AW # DS deleted some old stuff commented out.
-    tag[which(tag$age==0),"age"]   <- NA # unknown ages are coded as 0 in the tag file
+    tag <- read.tag(tag_list, colony) # DS deleted some old stuff commented out.
+    tag[which(tag$age==0),"age"]   <- NA # unknown ages are coded as 0 in the tag file - replaced with NA instead
     
     ### read interactions
     interactions       <- read.table(network_file,header=T,stringsAsFactors = F)  
     alive <- tag$tag # tag list only contains ants alive until the end. 
     interactions <- interactions[which(interactions$Tag1%in%alive & interactions$Tag2%in%alive),] # subset interaction table to remove interactions involving ants that were not alive anymore at the end of the experiment
     
-    # if(any(interactions$Tag2==1)){print(paste(root_name, "has queen ID in Tag2"))} # LS: for "observed" there are never any queen's (1) in Tag2
+    # if(any(interactions$Tag2==1)){print(paste(root_name, "has queen ID in Tag2"))} else {print("no queen ID in Tag2")} # LS: for "observed" there are never any queen's (1) in Tag2
     
     ### add a column containing interaction duration in min
     interactions["duration_min"] <- (interactions$Stoptime - interactions$Starttime + (1/FRAME_RATE)) /60 # duration in minutes (one frame = 0.125 second) #AW
@@ -98,34 +103,40 @@ for (input_folder in input_folders){ # input_folder <- "observed"
     
     interactions[which(interactions$Tag1%in%foragers),"status_Tag1"] <- "forager"
     interactions[which(interactions$Tag2%in%foragers),"status_Tag2"] <- "forager"
+    interactions[which(interactions$Tag1%in%nurses)  ,"status_Tag1"] <- "nurse"
+    interactions[which(interactions$Tag2%in%nurses)  ,"status_Tag2"] <- "nurse"
+    interactions[which(interactions$Tag1==queenid)   ,"status_Tag1"] <- "queen"
+    interactions[which(interactions$Tag2==queenid)   ,"status_Tag2"] <- "queen"
+  
+    ### actor and receiver definition for directional behaviors such as allo grooming
+    #' Classic interactions do not have an obvious directionality
+    #' Within the scope of the vital experiments it is not possible to define directionality of throphallactic interactions
+    #' It is not possible to say who initiates the interaction or what direction the food flows
+    #' As we have different frame rate than adriano and do not look at grooming the below if statement is commented out 
     
-    interactions[which(interactions$Tag1%in%nurses),"status_Tag1"] <- "nurse"
-    interactions[which(interactions$Tag2%in%nurses),"status_Tag2"] <- "nurse"
-    
-    interactions[which(interactions$Tag1==queenid),"status_Tag1"] <- "queen"
-    interactions[which(interactions$Tag2==queenid),"status_Tag2"] <- "queen"
-    
-    if (grepl("grooming",input_path)){ # actor and receiver definition for directional behaviors (allo grooming) - thus skipped for classic interactions and so far also trophallaxis where it is not possible to say who initiates the interaction
-      interactions$Actor <- gsub("ant_","",interactions$Act_Name)
-      interactions$Receiver <- gsub("ant_","",interactions$Rec_Name)
-      
-      interactions[c("status_Actor","status_Receiver")] <- NA
-      
-      interactions[which(interactions$Actor%in%foragers),"status_Actor"] <- "forager"
-      interactions[which(interactions$Receiver%in%foragers),"status_Receiver"] <- "forager"
-      
-      interactions[which(interactions$Actor%in%nurses),"status_Actor"] <- "nurse"
-      interactions[which(interactions$Receiver%in%nurses),"status_Receiver"] <- "nurse"
-      
-      interactions[which(interactions$Actor==queenid),"status_Actor"] <- "queen"
-      interactions[which(interactions$Receiver==queenid),"status_Receiver"] <- "queen"
-    }
+    # if (grepl("grooming",input_path)){ 
+    #   interactions$Actor <- gsub("ant_","",interactions$Act_Name)
+    #   interactions$Receiver <- gsub("ant_","",interactions$Rec_Name)
+    #   
+    #   interactions[c("status_Actor","status_Receiver")] <- NA
+    #   
+    #   interactions[which(interactions$Actor%in%foragers),"status_Actor"] <- "forager"
+    #   interactions[which(interactions$Receiver%in%foragers),"status_Receiver"] <- "forager"
+    #   
+    #   interactions[which(interactions$Actor%in%nurses),"status_Actor"] <- "nurse"
+    #   interactions[which(interactions$Receiver%in%nurses),"status_Receiver"] <- "nurse"
+    #   
+    #   interactions[which(interactions$Actor==queenid),"status_Actor"] <- "queen"
+    #   interactions[which(interactions$Receiver==queenid),"status_Receiver"] <- "queen"
+    # }
     
     if (period=="pre"){
       inter <- interactions
       inter <- inter[,sort(names(inter))]
       all_interactions <- rbind(all_interactions,data.frame(randy=input_folder,colony_size=colony_size,inter)) # LS: remove period=period because column already exists in "interactions" when we read in the file # although it will not appear twice in the files that are ultimately saved anyway
     }
+    
+    
     
     #### 2. continue calculations for pre vs post ####
     interactions[which(interactions$Tag1%in%colony_treated),"status_Tag1"] <- "treated"     ### Is this the right way to do this? it overwrites the nurse or forager status of treated ants instead of creating a new binary variable treated/untreated or treated yes/no
@@ -144,29 +155,34 @@ for (input_folder in input_folders){ # input_folder <- "observed"
     full_table[is.na(full_table$duration_min),"duration_min"] <- 0
     full_table[is.na(full_table$number_contacts),"number_contacts"] <- 0    
     
-    full_table                  <- merge(full_table,tag[c("tag","group")]); names(full_table)[names(full_table)=="group"] <- "caste"
-    # full_table                <- merge(full_table,colony_task_group[c("tag","task_group")]); full_table[which(full_table$status=="treated"),"task_group"] <- "treated" # LS: there are no "treated" in status so this just adds the same column as before (="status" with three levels: queen, nurse, forager)
-    # LS: fix line above by adding treated to task_group using "colony_treated"
-    # full_table                  <- merge(full_table,colony_task_group[c("tag","task_group_FACETNET_0.5")]); full_table[which(full_table$tag%in%colony_treated), "task_group_FACETNET_0.5"] <- "treated"
-
-    # Daniel updated version so that status is treated or not, and task group is taskgroup calculated from facet net. 
-    full_table$status           <- ""
-    full_table[which(full_table$tag%in%colony_treated), "status"] <- "treated"
+    # add status (standing for caste/task) for the individual of interest
+    full_table                  <- merge(full_table,tag[c("tag","group_facetNet")]); names(full_table)[names(full_table)=="group_facetNet"] <- "status"     # status reflecting caste/task defined by FacetNet or space use - use group for space use and group_facetNet for facet net!
+    # add column with treated ants  
+    full_table                  <- merge(full_table,colony_task_group[c("tag","task_group_FACETNET_0.5")]); full_table[which(full_table$tag%in%colony_treated), "task_group"] <- "treated"   #### BUT WHY ASSIGN IT TO TASK GROUP . is treated has nothing to do with task
+    identical(full_table$status, full_table$task_group_FACETNET_0.5)
     
-    ### or not? ... continue here
+    
+    # # DS consider a version where task group is not overwritten by treated.
+    # # instead an aditional variable is_treated (TRUE or FALSE) is created, while task group is task group based on  facetnet community detection (it is possible to be in a task group even if you are treated)
+    # full_table$is_treated           <- "FALSE"
+    # full_table[which(full_table$tag%in%colony_treated), "is_treated"] <- "TRUE"
+    
+
+    
+
+    
     
     ##############################################################
-    #### check below in the script where treated vs status vs task group is used?!!!
+    #### check below in the script where treated vs is_treated vs task group is used?!!!
     # see blew where group / task group is used and replace it with caste 
-    # see below where status or task-group  is used and make it work with the status reflecting treated or not. 
+    # see below where status or task-group  is used and make it work with the status reflecting treated or not???
     
     
-    if (!grepl("age",data_path)){
-      full_table$age <- NA
-    }else{
-      full_table                <- merge(full_table,colony_ages,all.x=T,all.y=F)
-    }
-    full_table           <- full_table[c("tag","age","task_group","status","partner_status","duration_min","number_contacts")]
+
+    
+    full_table$age <- NA
+    
+    full_table           <- full_table[c("tag","age","task_group","is_treated","partner_status","duration_min","number_contacts")]
     summary_interactions <- rbind(summary_interactions,data.frame(randy=input_folder,colony=colony,colony_size=colony_size,treatment=treatment,period=period,period_detail=period_detail,period_circadian=period_circadian,time_hours=time_hours,time_of_day=time_of_day,full_table,stringsAsFactors = F)) # LS: add period_detail & period_circadian
     
     if (grepl("grooming",input_path)){ # LS: did not check/change this part yet
@@ -257,12 +273,12 @@ for (input_folder in input_folders){ # input_folder <- "observed"
       summary_interactions_grooming <- rbind(summary_interactions_grooming,data.frame(randy=input_folder,colony=colony,colony_size=colony_size,treatment=treatment,period=period,time_hours=time_hours,time_of_day=time_of_day,full_table,stringsAsFactors = F)) # LS: add period_detail?
       
     }
-    
-    
-    
+  
     clean()
   }
-  #####if folder = observed, use the summary_interactions table to compute inter-caste contacts #####
+  
+  
+  #### if folder = observed, use the summary_interactions table to compute inter-caste contacts ####
   if (grepl("main",data_path)&input_folder=="observed"){
     summary_interactions <- summary_interactions [which(!summary_interactions$partner_status%in%c("treated","queen")),]
     summary_interactions <- summary_interactions [which(!summary_interactions$task_group%in%c("treated","queen")),]
