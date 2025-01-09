@@ -62,9 +62,7 @@ for (i in 1:total_iterations){ ### perform 100 randomization
     }
     clean();
   }
-  #Sys.sleep(0.1) for testing the progress bar.
-  pb$tick()  # update progress barS
-  flush.console()
+  pb$tick()
 }
 
 to_keep <- to_keep_ori

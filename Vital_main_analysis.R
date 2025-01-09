@@ -10,9 +10,9 @@ mallinfo::malloc.trim(0L)
 
 #### 1. Background information | Read me | ToDos ####
 
-# This script contains code to run separate analysis scripts from the stroeymeyt 2018 pipeline: 
+# This code runs separate analysis scripts from the vital analysis pipeline (matching Stroeymeyt et al 2018): 
 
-# Before starting this scrip, first start with the pre processing of the data following Vital.R and Adrianos guides 
+# Before starting this scrip, data needs to be pre-processed following Vital.R and Adrianos guides 
 # Then extract the meta data for your colonies and individuals based on the Extract meta data script
 # Next do the base analyses (interactions and space use) in Vital_base_analysis.R
 # Run Tables to match Stroeymeyt et al 2018 to get a couple more things in the right format for the following pipeline.
@@ -75,15 +75,15 @@ if (!exists("first_time_use_working_directory") || first_time_use_working_direct
 
 source("config_user_and_hd.R") # contains getUserOptions() that defines usr and hd and the clean() function
 
-
-# additional functions 
-choose_data_path <- function() { # only works on linux
-  list(
-    CLASSIC_INTERACTIONS = if (RUN_CLASSIC_INTERACTIONS) paste("/media", usr, hd, "vital/fc2/vital_experiment/main_experiment", sep="/") else NULL,
-    GROOMING_INTERACTIONS = if (RUN_GROOMING_INTERACTIONS) paste("/media", usr, hd, "vital/fc2/vital_experiment/main_experiment_grooming", sep="/") else NULL,
-    TROPHALLACTIC_INTERACTIONS = if (RUN_TROPHALLACTIC_INTERACTIONS) paste("/media", usr, hd, "vital/fc2/vital_experiment/main_experiment_trophallaxis", sep="/") else NULL
-  )
-}
+# Is already in config user and hd
+# # additional functions 
+# choose_data_path <- function() { # only works on linux
+#   list(
+#     CLASSIC_INTERACTIONS = if (RUN_CLASSIC_INTERACTIONS) paste("/media", usr, hd, "vital/fc2/vital_experiment/main_experiment", sep="/") else NULL,
+#     GROOMING_INTERACTIONS = if (RUN_GROOMING_INTERACTIONS) paste("/media", usr, hd, "vital/fc2/vital_experiment/main_experiment_grooming", sep="/") else NULL,
+#     TROPHALLACTIC_INTERACTIONS = if (RUN_TROPHALLACTIC_INTERACTIONS) paste("/media", usr, hd, "vital/fc2/vital_experiment/main_experiment_trophallaxis", sep="/") else NULL
+#   )
+# }
 
 
 # get the data and script paths as well as additional info tables, libraries, parameters and functions loaded: 
@@ -216,21 +216,20 @@ if (TRUE) {
     print(paste("FacetNet community detection took ", as.numeric(difftime(loop_end_time, loop_start_time, units = "mins")), " minutes to complete"))
   } else {
     print("skipping 19_Facetnet_community_detection_DS.R")
-  } 
+  }
   
-
-### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
 } 
 
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
 
-### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
-#### END OF THE LOOP OVER ALL FUNCTIONS ####
-### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
-### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
-### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
+#### END OF THE LOOP ####
 
 ### NEXT: Move on the analysis of the data using script "Vital_stats_and_plots_R"
-file.edit(paste(SCRIPTDIR, "Vital_stats_and_plots.R", sep = "/"))
+# to open it run:
+# file.edit(paste(SCRIPTDIR, "Vital_stats_and_plots.R", sep = "/"))
 
 
 

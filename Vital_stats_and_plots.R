@@ -1,57 +1,58 @@
 rm(list = setdiff(ls(), "first_time_use_working_directory"))
 
-### ### ### ### ### ### ### ### ### ### 
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
 #### 20 Statistic and plots ####
-### ### ### ### ### ### ### ### ### ### 
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
 
-#### Read me ####
+#### 1. READ ME, Background information, ToDo's and Notes ####
 # Code written by Daniel Schläppi based on a previous version written by Nathalie Stroeymeyt and Adriano Wanderlingh
 # Run all the previous scripts from the main analysis (Vital_main_analysis.R) to have data processed and ready for this code.
 
+#' Todo's:
+#' - Adjust to the needs of vital 
+#' - try to write things so they run for the flugus experiment as well
+#' - Find out if night_start, light_start are right... 
+
+#' 
+
+#' Notes:
+#' Main things tfor me to analyse:   
+
+### Index ###
+#' 1. prerequisites
+
+#### 1. prerequisites ####
+if (!exists("first_time_use_working_directory") || first_time_use_working_directory == "") { # direct it to where you have config_user_and_hd.R (typically the script folder or github folder)
+  selected_dir <- tcltk::tk_choose.dir(default = "~/", caption = "Select Working Directory")
+  if (is.null(selected_dir) || selected_dir == "") {
+    cat("No directory selected. Exiting.\n")
+    return()}
+  setwd(selected_dir)
+  first_time_use_working_directory <<- getwd()
+  cat(crayon::blue(getwd()))
+} else { setwd(first_time_use_working_directory)
+  cat(crayon::blue(getwd())) }
+
+source("config_user_and_hd.R") # contains getUserOptions(), defines usr and hd and the clean() function and other functions, loads libraries.
 
 
-#### prerequisites ####
-
-# Set working directory, datapaths and define user 
-if (!exists("first_time_use_working_directory") || first_time_use_working_directory == "") {
-  library(tcltk)
-  setwd(tk_choose.dir(default = "~/", caption = "Select Working Directory")) # Direct it to where you have config_user_and_hd.R which should be in the script_directory
-  first_time_use_working_directory <- getwd()
-  setwd(first_time_use_working_directory)
-} else {setwd(first_time_use_working_directory)}
-
-source("config_user_and_hd.R") 
-
-
-
-#### Overall parameters and functions #### 
-
-#### define folders
-disk_path    <- paste0("/media/",usr,"/",DISK,"/Lasius-Bristol_pathogen_experiment")
+### Define parameters
+# naming of folders to match AW's scripts
+disk_path    <- paste0(DATADIR,"/vital_experiment")  # set it to vital_experiment
 figurefolder <- paste0(disk_path,"/figures/") #"~/figures"
 
-treatment_order <- c("control.small","control.big","pathogen.small","pathogen.big")
-#treatment_labs_order <- c("control small","control large","pathogen small","pathogen large")
-exposure_order  <- c("control","pathogen")
-size_order      <- c("small","big")
+# define order of variables
+treatment_order <- c("control", "virus")
+food_order <- c("food_1v", "food_2c") # check how this will be done
 period_order    <- c("pre","post")
 task_group_order <- c("queen","nurse","forager","untreated","treated")
+# treatment_order <- c("control.small","control.big","pathogen.small","pathogen.big")
+# exposure_order  <- c("control","pathogen")
 
+### source scripts containing a multitude of functions!  
+source(paste(SCRIPTDIR, "source_scripts/functions_and_parameters_DS.R",sep="/"))
 
-####source programs
-
-# check as we move along which of the following scripts are actually needed
-
-# source(paste(source_path,"/libraries.R",sep=""))
-# source(paste(source_path,"/plotting_parameters.R",sep=""))
-# source(paste(source_path,"/functions_new.R",sep=""))
-# source(paste(source_path,"/analysis_parameters.R",sep=""))
-
-# RUN_UNSCALED_NETS <- F
-# 
-# fixed_aspect_theme <- theme(aspect.ratio = 2) #move to plotting_parmas.R
-# fixed_aspect_theme_PRE <- theme(aspect.ratio = 4) #move to plotting_parmas.R
-
+RUN_UNSCALED_NETS <- F
 
 # NOTES
 # plot_untransformed is always TRUE as the the variable fed to the plotting is transformed beforehand (see section: transform variable)
@@ -60,24 +61,26 @@ task_group_order <- c("queen","nurse","forager","untreated","treated")
 ### Calculate missing variables ###################################
 ###################################################################
 
-### Grooming zone 
-root_path <- paste(disk_path,"/main_experiment_grooming",sep="") # root_path <- paste(disk_path,"/main_experiment_grooming",sep="")
-data_path=paste(root_path,"/processed_data/individual_behaviour/pre_vs_post_treatment",sep="")
-pattern="individual_behavioural_data"
+# ### Grooming zone 
+# root_path <- paste(disk_path,"/main_experiment_grooming",sep="") # root_path <- paste(disk_path,"/main_experiment_grooming",sep="")
+# data_path=paste(root_path,"/processed_data/individual_behaviour/pre_vs_post_treatment",sep="")
+# pattern="individual_behavioural_data"
+# 
+# setwd(data_path)
+# file_list <- list.files(pattern=pattern)
+# print(file_list)
+# data <- NULL
+# for (file in file_list){
+#   data <- read.table(file,header=T,stringsAsFactors = F)
+#   #calculate new var and save in the data only if it does not exist
+#   if(is.null(data$prop_duration_grooming_received_outside_min)){
+#     data$prop_duration_grooming_received_outside_min <- with(data,duration_grooming_received_min_zone2/(duration_grooming_received_min_zone1+duration_grooming_received_min_zone2) )
+#     write.table(data, file,col.names=T,row.names=F,quote=F,append=F)
+#   }
+#   str(data)
+# }
 
-setwd(data_path)
-file_list <- list.files(pattern=pattern)
-print(file_list)
-data <- NULL
-for (file in file_list){
-  data <- read.table(file,header=T,stringsAsFactors = F)
-  #calculate new var and save in the data only if it does not exist
-  if(is.null(data$prop_duration_grooming_received_outside_min)){
-    data$prop_duration_grooming_received_outside_min <- with(data,duration_grooming_received_min_zone2/(duration_grooming_received_min_zone1+duration_grooming_received_min_zone2) )
-    write.table(data, file,col.names=T,row.names=F,quote=F,append=F)
-  }
-  str(data)
-}
+
 
 
 ###################################################################
@@ -87,7 +90,6 @@ for (file in file_list){
 if(RUN_UNSCALED_NETS){
   
   #### ALL INTERACTIONS ####
-  
   ### network properties
   root_path <- paste(disk_path,"/main_experiment/processed_data",sep="") # root_path <- paste(disk_path,"/main_experiment_grooming/processed_data",sep="")
   data_path <- paste(root_path,"/network_properties_edge_weights_duration/pre_vs_post_treatment/all_workers",sep="")

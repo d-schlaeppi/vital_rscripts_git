@@ -324,11 +324,11 @@ for (seed_file in seed_files ){ # seed_file <- "treated_workers.txt"
             # transmission latency
             model                                                                     <- coxph(Surv(relative_contamination_time,contaminated)~1,data=simulations[which(simulations$tag==ant),])
             mean_data                                                                 <- summary(survfit(model),rmean="common")$table
-            individual_level[which(individual_level$tag==ant),"transmission_latency"] <-  mean_data["rmean"] # LS: column name changed to "rmean"
+            individual_level[which(individual_level$tag==ant),"transmission_latency"] <-  mean_data["rmean"] # column name updated to "rmean"
             # transmission rank
             model                                                                     <- coxph(Surv(rank,contaminated)~1,data=simulations[which(simulations$tag==ant),])
             mean_data                                                                 <- summary(survfit(model),rmean="common")$table
-            individual_level[which(individual_level$tag==ant),"transmission_rank"]    <-  mean_data["rmean"] # LS: column name changed to "rmean"
+            individual_level[which(individual_level$tag==ant),"transmission_rank"]    <-  mean_data["rmean"] # column name updated to "rmean"
             
           }
         }

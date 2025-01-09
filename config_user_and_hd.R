@@ -13,8 +13,8 @@
 
 #### Libraries ####
 pacman::p_load(
-  tcltk, igraph, dplyr, tidyr, ggplot2, lme4, car, glmmTMB, multcomp, multcompView, crayon, plotrix, emmeans,
-  reshape2, circular,
+  tcltk, igraph, dplyr, tidyr, ggplot2, lme4, car, glmmTMB, multcomp, multcompView, crayon, plotrix, emmeans, 
+  reshape2, circular, readr, data.table, measurements, viridis, plotwidgets , 
   Rcpp,   # contains sourceCpp()
   survival, #contains coxph() function
   moments, # contains skewness function
@@ -128,7 +128,7 @@ plot_model_diagnostics <- function(model) {
 
 choose_data_path <- function() {
   if (os == "Windows") {
-    cat(red("Warning: Does not work on Windows\n"))
+    cat(red("Warning: Does not yet work on Windows\n"))
     stop("This is based on an older version of Adrianos scipts that does not support Windows but should work on Linux and Mac.")
   } else {
     if (os == "Darwin") { 
@@ -160,8 +160,7 @@ read_table_with_auto_delim <- function(file_path) {
 
 clean <- function(){
   rm(list=ls(envir = .GlobalEnv)[!ls(envir = .GlobalEnv)%in%to_keep], envir = .GlobalEnv)
-  no_print <- gc(verbose=F)
-  Sys.sleep(1) }
+  no_print <- gc(verbose=F) }
 
 # read.tag <- function(tag_list){ #AW
 #   tag <- paste0(tag_list,list.files(tag_list)[grep(colony,list.files(tag_list))])
@@ -177,8 +176,20 @@ read.tag <- function(tag_list, colony){
 
 
 # test normal distribution of residuals in linear models:
-test_norm <- function(mod) { # function from Nathalie # resids
+test_norm <- function(mod_or_resids) { # function adjusted from Nathalie's test_norm # resids
   cat(blue("Testing normality of residuals for lm or lmer \n(assumptions likely different other types of models)\n"))
+  
+  # Check if the input is a model object or residuals
+  if (inherits(mod_or_resids, "lm") || inherits(mod_or_resids, "lmerMod")) {
+    resids <- residuals(mod_or_resids)  # Extract residuals from the model
+    cat("Model provided: Extracting residuals from the model.\n")
+  } else if (is.numeric(mod_or_resids) || is.vector(mod_or_resids)) {
+    resids <- mod_or_resids  # Directly use the provided residuals
+    cat("Residuals directly provided.\n")
+  } else {
+    stop("Invalid input: Provide either a model object (lm/lmer) or a numeric vector of residuals.")
+  }
+  
   resids <- residuals(object = mod)
   if (length(resids) <= 300) {
     print("Fewer than 300 data points so performing Shapiro-Wilk's test")

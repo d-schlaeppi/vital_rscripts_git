@@ -13,7 +13,7 @@
 
 ### HMMM... It seems to work... but what is produced and what to do with it?
 ### Check what results are produced and where to see them. 
-### and might need additions for trophallactic interactions? 
+### and might need additions for trophallactic interactions?
 
 
 

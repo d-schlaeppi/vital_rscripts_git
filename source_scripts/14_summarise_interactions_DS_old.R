@@ -1,0 +1,574 @@
+### ### ### ### ### ### ### ### ### ### 
+#### 14_summarise_interactions.R #####
+### ### ### ### ### ### ### ### ### ### 
+
+#### Read me ####
+# Takes an interaction list as an input, and calculates:
+#                     - the total duration of interactions of each ant to each of four categories of individuals (queen, nurses, untreated foragers and treated foragers)
+#                     - the overall distribution of interactions according to task groups and ages
+
+# Created by Nathalie Stroeymeyt
+# Modified by Adriano Wanderlingh to work with FORT formicidae Tracking data. Mods tagged with the comment "AW". script wide mods cited here below.
+# Modified by Nathalie Stroeymeyt to include number of events in addition to duration
+# with adaptations by Linda Sartoris
+# Adjusted to specific needs of the vital experiment by Daniel Schläppi... 
+
+# Script wide mods AW
+# - replaced before/after with pre/post
+# when ran for the grooming interactions it should only be run for the "observed" folders
+
+# TO DO's
+#' Line 50: Check what is needed for trophallactic interactions... potentially the same as main so that we can look at pro and post treatmnet
+#' See if and how to implement the trophallactic interaction in this script instead of the grooming interactions which will probably be ignored because of the framerate...
+#' Check what to use for task groups... probably Facet Net!!!! update accordingly! 
+# 
+
+### Why only for PreTreatment at the beginning?
+
+### ### ### ### ### ### ### ### ### ### ### ###
+to_keep_ori <- to_keep
+### ### ### ### ### ### ### ### ### ### ### ###
+
+options(digits=16) ; options(digits.secs=6) ; options("scipen" = 10); options(readr.show_progress = FALSE)
+
+
+#### Start ####
+
+### get input file list
+input_path           <- paste(data_path,"/intermediary_analysis_steps/binned_interaction_lists",sep="")
+setwd(input_path)  
+input_folders        <- list.dirs(recursive=T,path="PreTreatment",full.names=F); input_folders        <- input_folders[which(input_folders!="")]
+
+# sees not to get used.
+# outputfolder1 <- paste(data_path,"/processed_data/individual_behaviour/random_vs_observed",sep="")
+# if (!file.exists(outputfolder1))  {dir.create(outputfolder1,recursive = T)}
+
+outputfolder_1 <- paste(data_path,"/processed_data/collective_behaviour/random_vs_observed",sep="")
+if(!file.exists(outputfolder_1)){dir.create(outputfolder_1,recursive=T)}
+output_file_1  <- paste(outputfolder_1, "processed_interaction_list.txt", sep = "/")
+if (file.exists(output_file_1)) {message("WARNING: The file already exists, deleting it before proceeding.")
+  file.remove(output_file_1)}
+output_file_2  <- paste(outputfolder_1, "interactions.dat"              , sep = "/")
+
+summary_dol <- NULL
+to_keep <- c(ls(),"to_keep","input_folder","network_file","network_files","summary_interactions","summary_interactions_grooming","summary_pairs","all_interactions", "pb")  
+
+for (input_folder in input_folders){ # input_folder <- "random"
+  cat(blue("\n input folder = ",input_folder))
+  setwd(input_path)
+  network_files <- list.files(path=paste("PreTreatment/",input_folder,sep=""),full.names=T) # get all PreTreatment files into the list
+  if (input_folder=="observed"&grepl("main",data_path)){                                    # if it is observed and main exp. we also get the PostTreatment files 
+    network_files <- c(network_files,list.files(path=paste("PostTreatment/",input_folder,sep=""),full.names=T))
+  }
+  summary_interactions <- NULL
+  summary_interactions_grooming <- NULL
+  summary_interactions_trophy <- NULL #### WILL BE NEEDED ONCE WE IMPLEMENT TROPHALLACTIC INTERACTIONS
+  summary_pairs        <- NULL
+  # all_interactions     <- NULL
+  
+  pb <- progress_bar$new(
+    format = "Progress: :current/:total [:bar] :percent ETA: :eta",
+    total = length(network_files),  # Use the length of network_files for total
+    clear = FALSE,
+    width = 80
+  )
+  
+  for (network_file in network_files){ # network_file <- network_files[2]
+    
+    #### collect information on network file and get interactions ####
+    # cat(yellow("\r",network_file, )) replaced by progress bar below
+    
+    ### get file metadata
+    root_name          <- gsub("_interactions.txt","",unlist(strsplit(network_file,split="/"))[grepl("interactions",unlist(strsplit(network_file,split="/")))]) 
+    components         <- unlist(strsplit(root_name,split="_"))
+    colony             <- unlist(strsplit(root_name,split="_"))[1] 
+    treatment          <- info[which(info$colony==colony),"treatment"]
+    colony_size        <- info[which(info$colony==colony),"colony_size"]
+    period             <- ifelse(any(grepl("PreTreatment", components)), "pre", "post") # if (!all(!grepl("PreTreatment",components))){period <- "pre"}else{period <- "post"}
+    time_hours         <- as.numeric(gsub("TH","",components[which(grepl("TH",components))]))
+    time_of_day        <- as.numeric(gsub("TD","",components[which(grepl("TD",components))]))
+    # randy_nr           <- ifelse(input_folder == "observed", "NA", sub("(\\d{3})\\.txt", "\\1", components[8])) # 
+      
+    # DS: code specific to Linda and Adriano cleaned out
+
+    ### get appropriate task_group list, treated list and tag
+    colony_treated     <- treated[which(treated$colony==colony),"tag"]
+    colony_task_group  <- task_groups[which(task_groups$colony==colony),]
+    queenid            <- as.character(colony_task_group[which(colony_task_group$task_group_prop =="queen"),"tag"]) # has to be a character to work with igraph
+    tag <- read.tag(tag_list, colony) # DS deleted some old stuff commented out.
+    tag[which(tag$age==0),"age"]   <- NA # unknown ages are coded as 0 in the tag file - replaced with NA instead
+    
+    
+    # ### FOLLOWING SECTION REPLACED BY A DPLYR 
+    # ### read interactions
+    # interactions       <- read.table(network_file,header=T,stringsAsFactors = F)  
+    # 
+    # #alive <- tag$tag # tag list only contains ants alive until the end. 
+    # #interactions_old <- interactions[which(interactions$Tag1%in%alive & interactions$Tag2%in%alive),] # subset interaction table to remove interactions involving ants that were not alive anymore at the end of the experiment
+    # interactions <- interactions[which(interactions$Tag1%in%tag$tag & interactions$Tag2%in%tag$tag),] # adjusted to create one object less... 
+    # 
+    # # if(any(interactions$Tag2==1)){print(paste(root_name, "has queen ID in Tag2"))} else {print("no queen ID in Tag2")} # LS: for "observed" there are never any queen's (1) in Tag2
+    # 
+    # ### add a column containing interaction duration in min
+    # interactions["duration_min"] <- (interactions$Stoptime - interactions$Starttime + (1/FRAME_RATE)) /60 # duration in minutes (one frame = 0.125 second) #AW
+    # interactions$N               <- 1 
+    # 
+    # #### 1. calculate within/between caste interactions for pre period ####
+    # 
+    # # identify nurses and foragers
+    # foragers <- colony_task_group[which(colony_task_group$task_group_FACETNET_0.5=="forager"),"tag"]  ### ### ### DS: This for now will be based on the facet net definition of forager and nurses.
+    # nurses   <- colony_task_group[which(colony_task_group$task_group_FACETNET_0.5=="nurse"),"tag"]
+    # 
+    # # add a column to the interactions df containing the status of tag 1 and the status of tag2
+    # interactions[c("status_Tag1","status_Tag2")] <- NA
+    # interactions[which(interactions$Tag1%in%foragers),"status_Tag1"] <- "forager"
+    # interactions[which(interactions$Tag2%in%foragers),"status_Tag2"] <- "forager"
+    # interactions[which(interactions$Tag1%in%nurses)  ,"status_Tag1"] <- "nurse"
+    # interactions[which(interactions$Tag2%in%nurses)  ,"status_Tag2"] <- "nurse"
+    # interactions[which(interactions$Tag1==queenid)   ,"status_Tag1"] <- "queen"
+    # interactions[which(interactions$Tag2==queenid)   ,"status_Tag2"] <- "queen"
+    
+    ### read interactions new using dplyr! 
+    ### New version of the above section 
+    interactions       <- read.table(network_file,header=T,stringsAsFactors = F)
+    foragers <- colony_task_group %>% filter(task_group_FACETNET_0.5 == "forager") %>% pull(tag)
+    nurses <- colony_task_group %>% filter(task_group_FACETNET_0.5 == "nurse") %>% pull(tag)
+    
+    interactions[c("status_Tag1","status_Tag2")] <- NA
+  
+    interactions <- interactions %>%
+      filter(Tag1 %in% tag$tag & Tag2 %in% tag$tag) %>%  # Filter interactions based on valid tags
+      mutate(duration_min = (Stoptime - Starttime + (1/FRAME_RATE)) / 60, N = 1) %>% # Calculate duration in minutes and add N column
+      mutate(status_Tag1 = case_when(
+             Tag1 %in% foragers ~ "forager",
+             Tag1 %in% nurses   ~ "nurse",
+             Tag1 == queenid    ~ "queen",
+             TRUE               ~ status_Tag1),
+           status_Tag2 = case_when(
+             Tag2 %in% foragers ~ "forager",
+             Tag2 %in% nurses   ~ "nurse",
+             Tag2 == queenid    ~ "queen",
+             TRUE               ~ status_Tag2)) %>% as.data.frame()
+    
+
+    ### actor and receiver definition for directional behaviors such as allo grooming
+    #' Classic interactions do not have an obvious directionality
+    #' Within the scope of the vital experiments it is not possible to define directionality of throphallactic interactions
+    #' It is not possible to say who initiates the interaction or what direction the food flows
+    #' As we have different frame rate than adriano and do not look at grooming the below if statement is commented out 
+    
+    # if (grepl("grooming",input_path)){ 
+    #   interactions$Actor <- gsub("ant_","",interactions$Act_Name)
+    #   interactions$Receiver <- gsub("ant_","",interactions$Rec_Name)
+    #   
+    #   interactions[c("status_Actor","status_Receiver")] <- NA
+    #   
+    #   interactions[which(interactions$Actor%in%foragers),"status_Actor"] <- "forager"
+    #   interactions[which(interactions$Receiver%in%foragers),"status_Receiver"] <- "forager"
+    #   
+    #   interactions[which(interactions$Actor%in%nurses),"status_Actor"] <- "nurse"
+    #   interactions[which(interactions$Receiver%in%nurses),"status_Receiver"] <- "nurse"
+    #   
+    #   interactions[which(interactions$Actor==queenid),"status_Actor"] <- "queen"
+    #   interactions[which(interactions$Receiver==queenid),"status_Receiver"] <- "queen"
+    # }
+    
+    if (period=="pre"){
+      # inter <- interactions
+      # inter <- inter[,sort(names(inter))]
+      # all_interactions <- rbind(all_interactions,data.frame(randy=input_folder,colony_size=colony_size,inter))
+      # rm(inter)
+      
+      # dplyr version
+      # all_interactions <- bind_rows(all_interactions, 
+      #                               interactions %>%
+      #                                 dplyr::select(sort(names(.))) %>%
+      #                                 mutate(randy = input_folder, colony_size = colony_size))
+      interactions_data <- interactions %>%
+        dplyr::select(sort(names(.))) %>%
+        mutate(randy = input_folder, file = network_file, colony_size = colony_size)
+      
+      if (!file.exists(output_file_1)) {
+        invisible(write_csv(interactions_data, output_file_1))
+        } else {
+          #existing_data <- suppressMessages(read_csv(output_file_1, show_col_types = FALSE))
+          #existing_match <- existing_data %>% filter(file == network_file)
+          #if (nrow(existing_match) == 0) { # no matching rows are found --> append  data
+            invisible(write_csv(interactions_data, output_file_1, append = TRUE))
+          #} # else {print("skipping") }
+        }
+      } 
+    
+    
+    #### 2. continue calculations for pre vs post ####
+    # interactions[which(interactions$Tag1%in%colony_treated),"status_Tag1"] <- "treated"     ### Is this the right way to do this? it overwrites the nurse or forager status of treated ants instead of creating a new binary variable treated/untreated or treated yes/no - is ok for how the script runs below
+    # interactions[which(interactions$Tag2%in%colony_treated),"status_Tag2"] <- "treated"
+    interactions <- interactions %>% mutate(
+        status_Tag1 = ifelse(Tag1 %in% colony_treated, "treated", status_Tag1),
+        status_Tag2 = ifelse(Tag2 %in% colony_treated, "treated", status_Tag2))
+    
+    ### use this information to calculate, for each worker, the accumulated duration of interaction with treated workers
+    
+    ### replaced by slighly more efficient dplyr code
+    # aggregated1                 <- aggregate(na.rm=T,na.action="na.pass",cbind(duration_min,N)~Tag1+status_Tag2,FUN=sum,data=interactions)
+    # names(aggregated1)          <- c("tag","partner_status","duration_min","number_contacts")
+    # aggregated2                 <- aggregate(na.rm=T,na.action="na.pass",cbind(duration_min,N)~Tag2+status_Tag1,FUN=sum,data=interactions)
+    # names(aggregated2)          <- c("tag","partner_status","duration_min","number_contacts")
+    # aggregated_old                  <- rbind(aggregated1,aggregated2)
+    # aggregated_old                  <- aggregate(na.rm=T,na.action="na.pass",cbind(duration_min,number_contacts)~tag+partner_status,FUN=sum,data=aggregated_old)
+    
+    aggregated <- interactions %>% 
+      group_by(Tag1, status_Tag2) %>%
+      summarise(duration_min = sum(duration_min, na.rm = TRUE), number_contacts = sum(N, na.rm = TRUE), .groups = "drop") %>%
+      rename(tag = Tag1, partner_status = status_Tag2) %>%
+      bind_rows(interactions %>%group_by(Tag2, status_Tag1) %>%
+          summarise(duration_min = sum(duration_min, na.rm = TRUE), number_contacts = sum(N, na.rm = TRUE), .groups = "drop") %>%
+          rename(tag = Tag2, partner_status = status_Tag1)) %>%
+      group_by(tag, partner_status) %>%
+      summarise(duration_min = sum(duration_min, na.rm = TRUE), number_contacts = sum(number_contacts, na.rm = TRUE), .groups = "drop") %>% 
+      arrange(partner_status) %>% 
+      as.data.frame()
+    
+    ### replaced with a bit of dplyr to make it a bit more efficient (maybe)
+    # full_table                  <- expand.grid(tag=tag[which(tag$final_status=="alive"),"tag"],partner_status=c("queen","nurse","forager","treated"),stringsAsFactors = F)
+    # full_table                  <- merge(full_table_old,aggregated[c("tag","partner_status","duration_min","number_contacts")],all.x=T,all.y=T)
+    # full_table[is.na(full_table$duration_min),"duration_min"] <- 0
+    # full_table[is.na(full_table$number_contacts),"number_contacts"] <- 0    
+    # 
+    # # add status (standing for caste/task) for the individual of interest
+    # full_table                  <- merge(full_table,tag[c("tag","group_facetNet")]); names(full_table)[names(full_table)=="group_facetNet"] <- "status"     # status reflecting caste/task defined by FacetNet or space use - use group for space use and group_facetNet for facet net!
+    # # add additional column with task group and then overwrite treated ants
+    # full_table                  <- merge(full_table,colony_task_group[c("tag","task_group_FACETNET_0.5")]); names(full_table)[names(full_table)=="task_group_FACETNET_0.5"] <- "task_group"
+    # # identical(full_table$task_group_FACETNET_0.5, full_table$status)
+    # full_table[which(full_table$tag%in%colony_treated), "task_group"] <- "treated"   # Odd to merge is treated with task group, but here we are... coding I guess.
+    # 
+    # # alternative version - create additional is_treated variable.
+    # # full_table$is_treated           <- "FALSE"
+    # # full_table[which(full_table$tag%in%colony_treated), "is_treated"] <- "TRUE"
+    # ### If the variable is changed it would need to be corrected everywhere below and might also cause issues in downstream scripts :-( Skipped for now
+    # 
+    # #full_table$age <- NA 
+    # full_table           <- full_table[c("tag","task_group","status","partner_status","duration_min","number_contacts")] # DS: age removed 
+    # summary_interactions <- rbind(summary_interactions,data.frame(randy=input_folder,colony=colony,colony_size=colony_size,treatment=treatment,period=period,time_hours=time_hours,time_of_day=time_of_day,full_table_old,stringsAsFactors = F))
+    # 
+    
+    full_table <- tag %>% # filter(final_status == "alive") %>% filter not required as all are alive per definition - see tables to match stroeymeyt where the file got created
+      dplyr::select(tag) %>% expand_grid(partner_status = c("queen", "nurse", "forager", "treated")) %>%
+      left_join(aggregated %>% # join with aggregated interactions
+                  dplyr::select(tag, partner_status, duration_min, number_contacts), 
+                by = c("tag", "partner_status")) %>%
+      mutate(  # replacing of  NA values with 0 in duration_min and number_contacts
+        duration_min = if_else(is.na(duration_min), 0, duration_min),
+        number_contacts = if_else(is.na(number_contacts), 0, number_contacts)
+      ) %>%
+      left_join(tag %>% dplyr::select(tag, group_facetNet) %>%  # add status (caste/task) - information stored in tag file
+                  rename(status = group_facetNet), by = "tag") %>%
+      left_join(colony_task_group %>% dplyr::select(tag, task_group_FACETNET_0.5) %>% # add task group from colony_task_groop or the tag file
+                  rename(task_group = task_group_FACETNET_0.5), by = "tag") %>%
+      mutate(task_group = if_else(tag %in% colony_treated, "treated", task_group)) %>% # for treated ants we overwrite task_group nurse or forager with treated
+      # mutate(age = NA) %>% # add the age column - remnant of of AW's age experiment
+      dplyr::select(tag, task_group, status, partner_status, duration_min, number_contacts) %>% arrange(tag,partner_status) %>% as.data.frame() # Select and reorder columns # DS: age not needed
+    
+    summary_interactions <- bind_rows(summary_interactions, data.frame(
+      randy = input_folder,
+      colony = colony,
+      colony_size = colony_size,
+      treatment = treatment,
+      period = period,
+      time_hours = time_hours,
+      time_of_day = time_of_day,
+      full_table,
+      stringsAsFactors = FALSE
+    ))
+    
+    
+    ### !!!  DS not looking at grooming so whole section is commented out... maybe this needs to be revisited with the trophallaxis data.
+    # if (grepl("grooming",input_path)){ # LS: did not check/change this part yet 
+    #   #####2. continue calculations for pre vs post
+    #   interactions[which(interactions$Actor%in%colony_treated),"status_Actor"] <- "treated"
+    #   interactions[which(interactions$Receiver%in%colony_treated),"status_Receiver"] <- "treated"
+    #   
+    #   #### use this information to calculate, for each worker, the cumulated duration of interaction with treated workers
+    #   rm(list=ls()[which(grepl("aggregate",ls()))])
+    #   
+    #   full_table                  <- expand.grid(tag=tag[which(tag$final_status=="alive"),"tag"],stringsAsFactors = F)
+    #   
+    #   try(aggregated1                 <- aggregate(na.rm=T,na.action="na.pass",cbind(duration_min,N)~Receiver,FUN=sum,data=interactions),silent=T)
+    #   if(exists("aggregated1")){
+    #     names(aggregated1)          <- c("tag","duration_grooming_received_min","number_contacts_received")
+    #     full_table                  <- merge(full_table,aggregated1,all.x=T,all.y=T)
+    #     full_table[is.na(full_table$duration_grooming_received_min),"duration_grooming_received_min"] <- 0
+    #     full_table[is.na(full_table$number_contacts_received),"number_contacts_received"] <- 0
+    #   }else{
+    #     full_table$duration_grooming_received_min <- 0 
+    #     full_table$number_contacts_received <- 0
+    #   }
+    #   
+    #   try(aggregated2                 <- aggregate(na.rm=T,na.action="na.pass",cbind(duration_min,N)~Actor,FUN=sum,data=interactions[which(interactions$status_Receiver=="treated"),]),silent=T)
+    #   if(exists("aggregated2")){
+    #     names(aggregated2)          <- c("tag","duration_grooming_given_to_treated_min","number_contacts_given_to_treated")
+    #     full_table                  <- merge(full_table,aggregated2,all.x=T,all.y=T)
+    #     full_table[is.na(full_table$duration_grooming_given_to_treated_min),"duration_grooming_given_to_treated_min"] <- 0
+    #     full_table[is.na(full_table$number_contacts_given_to_treated),"number_contacts_given_to_treated"] <- 0
+    #   }else{
+    #     full_table$duration_grooming_given_to_treated_min <- 0 
+    #     full_table$number_contacts_given_to_treated <- 0 
+    #   }
+    #   
+    #   
+    #   try(aggregated3                 <- aggregate(na.rm=T,na.action="na.pass",c(duration_min,N)~Receiver,FUN=sum,data=interactions[which(interactions$ant1.zones==1),]),silent=T)
+    #   if(exists("aggregated3")){
+    #     names(aggregated3)          <- c("tag","duration_grooming_received_min_zone1","number_contacts_received_zone1")
+    #     full_table                  <- merge(full_table,aggregated3,all.x=T,all.y=T)
+    #     full_table[is.na(full_table$duration_grooming_received_min_zone1),"duration_grooming_received_min_zone1"] <- 0
+    #     full_table[is.na(full_table$number_contacts_received_zone1),"number_contacts_received_zone1"] <- 0
+    #   }else{
+    #     full_table$duration_grooming_received_min_zone1 <- 0 
+    #     full_table$number_contacts_received_zone1 <- 0 
+    #   }
+    #   
+    #   try(aggregated4                 <- aggregate(na.rm=T,na.action="na.pass",cbind(duration_min,N)~Actor,FUN=sum,data=interactions[which(interactions$ant1.zones==1&interactions$status_Receiver=="treated"),]),silent=T)
+    #   if(exists("aggregated4")){
+    #     names(aggregated4)          <- c("tag","duration_grooming_given_to_treated_min_zone1","number_contacts_given_to_treated_zone1")
+    #     full_table                  <- merge(full_table,aggregated4,all.x=T,all.y=T)
+    #     full_table[is.na(full_table$duration_grooming_given_to_treated_min_zone1),"duration_grooming_given_to_treated_min_zone1"] <- 0
+    #     full_table[is.na(full_table$number_contacts_given_to_treated_zone1),"number_contacts_given_to_treated_zone1"] <- 0
+    #   }else{
+    #     full_table$duration_grooming_given_to_treated_min_zone1 <- 0 
+    #     full_table$number_contacts_given_to_treated_zone1 <- 0 
+    #   }
+    #   
+    #   try(aggregated5                 <- aggregate(na.rm=T,na.action="na.pass",cbind(duration_min,N)~Receiver,FUN=sum,data=interactions[which(interactions$ant1.zones==2),]),silent=T)
+    #   if(exists("aggregated5")){
+    #     names(aggregated5)          <- c("tag","duration_grooming_received_min_zone2","number_contacts_received_zone2")
+    #     full_table                  <- merge(full_table,aggregated5,all.x=T,all.y=T)
+    #     full_table[is.na(full_table$duration_grooming_received_min_zone2),"duration_grooming_received_min_zone2"] <- 0
+    #     full_table[is.na(full_table$number_contacts_received_zone2),"number_contacts_received_zone2"] <- 0
+    #   }else{
+    #     full_table$duration_grooming_received_min_zone2 <- 0 
+    #     full_table$number_contacts_received_zone2 <- 0 
+    #   }
+    #   
+    #   try(aggregated6                 <- aggregate(na.rm=T,na.action="na.pass",cbind(duration_min,N)~Actor,FUN=sum,data=interactions[which(interactions$ant1.zones==2&interactions$status_Receiver=="treated"),]),silent=T)
+    #   if(exists("aggregated6")){
+    #     names(aggregated6)          <- c("tag","duration_grooming_given_to_treated_min_zone2","number_contacts_given_to_treated_zone2")
+    #     full_table                  <- merge(full_table,aggregated6,all.x=T,all.y=T)
+    #     full_table[is.na(full_table$duration_grooming_given_to_treated_min_zone2),"duration_grooming_given_to_treated_min_zone2"] <- 0
+    #     full_table[is.na(full_table$number_contacts_given_to_treated_zone2),"number_contacts_given_to_treated_zone2"] <- 0
+    #   }else{
+    #     full_table$duration_grooming_given_to_treated_min_zone2 <- 0 
+    #     full_table$number_contacts_given_to_treated_zone2 <- 0 
+    #   }
+    #   
+    #   full_table                  <- merge(full_table,tag[c("tag","group")]); names(full_table)[names(full_table)=="group"] <- "status"
+    #   full_table                  <- merge(full_table,colony_task_group[c("tag","task_group")]); full_table[which(full_table$status=="treated"),"task_group"] <- "treated"
+    #   if (!grepl("age",data_path)){
+    #     full_table$age <- NA
+    #   }else{
+    #     full_table                <- merge(full_table,colony_ages,all.x=T,all.y=F)
+    #   }
+    #   summary_interactions_grooming <- rbind(summary_interactions_grooming,data.frame(randy=input_folder,colony=colony,colony_size=colony_size,treatment=treatment,period=period,time_hours=time_hours,time_of_day=time_of_day,full_table,stringsAsFactors = F)) # LS: add period_detail?
+    #   
+    # }
+  
+    clean()
+    pb$tick()
+  }
+  
+  #### if folder = observed, use the summary_interactions table to compute inter-caste contacts ####
+  
+  if (grepl("main",data_path)&input_folder=="observed"){ ### DS CHECK IF THIS NEEDS TO BE UPDATED OR A COPY OF IT CREATED FOR TROPHALLACTIC INTERACTIONS
+    
+    # DS: UPDATED TO DPLYR 
+    # # filter so that interactions with queens and treated ants are no longer in the dataframe
+    # summary_interactions <- summary_interactions [which(!summary_interactions$partner_status%in%c("treated","queen")),] 
+    # summary_interactions <- summary_interactions [which(!summary_interactions$task_group%in%c("treated","queen")),]
+    # 
+    # summary_interactions["within_vs_between"] <- summary_interactions$partner_status==summary_interactions$task_group  
+    # summary_interactions <- aggregate(na.rm=T,na.action="na.pass",cbind(duration_min,number_contacts)~.,FUN=sum,data=summary_interactions[c("colony","period","time_hours","time_of_day","tag","task_group","status","partner_status","duration_min","number_contacts","within_vs_between")]) # DS: reverted lindas change as not needed for me
+    # summary_interactions_between <- summary_interactions[which(!summary_interactions$within_vs_between),!names(summary_interactions)%in%c("partner_status","within_vs_between")];
+    # names(summary_interactions_between)[names(summary_interactions_between)=="duration_min"] <- "inter_caste_contact_duration"
+    # names(summary_interactions_between)[names(summary_interactions_between)=="number_contacts"] <- "inter_caste_contact_number"
+    # 
+    # 
+    # # add information to individual behaviour file
+    # behav <- read.table(paste(data_path,"/processed_data/individual_behaviour/pre_vs_post_treatment/individual_behavioural_data.txt",sep=""),header=T,stringsAsFactors = F)
+    # behav <- behav[,which(!names(behav)%in%c("inter_caste_contact_duration","inter_caste_contact_number",names(behav)[which(grepl("duration_grooming",names(behav)))]))]
+    # 
+    # behav <- merge(behav,summary_interactions_between[c("colony","tag","time_hours","inter_caste_contact_duration","inter_caste_contact_number")],all.x=T,all.y=F,sort=F)
+    
+    # filter so that interactions with queens and treated ants are no longer in the dataframe then calculate duration and number of inter caste interactions for each ant
+    summary_interactions <- summary_interactions %>%
+      filter(!partner_status %in% c("treated", "queen"),
+             !task_group %in% c("treated", "queen")) %>%
+      mutate(within_vs_between = partner_status == task_group) %>%
+      group_by(colony, period, time_hours, time_of_day, tag, task_group, status, partner_status, within_vs_between) %>%
+      summarise(
+        duration_min = sum(duration_min, na.rm = TRUE),
+        number_contacts = sum(number_contacts, na.rm = TRUE),
+        .groups = "drop"
+      ) %>%
+      filter(!within_vs_between) %>%
+      dplyr::select(-partner_status, -within_vs_between) %>%
+      rename(
+        inter_caste_contact_duration = duration_min,
+        inter_caste_contact_number = number_contacts
+      ) %>% arrange(desc(status)) %>%  as.data.frame()
+    
+    # add information to individual behaviour file 
+    behav <- read.table(paste(data_path, "/processed_data/individual_behaviour/pre_vs_post_treatment/individual_behavioural_data.txt", sep=""), header = TRUE, stringsAsFactors = FALSE) %>%
+      dplyr::select(-c(inter_caste_contact_duration, inter_caste_contact_number, 
+                       grep("duration_grooming", names(.), value = TRUE))) %>%
+      left_join(summary_interactions %>%
+                  dplyr::select(colony, tag, time_hours, inter_caste_contact_duration, inter_caste_contact_number),
+                by = c("colony", "tag", "time_hours")) %>% mutate(time_hours = as.integer(time_hours)) %>% arrange(desc(period)) %>% as.data.frame()
+    
+    
+    
+    
+    if (grepl("trophallaxis",data_path)&input_folder=="observed"){
+      cat(red(" !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! WARNING: !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! \n THIS SECTION NEEDS AN UPDATE TO RUN CORRECTLY WITH THE TROPHALLACTIC INTERACTIONS"))
+    } 
+    if(grepl("grooming",input_path)){
+      behav <- merge(behav,summary_interactions_grooming[c("colony","tag","time_hours",names(summary_interactions_grooming)[which(grepl("duration",names(summary_interactions_grooming)))])],all.x=T,all.y=F,sort=F)
+      behav <- merge(behav,summary_interactions_grooming[c("colony","tag","time_hours",names(summary_interactions_grooming)[which(grepl("number",names(summary_interactions_grooming)))])],all.x=T,all.y=F,sort=F)
+      
+    }
+    
+    behav <- behav[order(behav$colony,behav$tag,behav$time_hours),]
+    
+    write.table(behav,file=paste(data_path,"/processed_data/individual_behaviour/pre_vs_post_treatment/individual_behavioural_data.txt",sep=""), row.names=F, col.names=T,append=F,quote=F)
+  }
+  
+  if (grepl("trophallaxis",data_path)&input_folder=="observed"){
+    cat(red(" !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! WARNING: !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! \n CHECK IF THIS SECTION NEEDS AN UPDATE TO RUN CORRECTLY WITH THE TROPHALLACTIC INTERACTIONS"))
+  } 
+  
+  
+  
+  ### Use all_interactions to obtain information about age-based DoL pre treatment
+  all_interactions <- read_csv(output_file_1, show_col_types = FALSE) # DS NEW to avoid keeping this super massive thing clogging up the memory... 
+  ### first check that all_interactions only has Pre-treatment
+  all_interactions <- all_interactions[which(all_interactions$period=="pre"),]
+  ###summ all interactions for each pair of ants
+  all_interactions <- aggregate(na.rm=T,na.action="na.pass",cbind(duration_min,N)~randy+colony+colony_size+period+Tag1+Tag2+status_Tag1+status_Tag2+treatment,FUN=sum,data=all_interactions) # LS: add period_detail & period_circadian ; DS: Lindas change reverted
+  ###calculate intra_caste_over_inter_caste_WW_contact_duration
+  all_interactions["same_caste"] <- all_interactions$status_Tag1==all_interactions$status_Tag2
+  same_caste_interactions <- aggregate(na.rm=T,na.action="na.pass",cbind(duration_min,N)~randy+colony+colony_size+treatment+period,FUN=sum,data=all_interactions[which((all_interactions$status_Tag1!="queen")&(all_interactions$status_Tag2!="queen")&(all_interactions$same_caste)),]) # LS: add period_detail & period_circadian; DS: Lindas change reverted
+  names(same_caste_interactions)[names(same_caste_interactions)=="duration_min"] <- "duration_min_within"
+  names(same_caste_interactions)[names(same_caste_interactions)=="N"] <- "number_contacts_within"
+  inter_caste_interactions <- aggregate(na.rm=T,na.action="na.pass",cbind(duration_min,N)~randy+colony+colony_size+treatment+period,FUN=sum,data=all_interactions[which((all_interactions$status_Tag1!="queen")&(all_interactions$status_Tag2!="queen")&(!all_interactions$same_caste)),]) # LS: add period_detail & period_circadian; DS: Lindas change reverted
+  names(inter_caste_interactions)[names(inter_caste_interactions)=="duration_min"] <- "duration_min_between"
+  names(inter_caste_interactions)[names(inter_caste_interactions)=="N"] <- "number_contacts_between"
+  inter_intra_caste_interactions <- merge(same_caste_interactions,inter_caste_interactions,all.x=T,all.y=T)
+  inter_intra_caste_interactions["intra_caste_over_inter_caste_WW_contact_duration"] <- inter_intra_caste_interactions$duration_min_within/inter_intra_caste_interactions$duration_min_between
+  inter_intra_caste_interactions["intra_caste_over_inter_caste_WW_contact_number"] <- inter_intra_caste_interactions$number_contacts_within/inter_intra_caste_interactions$number_contacts_between
+  dol <-   inter_intra_caste_interactions[!names(inter_intra_caste_interactions)%in%c("duration_min_within","duration_min_between","number_contacts_between","number_contacts_within")]
+  
+# maybe update the above section to dplyr as well. 
+  
+  
+
+
+  
+  
+  
+  ### the whole section below on grooming and age is commented out as not needed for DS and it helps to make a the script a bit more understandable.
+  # ###calculate queen contact with nurses vs. workers
+  # ## skip queen in grooming interactions
+  # if (!grepl("grooming",input_path)) { #AW
+  #   queen_interactions <- all_interactions[which(all_interactions$status_Tag1=="queen"|all_interactions$status_Tag2=="queen"),]
+  #   queen_interactions[which(queen_interactions$status_Tag1=="queen"),"partner"] <- queen_interactions[which(queen_interactions$status_Tag1=="queen"),"Tag2"]
+  #   queen_interactions[which(queen_interactions$status_Tag1=="queen"),"partner_status"] <- queen_interactions[which(queen_interactions$status_Tag1=="queen"),"status_Tag2"]
+  #   queen_interactions[which(queen_interactions$status_Tag2=="queen"),"partner"] <- queen_interactions[which(queen_interactions$status_Tag2=="queen"),"Tag1"]
+  #   queen_interactions[which(queen_interactions$status_Tag2=="queen"),"partner_status"] <- queen_interactions[which(queen_interactions$status_Tag2=="queen"),"status_Tag1"]
+  #   
+  #   interaction_with_nurses <-aggregate (na.rm=T,na.action="na.pass",cbind(duration_min,N)~randy+colony+colony_size+period+period_detail+period_circadian+treatment,FUN=sum,data=queen_interactions[which(queen_interactions$partner_status=="nurse"),]) # LS: add period_detail & period_circadian
+  #   names(interaction_with_nurses)[names(interaction_with_nurses)=="duration_min"] <- "duration_min_with_nurses"
+  #   names(interaction_with_nurses)[names(interaction_with_nurses)=="N"] <- "number_contacts_with_nurses"
+  #   interaction_with_forager <-aggregate (na.rm=T,na.action="na.pass",cbind(duration_min,N)~randy+colony+colony_size+period+period_detail+period_circadian+treatment,FUN=sum,data=queen_interactions[which(queen_interactions$partner_status=="forager"),]) # LS: add period_detail & period_circadian
+  #   names(interaction_with_forager)[names(interaction_with_forager)=="duration_min"] <- "duration_min_with_foragers"
+  #   names(interaction_with_forager)[names(interaction_with_forager)=="N"] <- "number_contacts_with_foragers"
+  #   queen_interac <- merge(interaction_with_nurses,interaction_with_forager,all.x=T,all.y=T)
+  #   queen_interac["QNurse_over_QForager_contact_duration"] <- queen_interac$duration_min_with_nurses/queen_interac$duration_min_with_foragers
+  #   queen_interac["QNurse_over_QForager_contact_number"] <- queen_interac$number_contacts_with_nurses/queen_interac$number_contacts_with_foragers
+  #   dol <- merge(dol,queen_interac[c("randy","colony","period","period_detail","period_circadian","QNurse_over_QForager_contact_duration","QNurse_over_QForager_contact_number")])  # LS: add period_detail & period_circadian
+  # }
+  
+  # ###if necessary: add age
+  # if (grepl("age",data_path)){
+  #   partner_ages <- ages; names(partner_ages) <- c("colony","partner","partner_age")
+  #   queen_interactions <- merge(queen_interactions,partner_ages,all.x=T,all.y=F)
+  #   
+  #   ages_Tag1                    <- ages; names(ages_Tag1) <- c("colony","Tag1","age_Tag1")
+  #   ages_Tag2                    <- ages; names(ages_Tag2) <- c("colony","Tag2","age_Tag2")
+  #   all_interactions             <- merge(all_interactions,ages_Tag1,all.x=T,all.y=F)
+  #   all_interactions             <- merge(all_interactions,ages_Tag2,all.x=T,all.y=F)
+  #   all_interactions["age_diff"] <- abs(all_interactions$age_Tag2-all_interactions$age_Tag1)
+  #   
+  #   ###write ordered pair of interacting ants
+  #   all_interactions["ordered"]<- all_interactions[,"Tag1"]<all_interactions[,"Tag2"]
+  #   all_interactions[which(all_interactions$ordered),"new_Tag1"] <-  all_interactions[which(all_interactions$ordered),"Tag1"]
+  #   all_interactions[which(all_interactions$ordered),"new_Tag2"] <-  all_interactions[which(all_interactions$ordered),"Tag2"]
+  #   all_interactions[which(!all_interactions$ordered),"new_Tag1"] <-  all_interactions[which(!all_interactions$ordered),"Tag2"]
+  #   all_interactions[which(!all_interactions$ordered),"new_Tag2"] <-  all_interactions[which(!all_interactions$ordered),"Tag1"]
+  #   all_interactions["pair"]   <- as.character(interaction(all_interactions$colony,all_interactions$new_Tag1,all_interactions$new_Tag2))
+  #   ###to get slope: get each pair of possibly interacting ants
+  #   for (colony in unique(all_interactions$colony)){
+  #     colony_ages <- ages[which(ages$colony==colony),]
+  #     colony_ages_Tag1                    <- colony_ages; names(colony_ages_Tag1) <- c("colony","Tag1","age_Tag1")
+  #     colony_ages_Tag2                    <- colony_ages; names(colony_ages_Tag2) <- c("colony","Tag2","age_Tag2")
+  #     tagfile            <- tag_list[which(grepl(colony,tag_list))][1]
+  #     tag <- read.tag(tagfile)$tag
+  #     names(tag)[names(tag)=="#tag"] <- "tag"; tag <- tag[which(tag$tag!="#tag"),]
+  #     
+  #     ####list ants of known ages
+  #     known_ages                <- colony_ages[which(!is.na(colony_ages$age)),"tag"]
+  #     ###remove queen from list
+  #     known_ages                <- known_ages[known_ages!=queenid]
+  #     ###remove dead ants from list
+  #     known_ages                <- known_ages[which(known_ages%in%tag[which(tag$final_status=="alive"),"tag"])]
+  #     
+  #     ### prepare complete pair table
+  #     summ_pairs           <- data.frame(combinations(n=length(known_ages),r=2,v=known_ages))
+  #     summ_pairs["ordered"]<- summ_pairs[,1]<summ_pairs[,2]
+  #     summ_pairs[which(summ_pairs$ordered),"Tag1"] <-  summ_pairs[which(summ_pairs$ordered),1]
+  #     summ_pairs[which(summ_pairs$ordered),"Tag2"] <-  summ_pairs[which(summ_pairs$ordered),2]
+  #     summ_pairs[which(!summ_pairs$ordered),"Tag1"] <-  summ_pairs[which(!summ_pairs$ordered),2]
+  #     summ_pairs[which(!summ_pairs$ordered),"Tag2"] <-  summ_pairs[which(!summ_pairs$ordered),1]
+  #     summ_pairs              <- merge(summ_pairs,colony_ages_Tag1,all.x=T,all.y=F)
+  #     summ_pairs              <- merge(summ_pairs,colony_ages_Tag2,all.x=T,all.y=F)
+  #     summ_pairs["age_diff"]  <- abs(summ_pairs$age_Tag2-summ_pairs$age_Tag1)
+  #     summ_pairs["pair"]   <- as.character(interaction(colony,summ_pairs$Tag1,summ_pairs$Tag2))
+  #     summ_pairs <- merge(summ_pairs,unique(all_interactions[which(all_interactions$colony==colony),c("colony","randy","colony_size","period","treatment")])) # LS: add period_detail?
+  #     ###merge it with interactions whose age diff is known 
+  #     summ_pairs <- merge(summ_pairs,all_interactions[which(all_interactions$colony==colony),c("colony","randy","colony_size","period","treatment","pair","duration_min","N")],all.x=T,all.y=F) # LS: add period_detail?
+  #     ###and fill intreactions which did not happen with 0
+  #     summ_pairs[which(is.na(summ_pairs$duration_min)),"duration_min"] <- 0
+  #     summ_pairs[which(is.na(summ_pairs$N)),"N"] <- 0
+  #     model_WW <- lm(duration_min~age_diff,data=summ_pairs)
+  #     dol[dol$colony==colony,"slope_WW_contact_duration_f_age_diff"] <- coef(model_WW)["age_diff"]
+  #     model_WW <- lm(N~age_diff,data=summ_pairs)
+  #     dol[dol$colony==colony,"slope_WW_contact_number_f_age_diff"] <- coef(model_WW)["age_diff"]
+  #     
+  #     ###do the same for queen interactions
+  #     colony_ages <- colony_ages[which(!is.na(colony_ages$age)),]
+  #     names(colony_ages) <-c("colony","partner","age")
+  #     queen_W <- merge(colony_ages,unique(queen_interactions[which(queen_interactions$colony==colony),c("colony","randy","colony_size","period","treatment")])) # LS: add period_detail?
+  #     ###merge it with interactions whose age diff is known 
+  #     queen_W <- merge(queen_W,queen_interactions[which(queen_interactions$colony==colony),c("colony","randy","colony_size","period","treatment","partner","duration_min","N")],all.x=T,all.y=F) # LS: add period_detail?
+  #     ###and fill intreactions which did not happen with 0
+  #     queen_W[which(is.na(queen_W$duration_min)),"duration_min"] <- 0
+  #     queen_W[which(is.na(queen_W$N)),"N"] <- 0
+  #     model_QW <- lm(duration_min~age,data=queen_W)
+  #     dol[dol$colony==colony,"slope_QW_contact_duration_f_W_age"] <- coef(model_QW)["age"]
+  #     model_QW <- lm(N~age,data=queen_W)
+  #     dol[dol$colony==colony,"slope_QW_contact_number_f_W_age"] <- coef(model_QW)["age"]
+  #     
+  #   }
+  # }
+  summary_dol <- rbind(summary_dol,dol)  
+}
+
+if(!file.exists(output_file_2)){write.table(summary_dol,file=output_file_2,col.names=T,row.names=F,append=F,quote=F)}
+to_keep <- to_keep_ori

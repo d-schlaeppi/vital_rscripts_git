@@ -1,31 +1,41 @@
-# 
-# clean <- function(){
-#   rm(list=ls(envir = .GlobalEnv)[!ls(envir = .GlobalEnv)%in%to_keep], envir = .GlobalEnv)
-#   no_print <- gc(verbose=F)
-#   Sys.sleep(1)
-# }
-# 
-# closest_match <- function(x,y){
-#   return(min(which(abs(x-y)==min(abs(x-y))),na.rm=T))
-# }
-# 
-# read.tag <- function(tag_list){ #AW    ### probabaly not needed 
-#   tag <- paste0(tag_list,list.files(tag_list)[grep(colony,list.files(tag_list))])
-#   tag <- read.table(tag,header=T,stringsAsFactors = F) #AW
-# return(tag)
-# }
-# 
-# 
-# 
-# high_threshold <- 0.0411 * 0.5/0.3###Science paper: high threshold =0.0411 where 1 = load of treated
-#                         ####In Adriano's experiment, spore concentration was the same but volume was 0.3 microliter instead of 0.5 microliter
-# 
-# info           <- read.table(paste(data_path,"/original_data/info.txt",sep=""),header=T,stringsAsFactors = F)
-# treated        <- read.table(paste(data_path,"/original_data/treated_worker_list.txt",sep=""),header=T,stringsAsFactors = F)
-# task_groups    <- read.table(paste(data_path,"original_data/task_groups.txt",sep="/"),header=T,stringsAsFactors = F)
-# if (grepl("age",data_path)){
-#   ages      <- read.table(paste(data_path,"original_data","ant_ages.txt",sep="/"),header=T,stringsAsFactors = F)
-# }
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+### Functions required to run the vital analysis     ### ### ### ### ###
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 1. READ ME, Background information, ToDo's and Notes ####
+
+#' Written to work for the vital analysis pipeline by DS, based on the workd of NS and AW.
+#' This code is sourced by the stats_and_plots.R script and contains parameters and functions required for the analysis of the tracking data
+
+#' Todo's:
+#' - Adjust to the needs of vital 
+#' - try to write things so they run for the flugus experiment as well
+#' Find out if night_start, light_start are right... 
+#' 
+
+#' Notes:
+#'  
+
+### Index ###
+#' 1. Read Me
+#' 2. Old code
+#' 3. Parameters for plotting (Science specific)
+#' 4. Other non-journal specific plotting parameters
+#' 5. Functions
+#' 5.1 closest_match()
+#' 5.2 GetColorHex()
+#' 5.3 get_posthoc_groups()
+#' 5.4 is.even()
+#' 5.5 log_transf()
+#' 5.6 sqrt_transf()
+#' 5.7 Box-cox()
+
+
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 2. Old code that can be deleted if not required by the end of the analysis - might be remnants of whatever  ####
+
 # 
 # if(file.exists(paste(data_path,"/original_data/info_dat.txt",sep=""))){
 #   info_datfile   <- read.table(paste(data_path,"/original_data/info_dat.txt",sep=""),header=T,stringsAsFactors = F)
@@ -44,6 +54,5513 @@
 # input_tag <- paste(data_path,"original_data/tag_files",sep="/")
 # setwd(input_tag)
 # tag_list <- paste(input_tag,list.files(pattern="tags"),sep="/")
+
+
+# MORE CODE AT THE BOTTOM OF THE SCRIPT ONCE IT IS DONE AND FINALIZED... 
+
+
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 3. Science-specific plotting parameters #### 
+
+### pdf width in inches
+single_col <- conv_unit(55, "mm","inch")
+double_col <- conv_unit(120, "mm","inch")
+three_col  <- conv_unit(183, "mm","inch")
+page_height <- conv_unit(297, "mm","inch")
+
+### Text size
+### "In a layout with exactly two rows and columns the base value of “cex” is reduced by a factor of 0.83: if there are three or more of either rows or columns, the reduction factor is 0.66.” 
+ref_cex <- 11
+pointsize_less_than_2row2col <- ref_cex
+pointsize_2row2col <- ref_cex/0.83
+pointsize_more_than_2row2col <- ref_cex/0.66
+panel_cex <- ref_cex/ref_cex
+max_cex <- (ref_cex-1)/ref_cex
+inter_cex <- (ref_cex-2)/ref_cex
+min_cex <- (ref_cex-3)/ref_cex
+
+### Text font
+text_font <- "DejaVu Serif" #"Liberation Serif"
+panel_font <- 2 ###panel letters must be bold upright
+panel_casse <- function(x){
+  x <- tolower(x)
+  x <- capitalize(x)
+  return(x)}
+casse <- function(x){
+  ### remove final point
+  if (substr(x,nchar(x),nchar(x))=="."){
+    x <- substr(x,1,(nchar(x)-1))
+  }
+  x <- tolower(x)
+  x <- capitalize(x)
+  return(x)
+}
+
+### Line sizes
+line_max <- 1
+line_min <- 0.5
+line_inter <- line_min +0.5*(line_max-line_min)
+if(!file.exists(figurefolder)){dir.create(figurefolder,recursive = T)}
+
+
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 4. Other non-journal specific plotting parameters #### 
+
+task_group_file <- "task_groups.txt"
+refine          <- task_group_file
+plot_type <- "bars"  ### options: bars or means or bars_points or boxplot or violinplot
+if (plot_type=="boxplot"){
+  relative_function <- "median"
+}else{
+  relative_function <- "mean"
+}
+
+par(mgp=c(0.8,0.1,0),mar=c(2,2,0.85,0),tcl=-0.2,lend=2,xpd=T,lwd=line_max)
+pars <- par(mgp=c(0.8,0.1,0),mar=c(2,2,0.85,0),tcl=-0.2,lend=2,xpd=T,lwd=line_max)
+
+### Define general parameters that will be use throughout the analysis
+night_start <- 18
+light_start <- 6
+stat_line <- -0.2
+time_ori <- 12
+unit <-3
+Extended <- F
+# pix_to_mm_ratio <- max(c(0.0225877193,0.0229658793))
+fixed_aspect_theme <- theme(aspect.ratio = 2)
+fixed_aspect_theme_PRE <- theme(aspect.ratio = 4)
+
+GetColorHex <- function(color) {
+  clr <- col2rgb(color)
+  hex_and_col <-
+    sprintf("#%02X%02X%02X %3d %3d %3d", clr[1], clr[2], clr[3], clr[1], clr[2], clr[3])
+  hex <- unlist(strsplit(hex_and_col, split = " "))[1]
+  return(hex)}
+
+colour_palette <- c(viridis(10, alpha = 1, begin = 0, end = 1, direction = -1, option = "D")[c(1,3,5,7,9)],"#9ad0f3", "#0072B2")
+colour_palette_workers <- viridis(10, alpha = 1, begin = 0, end = 1, direction = -1, option = "D")[1:5]
+colour_palette_age <- rep(GetColorHex("lightskyblue"),2)
+
+forager_colour <- "#E69F00"#colour_palette[1]
+occasional_forager_colour <-  colour_palette[2]
+nurse_colour <- "#56B4E9"#colour_palette[3]
+untreated_colour <- GetColorHex("grey60")
+treated_colour <- GetColorHex("grey20")
+queen_colour <- colour_palette[5] #queen_colour <- "mediumorchid4"
+worker_colour <- colour_palette[2]
+control_colour <- GetColorHex("skyblue1")
+virus_colour <- GetColorHex("royalblue2")
+random_colour <- GetColorHex("grey60") #("rosybrown1")
+observed_colour <- GetColorHex("red4")
+high_load_colour <- GetColorHex("springgreen4")
+low_load_colour  <- GetColorHex("springgreen2")
+small_colour <-    GetColorHex("pink")
+big_colour <-    GetColorHex("purple")
+
+### define treatment and status names and labels
+treatments <- c("control","virus","random","observed")
+treatment_colours <- c(control_colour,virus_colour,random_colour,observed_colour)
+names(treatment_colours) <- treatments
+
+statuses <- c("treated","untreated","queen",
+              "nurse","occasional_forager","forager","queen",
+              "worker","queen",
+              "control","virus",
+              "random","observed",
+              "with_queen","not_with_queen",
+              "high_predicted_load","low_predicted_load","small","big")
+
+statuses_colours <- c(treated_colour,untreated_colour,queen_colour,
+    nurse_colour,occasional_forager_colour,forager_colour,queen_colour,
+    worker_colour,queen_colour,
+    control_colour,virus_colour,
+    random_colour,observed_colour,
+    queen_colour,worker_colour,
+    high_load_colour,low_load_colour,small_colour, big_colour)
+
+names(statuses_colours) <- statuses
+statuses_colours <- statuses_colours[!duplicated(names(statuses_colours))]
+
+full_statuses_names <- c("Treated\nnurses","Untreated\nworkers","Queen\n",
+                         "Untreated\nnurses","Occasional\nforagers","Foragers\n","Queen\n",
+                         "Workers","Queen\n",
+                         "Sham","Path.",
+                         "R","O",
+                         "Q\ncomm.","Other\ncomm.",
+                         "High predicted load","Low predicted load",
+                         "Small\ncolonies","Large\ncolonies")
+names(full_statuses_names) <- statuses
+full_statuses_names <- gsub("Path.","",full_statuses_names)
+
+status_order <- c("queen","nurse","occasional_forager","forager","worker","control","virus",
+  "treated","untreated","random","observed","with_queen","not_with_queen",
+  "high_predicted_load","low_predicted_load","small","big")
+
+alphas <- c(1,1,0.5,1)
+names(alphas) <- c("control","virus","random","observed")
+
+all_workers <- c("treated","nurse","forager")
+
+model_n_interations <- lmerControl(optCtrl = list(maxfun = 2e5))
+
+
+
+
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 5. FUNCTIONS ####
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 5.1 closest_match ####
+
+closest_match <- function(x,y){return(min(which(abs(x-y)==min(abs(x-y))),na.rm=T))}
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 5.2 GetColorHex() ####
+# loaded earlier so deleted here... 
+# GetColorHex <- function(color) {
+#   clr <- col2rgb(color)
+#   hex_and_col <-
+#     sprintf("#%02X%02X%02X %3d %3d %3d", clr[1], clr[2], clr[3], clr[1], clr[2], clr[3])
+#   hex <- unlist(strsplit(hex_and_col, split = " "))[1]
+#   return(hex)}
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 5.3 get_posthoc_groups() ####
+
+get_posthoc_groups <- function(model,contrast_matrix,which_levels,dataset,level_names = NULL) {
+  levels <- get(which_levels)
+  if (is.null(names(levels))) {
+    names(levels) <- paste("Delta_", levels, sep = "")
+  }
+  post_hoc <- summary(glht(model, contrast_matrix), test = adjusted("BH"))
+  # print("z value");print(post_hoc$test$tstat);print("Pr>|z|");print(post_hoc$test$pvalues)
+  print(post_hoc)
+  p_values <-
+    as.numeric(post_hoc$test$pvalues)
+  names(p_values) <- names(post_hoc$test$coefficients)
+  
+  post_hoc_levels <- names(levels)
+  post_hoc_mat <-
+    matrix(NA,
+           nrow = length(post_hoc_levels) - 1,
+           ncol = length(post_hoc_levels) - 1)
+  rownames(post_hoc_mat) <-
+    post_hoc_levels[2:length(post_hoc_levels)]
+  colnames(post_hoc_mat) <-
+    post_hoc_levels[1:(length(post_hoc_levels) - 1)]
+  for (i in 1:nrow(post_hoc_mat)) {
+    for (j in 1:i) {
+      post_hoc_mat[i, j] <-
+        as.logical(as.numeric(p_values[paste(colnames(post_hoc_mat)[j],
+                                             " minus ",
+                                             rownames(post_hoc_mat)[i],
+                                             sep = "")]) > 0.05)
+    }
+  }
+  g <- post_hoc_mat
+  g <- cbind(rbind(NA, g), NA)
+  g <- replace(g, is.na(g), FALSE)
+  g <- g + t(g)
+  diag(g) <- 1
+  n <- length(post_hoc_levels)
+  rownames(g) <- 1:n
+  colnames(g) <- 1:n
+  #g
+  same <- which(g == 1)
+  topology <-
+    data.frame(N1 = ((same - 1) %% n) + 1, N2 = ((same - 1) %/% n) + 1)
+  topology <-
+    topology[order(topology[[1]]), ] # Get rid of loops and ensure right naming of vertices
+  g3 <- simplify(graph.data.frame(topology, directed = FALSE))
+  #get.data.frame(g3)
+  #plot(g3)
+  res <- maximal.cliques(g3)
+  
+  # Reorder given the smallest level
+  clique_value <- NULL
+  if (which_levels == "level_names") {
+    form <-
+      as.formula(paste("variable ~ ", paste(
+        c("treatment", "task_group"), collapse = "+"
+      )))
+  } else{
+    form <-
+      as.formula(paste("variable ~ ", paste(
+        gsub("_order", "", which_levels), collapse = "+"
+      )))
+  }
+  
+  means <- aggregate(form, FUN = mean, data = dataset)
+  means$predictor <- names(levels)
+  for (i in 1:length(res)) {
+    clique_value <-
+      c(clique_value, mean(means[as.numeric(unlist(res[[i]])), "variable"]))
+  }
+  res <- res[order(clique_value)]
+  
+  # Get group letters
+  lab.txt <- vector(mode = "list", n)
+  lab <- letters[seq(res)]
+  for (i in seq(res)) {
+    for (j in res[[i]]) {
+      lab.txt[[j]] <- paste0(lab.txt[[j]], lab[i])
+    }
+  }
+  post_hoc_groups <- unlist(lab.txt)
+  names(post_hoc_groups) <- levels[post_hoc_levels]
+  return(post_hoc_groups)
+}
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 5.4 is.even() ####
+
+is.even <- function(x) {return(x %% 2 == 0)}
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 5.5 log_transf() ####
+
+log_transf <- function(x) {
+  if (all(x > 0)) {
+    replac_val <- 0
+  } else if (all(x >= 0)) {
+    replac_val <- (min(x[x != 0], na.rm = T)) / sqrt(2)
+  } else{
+    replac_val_1 <- -min(x, na.rm = T)
+    y <- x + replac_val_1
+    replac_val <- replac_val_1 + (min(y[y != 0], na.rm = T)) / sqrt(2)
+  }
+  return(log10(x + replac_val))
+}
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 5.6 sqrt_transf() ####
+
+sqrt_transf <- function(x) {
+  if (all(x >= 0)) {
+    replac_val <- 0
+  } else{
+    replac_val <- -min(x, na.rm = T)
+  }
+  return(sqrt(x + replac_val))
+}
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 5.7 Box-cox() ####
+
+Box_Cox <- function(x) {
+  if (all(x > 0)) {
+    replac_val <- 0
+  } else if (all(x >= 0)) {
+    replac_val <- (min(x[x != 0], na.rm = T)) / sqrt(2)
+  } else{
+    replac_val_1 <- -min(x, na.rm = T)
+    y <- x + replac_val_1
+    replac_val <- replac_val_1 + (min(y[y != 0], na.rm = T)) / sqrt(2)
+  }
+  X <- x + replac_val
+  
+  bc <- MASS::boxcox(X ~ 1,plotit = FALSE)
+  #computes the log-likelihood for a range of lambda values and returns the lambda that maximizes the log-likelihood
+  lambda <- bc$x[which.max(bc$y)]
+  (X^lambda - 1) / lambda
+}
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 5.8 from_p_to_ptext() ####
+# convert significance levels to stars
+from_p_to_ptext <- function(pvalue) {
+  sapply(pvalue, function(p) {
+    if (length(p) == 0) {
+      pvaluetext <- "if pval not here, the model failed"
+    } else if (is.na(p)) {
+      pvaluetext <- "p = NA"
+    } else {
+      if   (p < 0.0001) {
+        pvaluetext  <- "***"
+      } else if (p < 0.005) {
+        pvaluetext <- "**"
+      } else if (p < 0.05) {
+        pvaluetext <- "*"
+      } else if (p < 0.1) {
+        pvaluetext <- paste("p=", sprintf("%.3f", p), sep = "")
+      } else if (p < 1) {
+        pvaluetext <- paste("p=", sprintf("%.2f", p), sep = "")
+      } else {
+        pvaluetext <- "p = 1"
+      }
+    }
+    return(pvaluetext)
+  })
+}
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 5.9 from_p_to_prounded() ####
+# convert significance levels to rounded vals for text 
+from_p_to_prounded <- function(pvalue) {
+  sapply(pvalue, function(p) {
+    if (length(p) == 0) {
+      pvaluetext <- "if pval not here, the model failed"
+    } else if (is.na(p)) {
+      pvaluetext <- "p = NA"
+    } else {
+      if   (p < 0.0001) {
+        pvaluetext <- 0.0001
+      } else if (p < 0.005) {
+        pvaluetext <- 0.005
+      } else if (p < 0.05) {
+        pvaluetext <- 0.05
+      } else if (p < 0.1) {
+        pvaluetext <- paste( sprintf("%.3f", p), sep = "")
+      } else if (p < 1) {
+        pvaluetext <- paste( sprintf("%.2f", p), sep = "")
+      } else {
+        pvaluetext <- "1"
+      }
+    }
+    return(pvaluetext)
+  })
+}
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 5.10 plot_arrows() ####
+
+plot_arrows <- function(means,plotx,plot_type,LWD,LENGTH,colz=NULL,direction="normal"){
+  options(warn=-1)
+  if (grepl("points",plot_type)){
+    LENGTH <- LENGTH*2
+  }
+  if (grepl("bars",plot_type)){
+    if (direction=="normal"){
+      arrows_low <- means$mean-1*as.numeric(sign(means$mean)<=0)*means$se
+      arrows_high <- means$mean+1*as.numeric(sign(means$mean)>=0)*means$se
+    }else{
+      arrows_low <- means$mean-1*as.numeric(sign(means$mean)>=0)*means$se
+      arrows_high <- means$mean+1*as.numeric(sign(means$mean)<=0)*means$se
+    }
+    code1 <- which(arrows_high==means$mean&arrows_low<means$mean)
+    code2 <- which(arrows_low==means$mean&arrows_high>means$mean)
+    code3 <- which(arrows_low==means$mean&arrows_high==means$mean)
+    
+    arrows (plotx[code1],arrows_low[code1],plotx[code1],arrows_high[code1],code=1,angle=90,col="black",lwd=LWD,length=LENGTH)
+    arrows (plotx[code2],arrows_low[code2],plotx[code2],arrows_high[code2],code=2,angle=90,col="black",lwd=LWD,length=LENGTH)
+    arrows (plotx[code3],arrows_low[code3],plotx[code3],arrows_high[code3],code=3,angle=90,col="black",lwd=LWD,length=LENGTH)
+  }else{
+    arrows_low <- means$mean-means$se
+    arrows_high <- means$mean+means$se
+    arrows (plotx,arrows_low,plotx,arrows_high,code=3,angle=90,col=colz,lwd=1.5*LWD,length=1.5*LENGTH)
+  }
+  options(warn=0)
+}
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 5.11 VioPlot() ####
+
+VioPlot <- function (x, ..., range = 1.5, h = NULL, ylim = NULL, names = NULL, 
+                     horizontal = FALSE, col = "magenta", border = "black", lty = 1, 
+                     lwd = 1, rectCol = "black", colMed = "black", pchMed = 21, bgMed = "white",
+                     at, add = FALSE, wex = 1, drawRect = TRUE, mode="Median",cexMed=min_cex) {
+  datas <- list(x, ...)
+  n <- length(datas)
+  if (missing(at)){ 
+    at <- 1:n
+  }
+  std_low <- vector(mode = "numeric", length = n)
+  std_high <- vector(mode = "numeric", length = n)
+  upper <- vector(mode = "numeric", length = n)
+  lower <- vector(mode = "numeric", length = n)
+  q1 <- vector(mode = "numeric", length = n)
+  q3 <- vector(mode = "numeric", length = n)
+  med <- vector(mode = "numeric", length = n)
+  meaN <- vector(mode = "numeric", length = n)
+  base <- vector(mode = "list", length = n)
+  height <- vector(mode = "list", length = n)
+  baserange <- c(Inf, -Inf)
+  args <- list(display = "none")
+  if (!(is.null(h))){
+    args <- c(args, h = h)
+  } 
+  for (i in 1:n) {
+    data <- datas[[i]]
+    data.min <- min(data)
+    data.max <- max(data)
+    q1[i] <- quantile(data, 0.25)
+    q3[i] <- quantile(data, 0.75)
+    med[i] <- median(data)
+    meaN[i] <- mean(data)
+    std <- std.error(data)
+    std_low[i] <- meaN[i]-std
+    std_high[i] <- meaN[i]+std
+    
+    iqd <- q3[i] - q1[i]
+    upper[i] <- min(q3[i] + range * iqd, data.max)
+    lower[i] <- max(q1[i] - range * iqd, data.min)
+    est.xlim <- c(min(lower[i], data.min), max(upper[i], 
+                                               data.max))
+    smout <- do.call("sm.density", c(list(data, xlim = est.xlim), 
+                                     args))
+    hscale <- 0.4/max(smout$estimate) * wex
+    base[[i]] <- smout$eval.points
+    height[[i]] <- smout$estimate * hscale
+    t <- range(base[[i]])
+    baserange[1] <- min(baserange[1], t[1])
+    baserange[2] <- max(baserange[2], t[2])
+  }
+  if (!add) {
+    xlim <- if (n == 1) 
+      at + c(-0.5, 0.5)
+    else range(at) + min(diff(at))/2 * c(-1, 1)
+    if (is.null(ylim)) {
+      ylim <- baserange
+    }
+  }
+  if (is.null(names)) {
+    label <- 1:n
+  }
+  else {
+    label <- names
+  }
+  boxwidth <- 0.05 * wex
+  if (!add) 
+    plot.new()
+  if (!horizontal) {
+    if (!add) {
+      plot.window(xlim = xlim, ylim = ylim)
+      axis(2)
+      axis(1, at = at, label = label)
+    }
+    box()
+    for (i in 1:n) {
+      polygon(c(at[i] - height[[i]], rev(at[i] + height[[i]])), 
+              c(base[[i]], rev(base[[i]])), col = col, border = border, 
+              lty = lty, lwd = lwd)
+      if (drawRect) {
+        if (mode=="Median"){
+          lines(at[c(i, i)], c(lower[i], upper[i]), lwd = lwd, 
+                lty = lty)
+          rect(at[i] - boxwidth/2, q1[i], at[i] + boxwidth/2, 
+               q3[i], col = rectCol)
+          points(at[i], med[i], pch = pchMed, col = colMed, bg=bgMed, cex=cexMed)
+        }else if (mode=="Mean"){
+          # rect(at[i] - boxwidth/2, std_low[i], at[i] + boxwidth/2, 
+          # std_high[i], col = rectCol)
+          plot_arrows(means=data.frame(mean=meaN[i],se=std),plotx=at[i],plot_type="violinplot",LWD=line_max,LENGTH=0.05,colz="black")
+          points(at[i], meaN[i], pch = pchMed, col = colMed, bg=bgMed, cex=cexMed)
+        }
+      }
+    }
+  }
+  else {
+    if (!add) {
+      plot.window(xlim = ylim, ylim = xlim)
+      axis(1)
+      axis(2, at = at, label = label)
+    }
+    box()
+    for (i in 1:n) {
+      polygon(c(base[[i]], rev(base[[i]])), c(at[i] - height[[i]], 
+                                              rev(at[i] + height[[i]])), col = col, border = border, 
+              lty = lty, lwd = lwd)
+      if (drawRect) {
+        lines(c(lower[i], upper[i]), at[c(i, i)], lwd = lwd, 
+              lty = lty)
+        rect(q1[i], at[i] - boxwidth/2, q3[i], at[i] + 
+               boxwidth/2, col = rectCol)
+        points(med[i], at[i], pch = pchMed, col = colMed)
+      }
+    }
+  }
+  invisible(list(upper = upper, lower = lower, median = med, 
+                 q1 = q1, q3 = q3))
+}
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 5.12 scatterplot_violin_forpaper() ####
+
+scatterplot_violin_forpaper <- function(formula_stat,formula_plot,ylabel,xlabel,title,dat,ymin=NULL,ymax=NULL,xmin=NULL,xmax=NULL,sorting="status",time_point,IC=NULL,output=F,means=T,input_color=NULL,violin_params,point_cex=NULL,predict=NULL){
+  violin_params <- as.numeric(unlist(violin_params))
+  
+  # read violin param
+  range <- violin_params[1]
+  ylim_fac1 <- violin_params[2]
+  ylim_fac2 <- violin_params[3]
+  wex <- violin_params[4]
+  h <- violin_params[5]
+  
+  # if (all(dat$predictor==dat$colony_size)){
+  formula_stat <- update(formula_stat,~.-colony_size)
+  # }
+  dep_var <- row.names(attr(terms(formula_plot),"factors"))[1]
+  pf <- parent.frame()
+  dat["variable"] <- eval(parse(text=dep_var),dat,pf)
+  
+  ### plotting ### ### ### ### ### ### ### ### ### ###
+  if (is.numeric(dat$predictor)){
+    categories <- sort(unique(dat$predictor_plot))
+  }else{
+    categories <- unique(c(dat$predictor_plot))
+    categories <- categories[order(match(categories,status_order))]
+  }
+  if (is.null(input_color)){
+    if (sorting=="treatment"){
+      colour_pal <- NULL
+      for (category in categories){
+        colour_pal <- c(colour_pal,get(paste(category,"_colour",sep="")))
+      }
+    }else{
+      colour_pal <- rev(colorRampPalette(colour_palette_workers)(length(categories)))
+    }
+  }else{
+    colour_pal <- rev(colorRampPalette(input_color)(length(categories)))
+  }
+  
+  names(colour_pal) <- categories
+  dat["colour"] <-  colour_pal[match(dat$predictor_plot,names(colour_pal))]
+  forplot <- aggregate(na.rm=T,na.action="na.pass",colour~predictor_plot,FUN=unique,data=dat)
+  forplot_med <- aggregate(na.rm=T,na.action="na.pass",variable~predictor_plot,FUN=median,data=dat);names(forplot_med)[names(forplot_med)=="variable"] <- "median"
+  forplot_mean <- aggregate(na.rm=T,na.action="na.pass",variable~predictor_plot,FUN=mean,data=dat);names(forplot_mean)[names(forplot_mean)=="variable"] <- "mean"
+  forplot <- merge(merge(forplot,forplot_med),forplot_mean)
+  if (is.null(ymin)){
+    ymin <- min(dat$variable,na.rm=T) - ylim_fac1*(max(dat$variable,na.rm=T)-min(dat$variable,na.rm=T))
+    # ymin <- min(dat$variable,na.rm=T)
+  }
+  if (is.null(ymax)){
+    ymax <- max(dat$variable,na.rm=T) + ylim_fac2*(max(dat$variable,na.rm=T)-min(dat$variable,na.rm=T))
+    # ymax <- max(dat$variable,na.rm=T) 
+  }
+  
+  ### prepare plot shell
+  par_mar_ori <- par()$mar
+  if(is.character(dat$predictor)){
+    forplot ["pred"] <- as.numeric(factor(forplot$predictor_plot,levels=categories))/2
+    dat["pred"] <- as.numeric(factor(dat$predictor_plot,levels=categories))/2
+    par(bty="n",xaxt = "n")
+  }else{
+    forplot ["pred"] <- forplot$predictor_plot
+    dat["pred"] <- dat$predictor_plot
+    par(bty='l')
+  }
+  par(mar=par_mar_ori+c(0,0,0,0.5))
+  values <- sort(unique(forplot$pred))
+  if (is.null(xmin)){
+    xlim <- c(min(forplot$pred),max(forplot$pred))+mean(diff(values,lag=1))*c(-0.5,0.5)
+  }else{
+    xlim <- c(xmin,xmax)
+  }
+  
+  plot(dat$pred,dat$variable,xlab="",ylab="",xaxt="n",yaxt="n",cex.main=inter_cex,cex.lab=inter_cex,font.lab=1,cex.axis=min_cex,xlim=xlim,ylim=c(ymin,ymax),pch=21,type="n")
+  if (!all(!grepl("Log",xlabel))){
+    where <- axisTicks(c(par("usr")[1],par("usr")[2]),log=F)
+    where <- where[which(where==round(where))]
+    axis(1,at=where,labels=format(10^(where),scientific=T),cex.lab=inter_cex,cex.axis=min_cex)
+    xlab <- substr(gsub("Log\\(","",xlabel),1,-1+nchar(gsub("Log\\(","",xlabel)))
+    if (xlab=="Measured pathogen load"){
+      title(xlab=expression(paste("Measured pathogen load (ng/", mu, "L)")),cex.lab=inter_cex,mgp=par()$mgp+c(0.2,0,0))
+    }else{
+      title(xlab=xlab,cex.lab=inter_cex,mgp=par()$mgp+c(0.2,0,0))
+    }
+  }else{
+    axis(1,cex.lab=inter_cex,cex.axis=min_cex)
+    title(xlab=xlabel,cex.lab=inter_cex)
+  }
+  
+  if(all(!grepl("log",ylabel))){
+    axis(2,cex.lab=inter_cex,cex.axis=min_cex)
+    title(ylab=ylabel,cex.lab=inter_cex)
+  }else{
+    where <- axisTicks(c(par("usr")[3],par("usr")[4]),log=F)
+    where <- where[which(where==round(where))]
+    axis(2,at=where,labels=format(10^(where),scientific=T),cex.lab=inter_cex,cex.axis=min_cex)
+    ylab <- as.character(ylabel[2])
+    if (ylab=="Measured pathogen load"){
+      title(ylab=expression(paste("Measured pathogen load (ng/", mu, "L)")),cex.lab=inter_cex,mgp=par()$mgp+c(0.1,0,0))
+    }else{
+      title(ylab=ylab,cex.lab=inter_cex,mgp=par()$mgp+c(0.1,0,0))
+    }
+    
+    
+  }
+  
+  if(is.character(dat$predictor)){
+    par(xaxt = "s")
+    axis(side=1,at=sort(unique(forplot$pred)),labels=full_statuses_names[categories],tick=F,lty=0,cex.axis=inter_cex)
+    # plus add grid lines
+    par(xpd=F)
+    # for (idx in 1:nrow(forplot)){
+    #   abline(h=forplot[idx,"median"],lwd=line_min,lty=3,col="black")
+    # }
+    abline(h=0,lwd=line_min,lty=3,col="black")
+  }
+  if(!is.null(title)){title(main=title,cex.main=inter_cex,line=2.5)}
+  ### if input, add 95%IC
+  if(!is.null(IC)){
+    polygon(c(par("usr")[c(1,2)],par("usr")[c(2,1)]),c(IC[1],IC[1],IC[2],IC[2]),border=NA,col=alpha("orange",0.1))
+  }
+  par_cex_ori <- par()$cex
+  par(cex=0.3)
+  if (is.null(point_cex)){
+    cexMed <- min_cex
+  }else{
+    cexMed <- point_cex
+  }
+  ### add violins
+  for (i in 1:nrow(forplot)){
+    subset <- dat[which(dat$pred==forplot[i,"pred"]),"variable"]
+    if (is.na(range)){
+      VioPlot(na.omit(subset),col=alpha(forplot[i,"colour"],0.7), horizontal=F, at=forplot[i,"pred"], add=TRUE,lty=1, rectCol="black",wex=wex*0.5,border=NA,lwd=line_min,mode="Median",cexMed=cexMed)
+    }else{
+      VioPlot(na.omit(subset),range=range, h=h,col=alpha(forplot[i,"colour"],0.7), horizontal=F, at=forplot[i,"pred"], add=TRUE,lty=1, rectCol="black",wex=wex*0.5,border=NA,lwd=line_min,mode="Median",cexMed=cexMed)
+    }
+  }
+  par(cex=par_cex_ori)
+  
+  
+  ### stats ### ### ### ### ### ### ### ### ### ###
+  ### initialise
+  to_plot <- data.frame(intercept=as.numeric(as.character()),slope=as.numeric(as.character()),colour=as.character(),stringsAsFactors=F)
+  to_mtext <- data.frame(effect=as.character(),pvalue=as.numeric(as.character()),stringsAsFactors=F)
+  pred<- attr(terms(formula_stat),"term.labels")
+  pred <- pred[!grepl("\\|",pred)]
+  
+  ### get final stats formula (step by step in case of a multiple terms model); i.e., reduce model
+  try(model_temp <- lmer(formula_stat,data=dat),silent=T)
+  if (exists("model_temp")){
+    coeff <- Anova(model_temp,type="III")
+    if ("Pr(>Chisq)"%in%colnames(coeff)){
+      ### first test if colony size is significant; if not remove it
+      if ("colony_size" %in%pred){
+        if (coeff["colony_size","Pr(>Chisq)"]>0.05){
+          formula_stat <- update(formula_stat,~.-colony_size)
+          model_temp <- lmer(formula_stat,data=dat)
+          coeff <- Anova(model_temp,type="III")
+        } #if (coeff["colony_size","Pr(>Chisq)"]>0.05)
+        ### and now that it is dealt with, remove it from pred
+        pred <- pred[pred!="colony_size"]
+      } #("colony_size" %in%pred)
+      
+      if (time_point=="comparison"){
+        for (effect in pred){
+          to_mtext <- rbind(to_mtext,data.frame(effect=effect,pvalue=coeff[effect,"Pr(>Chisq)"],stringsAsFactors=F))
+        }
+        interaction_effect <- pred[grepl("\\:",pred)]
+        p_interaction <- coeff[interaction_effect,"Pr(>Chisq)"]
+        if (p_interaction>0.05){
+          if (sorting=="status"){
+            formula_stat <- update(formula_stat,~.-predictor:status)
+          }
+          if (sorting=="period"){
+            formula_stat <- update(formula_stat,~.-predictor:period)
+          }
+          pred<- attr(terms(formula_stat),"term.labels")
+          pred <- pred[!grepl("\\|",pred)&!grepl("colony_size",pred)]
+          try(model_bis <- lmer(formula_stat,data=dat),silent=T)
+          if (exists("model_bis")){
+            coeff <- Anova(model_bis,type="III")
+            pvalue <-   coeff[pred[!grepl("predictor",pred)],"Pr(>Chisq)"]
+            to_mtext[to_mtext$effect==pred[!grepl("predictor",pred)],"pvalue"] <- pvalue
+            if (pvalue>0.05){
+              if (sorting=="status"){
+                formula_stat <- update(formula_stat,~.-status)
+              }
+              if (sorting=="period"){
+                formula_stat <- update(formula_stat,~.-period)
+              }
+              pred<- attr(terms(formula_stat),"term.labels")
+              pred <- pred[!grepl("\\|",pred)&!grepl("colony_size",pred)]
+            }
+          }
+        } #if (p_interaction>0.05)
+      } #if (time_point=="comparison")
+    } #if ("Pr(>Chisq)"%in%colnames(coeff))
+    
+    rm(list=c("model_temp"))
+  } #(exists("model_temp"))
+  
+  
+  ### get final pvalues based on final model
+  ### get names of the predictors in the table for extracting coefficients
+  formula_simple <- update(formula_stat,~.-(1|colony)-(1|antid_1)-(1|antid_2)-(1|antid))
+  pred2 <- Names(  formula_simple,dat);pred2 <- pred2[!grepl("Intercept",pred2)&!grepl("colony_size",pred2)];pred2 <- pred2[!grepl("\\|",pred2)]
+  try(model_final <- lmer(formula_stat,data=dat),silent=T)
+  
+  ### testing normality of residuals
+  resids <- residuals(model_final)
+  test_norm(resids)
+  
+  if (exists("model_final")){
+    coeff <- Anova(model_final,type="III")
+    print(coeff)
+    coeff2 <- summary(model_final)$coefficients
+    if ("Pr(>Chisq)"%in%colnames(coeff)){
+      if (length(pred)==1){
+        pvalue <- coeff[pred,"Pr(>Chisq)"]
+        to_output <- list(coeff2[pred2,"Estimate"])
+        names(to_output) <- time_point
+        if (nrow(to_mtext)==0){
+          to_mtext <- rbind(to_mtext,data.frame(effect=pred,pvalue=pvalue,stringsAsFactors=F))
+        }else{
+          to_mtext[to_mtext$effect==pred,"pvalue"] <- pvalue
+        }
+        if ( is.numeric(dat$predictor)){
+          if (pvalue < 0.05){
+            if ("colony_size"%in%Names(formula_simple,dat)){
+              to_plot <- rbind(to_plot,data.frame(
+                intercept = coeff2["(Intercept)","Estimate"]+coeff2["colony_size","Estimate"]*mean(dat$colony_size),
+                slope = coeff2[pred2,"Estimate"],
+                #colour = statuses_colours[time_point],stringsAsFactors=F))
+                colour = "black",stringsAsFactors=F))
+              
+            }else{
+              to_plot <- rbind(to_plot,data.frame(intercept = coeff2["(Intercept)","Estimate"],slope = coeff2[pred2,"Estimate"],
+                                                  #colour = statuses_colours[time_point],stringsAsFactors=F))
+                                                  colour = "black",stringsAsFactors=F))
+            }
+          }#if (pvalue < 0.05)         
+        }
+      }#if (length(pred)==1)
+    }#if ("Pr(>Chisq)"%in%colnames(coeff))
+  }#if (exists("model_final"))
+  
+  ### plot ablines
+  if (!is.null(predict)){
+    predicted_value <- to_plot[1,"intercept"] + to_plot[1,"slope"]*predict
+    segments(x0=predict,y0=ymin-0.1*(ymax-ymin),y1=predicted_value,col="springgreen2",xpd=F,lty=2)
+    segments(x0=xlim[1]-0.1*(xlim[2]-xlim[1]),y0=predicted_value,x1=predict,col="red",xpd=F,lty=2)
+  }
+  par(xpd=F)
+  if (nrow(to_plot)>=1){
+    for (i in 1:nrow(to_plot)){
+      abline(a=to_plot[i,"intercept"],b=to_plot[i,"slope"],col=to_plot[i,"colour"],lwd=line_inter)
+    }# i
+  }#(nrow(to_plot)>=1)
+  ### plot mtext
+  if (nrow(to_mtext)>=1){
+    for (i in 1:nrow(to_mtext)){
+      pvalue <- to_mtext[i,"pvalue"];effect <- to_mtext[i,"effect"]
+      if(grepl("\\:",effect)){effect_ <- "Interaction: "}
+      if(!grepl(sorting,effect)){
+        effect_ <- paste(ylabel[1],": ",sep="")
+        if (nchar(effect_)>30){
+          effect_ <- "main: "
+        }
+      }
+      if (sorting=="status"){
+        if(!grepl("predictor",effect)){effect_ <- "treated vs. nestmates: "}
+      }
+      if (sorting=="period"){
+        if(!grepl("predictor",effect)){effect_ <- "before vs. after: "}
+      }
+      p_value <- from_p_to_ptext(pvalue)
+      if (pvalue>0.05){p_cex <- inter_cex}else{p_cex <- max_cex}
+      par(xpd=T)
+      if (nrow(to_mtext)==1){
+        title(main=p_value,cex.main=p_cex,font.main=2,line=stat_line-((i-1)*0.75),xpd=T)
+      }else{
+        title(main=paste(effect_,p_value,sep=""),cex.main=p_cex,font.main=2,line=stat_line-((i-1)*0.75),xpd=T)
+      }
+      par(xpd=T)
+    } # i
+  } #if (nrow(to_mtext)>=1)
+  if(output){return(to_output)}
+  
+  par(mar=par_mar_ori)
+  if(!is.null(predict)){return(predicted_value)}else{return(predict)}
+} #scatterplot_bubbles_qpcr
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 5.13 plot_regression() ####
+
+plot_regression <- function(data,time_point,analysis,n_cat_horiz,n_cat_vertic,pool=F,prepare=F,status=NULL,collective=NULL,pool_plot=F,input_color=NULL,plot_untransformed=F,boldy=F,aligned=F,ymin=NULL,ymax=NULL,xmin=NULL,xmax=NULL,point_cex=NULL,adjust_title_line=0,predict=NULL){
+  adjust_title_line_ori <- adjust_title_line
+  data_ori <- data
+  ### plot regression for each desired combination of variable and predictor
+  for (i in 1:length(analysis[["variable_list"]])){
+    data <- data_ori
+    adjust_title_line <- adjust_title_line_ori
+    ### get variable and predictor
+    variable <- analysis[["variable_list"]][i]
+    
+    ### if necessary: convert pixels to mm
+    if (grepl("changetomm",names(variable))){
+      if (grepl("changetomm2",names(variable))){
+        data[,variable] <- data[,variable]*pix_to_mm_ratio*pix_to_mm_ratio
+        names(variable) <- gsub("_changetomm2","",names(variable))
+      }else{
+        data[,variable] <- data[,variable]*pix_to_mm_ratio
+        names(variable) <- gsub("_changetomm","",names(variable))
+      }
+    }
+    
+    print(variable)
+    
+    predictor <- analysis[["predictor_list"]][i]
+    transf_variable <- analysis[["transf_variable_list"]][i]
+    transf_predictor <- analysis[["transf_predictor_list"]][i]
+    pooli <- pool[i]
+    
+    ### if necessary: include queen and treated into predictor function
+    if (!is.null(predictor)){
+      if ((!collective&refine!=""&predictor!="")&("tag"%in%names(data))){
+        ### first change the content of predictor column 
+        data["predictor"] <- data[,predictor]
+        ### second add treated
+        data[which(data$status=="treated"),"predictor"] <- "treated"
+        ### fourth copy back into predictor column
+        data[,predictor] <- data[,"predictor"]
+        ### fifth if necessary remove queen
+        if (length(unique(data$predictor))>1){
+          if (!queen){
+            data <- data[which(data$task_group!="queen"),]
+          }
+          if (!treated){
+            data <- data[which(data$predictor!="treated"),]
+          }
+          if (!nurses){
+            data <- data[which(data$predictor!="nurse"),]
+          }
+          if (!foragers){
+            data <- data[which(data$predictor!="forager"),]
+          }
+        }
+      }else if (predictor!=""){
+        data["predictor"] <- data[,predictor]
+      }  
+    }
+    
+    ### if necessary: apply prepare dataset function
+    if (prepare){
+      data <- prepare_dataset(data,variable)
+    }else{
+      ### process variable
+      data["variable"] <- data[,variable]
+      data[which(!is.finite(data$variable)),"variable"] <- NA
+    }
+    data["untransformed_variable"] <- data$variable
+    ### transform variable
+    ylabel <- names(variable)
+    ylabel <- capitalize(ylabel)
+    if (transf_variable=="log"){
+      print("Logging variable...")
+      data[!is.na(data$variable),"variable"] <- log_transf(data[!is.na(data$variable),"variable"] )
+      if (!plot_untransformed){
+        
+        if(boldy){
+          ylabel <- substitute(paste(bold(ylabel),bolditalic(" (log)")),list(ylabel=ylabel))
+          adjust_title_line <- 0.17
+        }else{
+          ylabel <- substitute(paste(ylabel,italic(" (log)")),list(ylabel=ylabel))
+          adjust_title_line <- 0.17
+        }
+        
+      }
+    }else if (grepl("power",transf_variable)){
+      data[!is.na(data$variable),"variable"]  <- (data[!is.na(data$variable),"variable"] )^as.numeric(gsub("power","",transf_variable))
+      if (!plot_untransformed){
+        
+        if(boldy){
+          ylabel <- substitute(paste(bold(ylabel),bolditalic(" (") ^pow,bolditalic(")")),list(ylabel=ylabel,pow=as.numeric(gsub("power","",transf_variable))))
+          adjust_title_line <- 0
+        }else{
+          ylabel <- substitute(paste(ylabel,italic(" (") ^pow,italic(")")),list(ylabel=ylabel,pow=as.numeric(gsub("power","",transf_variable))))
+          adjust_title_line <- 0
+        }
+        
+      }
+    }else if (transf_variable=="sqrt"){
+      data[!is.na(data$variable),"variable"]  <- sqrt_transf(data[!is.na(data$variable),"variable"] )
+      if (!plot_untransformed){
+        
+        if (boldy){
+          ylabel <- substitute(paste(bold(ylabel),bolditalic(" ("),sqrt(bolditalic(")"))),list(ylabel=ylabel))
+          adjust_title_line <- 0.24
+        }else{
+          ylabel <- substitute(paste(ylabel,italic(" ("),sqrt(italic(")"))),list(ylabel=ylabel))
+          adjust_title_line <- 0.24
+        }
+      }
+      
+    }else if (transf_variable=="Box_Cox"){
+      data[!is.na(data$variable),"variable"]  <- Box_Cox(data[!is.na(data$variable),"variable"] )
+      if (!plot_untransformed){
+        
+        if (boldy){
+          ylabel <- substitute(paste(bold(ylabel),bolditalic(" ("),sqrt(bolditalic(")"))),list(ylabel=ylabel))
+          adjust_title_line <- 0.24
+        }else{
+          ylabel <- substitute(paste(ylabel,italic(" ("),sqrt(italic(")"))),list(ylabel=ylabel))
+          adjust_title_line <- 0.24
+        }
+      }
+      
+    }
+    ### for comparison: use perform_analysis_combined_function
+    if (time_point=="comparison"){
+      if ("randy"%in%names(data)){
+        case <- "case3"
+      }else{
+        
+        if (is.null(predictor)){
+          case <- "case1"
+        }else if (length(unique(data$predictor))==1){
+          case <- "case1"
+        }else if (!((!collective&refine!=""&predictor!=""))){
+          case <- "case1"
+        }else{
+          case <- "case2"
+        }
+        
+      }
+      if (case=="case1"){
+        perform_barplot_analysis(root_path=root_path,collective=collective,dataset=data,lab_title=ylabel,excluded=NULL,pool=pool,violin_params=analysis[["violin_plot_param"]][i],pool_plot=pool_plot,adjust_title_line=adjust_title_line)
+      }else if (case=="case2"){
+        perform_barplot_analysis_refined(root_path=root_path,collective=collective,dataset=data,lab_title=ylabel,excluded=NULL,pool=pool,violin_params=analysis[["violin_plot_param"]][i],pool_plot=pool_plot,plot_untransformed=plot_untransformed,aligned=aligned,adjust_title_line=adjust_title_line)
+      }else{
+        perform_barplot_analysis_simple(root_path=root_path,collective=collective,dataset=data,lab_title=ylabel,excluded=NULL,pool=pool,violin_params=analysis[["violin_plot_param"]][i],pool_plot=pool_plot,plot_untransformed=plot_untransformed,aligned=aligned,adjust_title_line=adjust_title_line)
+      }
+    }else{
+      ### process predictor
+      data["predictor"] <- data[,predictor]
+      if (is.numeric(data$predictor)){
+        data[which(!is.finite(data$predictor)),"predictor"] <- NA
+        if (transf_predictor=="log"){
+          if (!is.null(predict)){
+            transfi <- log_transf(c(data[!is.na(data$predictor),"predictor"] , predict))
+            predict <- transfi[length(transfi)]
+            data[!is.na(data$predictor),"predictor"]  <- transfi[1:(length(transfi)-1)]
+          }else{
+            data[!is.na(data$predictor),"predictor"]  <- log_transf(data[!is.na(data$predictor),"predictor"] )
+          }
+          xlabel<- paste("Log(", names(predictor),")",sep="")
+        }else if (transf_predictor=="power2"){
+          data[!is.na(data$predictor),"predictor"]  <- (data[!is.na(data$predictor),"predictor"] )^2
+          if (!is.null(predict)){predict <- predict^2}
+          xlabel <- substitute( xlabely ^2,list(xlabely=names(predictor)))
+        }else if (transf_predictor=="sqrt"){
+          if (!is.null(predict)){
+            transfi <- sqrt_transf(c(data[!is.na(data$predictor),"predictor"] , predict))
+            predict <- transfi[length(transfi)]
+            data[!is.na(data$predictor),"predictor"]  <- transfi[1:(length(transfi)-1)]
+          }else{
+            data[!is.na(data$predictor),"predictor"]  <- sqrt_transf(data[!is.na(data$predictor),"predictor"] )
+          }
+          xlabel <- substitute(sqrt ( xlabely),list(xlabely=names(predictor)))
+        }else{
+          xlabel <- names(predictor)
+        }
+      }else{
+        xlabel <- ""
+      }
+      
+      title <- ""
+      if(!"period"%in%names(data)){data["period"] <- data$time}
+      
+      ### process pool argument
+      if (pooli){
+        dat <- aggregate(na.rm=T,na.action="na.pass",variable~predictor+colony+antid+status+colony_size+period,FUN="mean",data=data)
+      }else{
+        dat <- data
+      }
+      
+      ### process horizontal bin argument
+      if (length(unique(dat[,"predictor"]))>n_cat_horiz){
+        dat[which(!is.na(dat[,"predictor"])),"predictor_plot"] <- as.numeric(gsub("\\(","",unlist(strsplit(as.character(cut(dat$predictor,n_cat_horiz,include_lowest=T)),split=","))[grepl("\\(",unlist(strsplit(as.character(cut(dat$predictor,n_cat_horiz,include_lowest=T)),split=",")))]))
+      }else{#if (length(unique(dat[,"predictor"]))>n_cat_horiz)
+        dat[,"predictor_plot"] <- dat[,"predictor"]
+      }##else
+      
+      ### define formula
+      formula_stat <- as.formula(paste("variable"," ~ ", paste(c("predictor","colony_size","(1|colony)","(1|antid)"), collapse= "+")))
+      if (length(unique(na.omit(aggregate(variable~antid,FUN=length,data=dat)$variable)))==1&unique(na.omit(aggregate(variable~antid,FUN=length,data=dat)$variable))[1]==1){
+        formula_stat <- update(formula_stat,~.-(1|antid))
+      }
+      formula_plot <- as.formula(paste("variable"," ~ ", paste(c("predictor_plot","period"), collapse= "+")))
+      ### plot
+      predicted_value <- scatterplot_violin_forpaper(formula_stat=formula_stat,formula_plot=formula_plot,ylabel=ylabel,xlabel=xlabel,title=title,dat=dat,sorting="period",time_point=time_point,output=F,violin_params = analysis[["violin_plot_param"]][i],input_color=input_color,xmin=xmin,xmax=xmax,ymin=ymin,ymax=ymax,point_cex=point_cex,predict=predict)
+      if (!is.null(predicted_value)){
+        predicted_value <- data[,variable][closest_match(predicted_value,data$variable) ]
+        return(predicted_value)
+      } 
+    }
+  }
+}
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 5.14 meta_analysis() ####
+
+meta_analysis <- function(p_values,effects,std.errors){
+  ### Get effect signs
+  effect_signs <- sign(effects)
+  
+  ### Create a vector of one-sided p-values for each possible effect direction each side
+  p_values_side1 <- p_values ###one-sided p testing whether observed is lower than random 
+  p_values_side2 <- 1-p_values ###one-sided p testing whether observed is higher than random 
+  
+  ###  Meanp method
+  ### Check which of the two effect direction is the one to keep
+  best_idx <- which(c(meanp(p_values_side1)$p,meanp(p_values_side2)$p)== min(meanp(p_values_side1)$p,meanp(p_values_side2)$p))
+  ### Get one-sided combined p-value and test statistics
+  p_value <-c(meanp(p_values_side1)$p,meanp(p_values_side2)$p)[best_idx]
+  z <- c(meanp(p_values_side1)$z,meanp(p_values_side2)$z)[best_idx]
+  ### convert back to 2-sided pvalue
+  two_sided_p_value <-  p_value*2
+  
+  p_values_meta_analysis <- data.frame(meta_statistic = z,one_sided_p=p_value,two_sided_p=two_sided_p_value)
+  return(p_values_meta_analysis)
+}
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 5.15 mycircle() ####
+
+mycircle <- function(coords, v=NULL, params) {
+  vertex.color <- params("vertex", "color")
+  if (length(vertex.color) != 1 && !is.null(v)) {
+    vertex.color <- vertex.color[v]
+  }
+  vertex.size  <- 1/200 * params("vertex", "size")
+  if (length(vertex.size) != 1 && !is.null(v)) {
+    vertex.size <- vertex.size[v]
+  }
+  vertex.frame.color <- params("vertex", "frame.color")
+  if (length(vertex.frame.color) != 1 && !is.null(v)) {
+    vertex.frame.color <- vertex.frame.color[v]
+  }
+  vertex.frame.width <- params("vertex", "frame.width")
+  if (length(vertex.frame.width) != 1 && !is.null(v)) {
+    vertex.frame.width <- vertex.frame.width[v]
+  }
+  
+  mapply(coords[,1], coords[,2], vertex.color, vertex.frame.color,
+         vertex.size, vertex.frame.width,
+         FUN=function(x, y, bg, fg, size, lwd) {
+           symbols(x=x, y=y, bg=bg, fg=fg, lwd=lwd,
+                   circles=size, add=TRUE, inches=FALSE)
+         })
+}
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 5.16 mysquare() ####
+
+mysquare <- function(coords, v=NULL, params) {
+  vertex.color <- params("vertex", "color")
+  if (length(vertex.color) != 1 && !is.null(v)) {
+    vertex.color <- vertex.color[v]
+  }
+  vertex.size  <- 1/200 * params("vertex", "size")
+  if (length(vertex.size) != 1 && !is.null(v)) {
+    vertex.size <- vertex.size[v]
+  }
+  vertex.frame.color <- params("vertex", "frame.color")
+  if (length(vertex.frame.color) != 1 && !is.null(v)) {
+    vertex.frame.color <- vertex.frame.color[v]
+  }
+  vertex.frame.width <- params("vertex", "frame.width")
+  if (length(vertex.frame.width) != 1 && !is.null(v)) {
+    vertex.frame.width <- vertex.frame.width[v]
+  }
+  
+  mapply(coords[,1], coords[,2], vertex.color, vertex.frame.color,
+         vertex.size, vertex.frame.width,
+         FUN=function(x, y, bg, fg, size, lwd) {
+           symbols(x=x, y=y, bg=bg, fg=fg, lwd=lwd,
+                   squares=2*size, add=TRUE, inches=FALSE)
+         })
+}
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 5.17 normalize_to_range() ####
+
+normalize_to_range <- function(Input, Min, Max){
+  Range  <- max(Input) - min(Input)
+  Input  <- (Input - min(Input)) / Range
+  Range2 <- Max - Min
+  Input  <- (Input * Range2) + -1
+  return(Input)}
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 5.18 plot_network() ####
+
+plot_network <- function(case,which_to_draw,colours="task_group",size,vertexi, scale_factor=0.5){
+  ### Define two new vertex shapes (circle and square) which will allow to control the width of the vertex frame
+  add.vertex.shape("fcircle", clip=igraph.shape.noclip,
+                   plot=mycircle, parameters=list(vertex.frame.color=1,
+                                                  vertex.frame.width=1))
+  
+  add.vertex.shape("fsquare", clip=igraph.shape.noclip,
+                   plot=mysquare, parameters=list(vertex.frame.color=1,
+                                                  vertex.frame.width=1))
+  
+  ## read qPCR data
+  qPCR <- read.table(paste(root_path,"original_data/qPCR/qPCR_results.txt",sep="/"),header=T,stringsAsFactors = F)
+  ## read simulation data
+  si_outcome <- read.table(paste(root_path,"/transmission_simulations/pre_vs_post_treatment/experimentally_exposed_seeds/individual_simulation_results_observed.txt",sep=""),header=T,stringsAsFactors = F)
+  ## read task_group data
+  task_groups <- read.table(paste(root_path,"original_data",task_group_file,sep="/"),header=T,stringsAsFactors = F)
+  ## read experimentally treated list
+  treated <- read.table(paste(root_path,"original_data","treated_worker_list.txt",sep="/"),header=T,stringsAsFactors = F)
+  
+  setwd(paste(root_path,"example_networks_for_figures",case,sep="/"))
+  networks <- list.files()
+  for (current in which_to_draw){
+    network_file <- networks[which( (grepl(unlist(strsplit(current,split="_"))[1],networks)) & (grepl(unlist(strsplit(current,split="_"))[2],networks)) )]
+    #select by size
+    network_file <- network_file[grep(size,network_file)]
+    interactions <- read.table(network_file,header=T,stringsAsFactors = F)
+    
+    if (current=="PreTreatment_random"){
+      network_title <- "Random network"
+    }else if (current=="PreTreatment_observed"&"PostTreatment_observed"%in%which_to_draw){
+      network_title <- "Pre-treatment network"
+    }else if (current=="PreTreatment_observed"&"PreTreatment_random"%in%which_to_draw){
+      network_title <- "Observed network"
+    }else if (current=="PostTreatment_observed"){
+      network_title <- "Post-treatment network"
+    }
+    
+    ### Make graph object
+    actors <- data.frame(name=as.character(unique(c(interactions$Tag1,interactions$Tag2))))
+    net <- graph.data.frame(interactions[c("Tag1","Tag2")],directed=F,vertices=actors)
+    E(net)$weight <- interactions[,"duration"]
+    net <- igraph::simplify(net,remove.multiple=TRUE,remove.loop=TRUE,edge.attr.comb="sum")
+    
+    ### Drawing network
+    WEIGHTS <- E(net)$weight
+    
+    ### first change the weight values so it ranges from mini to 0, then define edge widths and colors
+    mini <- -100
+    normal <- (WEIGHTS-min(WEIGHTS)) / max(WEIGHTS-min(WEIGHTS)) ####ranging from 0 to 1
+    normal <- (normal-max(normal))*(mini/min(normal-max(normal)))
+    normal <- exp(normal/(-mini/(1/50)))
+    normal <- (normal-min(normal)) / max(normal-min(normal))
+    E(net)$ori_width <-  1.8*normal #AW, ori multiplier 2
+    E(net)$width <-  0.5*line_min+(3*line_max-0.5*line_min)*((E(net)$ori_width-min(E(net)$ori_width))/max(E(net)$ori_width-min(E(net)$ori_width))) #0.5
+    E(net)$color <-  grey( 8/10*( 1-normal ))
+    ### define node size, shapes, and labels
+    V(net)$size  <- 10
+    V(net)$shape <- "fcircle"
+    V(net)$label=""
+    ## Define layout
+    E(net)$Scaled_Contact_Weights           <- sqrt(E(net)$weight)    / max(sqrt(E(net)$weight))
+    net2 <- net                                                                 ## get layout from edge=weight thresholded graph
+    Edge_Cutoff_P <- quantile(E(net2)$Scaled_Contact_Weights, probs=0.25)
+    net2 <- igraph::delete.edges(net2, E(net2) [E(net2)$Scaled_Contact_Weights < Edge_Cutoff_P ] )  ## delete edges below a threshold - leaves only the strongest edges indicative of high spatial correlatoin
+    # spring-embeded layout using contact weights
+    lay <-  data.frame(tag=V(net)$name, layout_with_fr (net2, weights=E(net2)$Scaled_Contact_Weights, niter=50000)) ; colnames(lay )[2:3] <- c("x","y")
+    
+    ## contract outlier nodes
+    PLOT_CONTRACTIONS <- F
+    N_CONTRACTIONS <- 4
+    OUTLIER_QUANTILE <- 0.9
+    if (PLOT_CONTRACTIONS==TRUE) {par(mfrow=c(2,N_CONTRACTIONS/2))}
+    if (N_CONTRACTIONS>0)
+    {
+      for (IT in 1:N_CONTRACTIONS)
+      {
+        ## centre so the CoG of all the nodes is at 0,0
+        lay$x <- lay$x - mean(lay$x)
+        lay$y <- lay$y - mean(lay$y)
+        ## get nearest neighbour distance for each node & define those above a threshold as outliers
+        lay$nnd <- rowMeans(nndist(X=lay$x, Y=lay$y, k=1:2))
+        Outliers <- which(lay$nnd > quantile(lay$nnd,probs=OUTLIER_QUANTILE))
+        lay$Outliers <- 0 ;  lay$Outliers [Outliers] <- 1
+        CoG <- colMeans(lay[lay$Outliers==0,c("x","y")])
+        lay$x_zero <- lay$x - CoG[1]
+        lay$y_zero <- lay$y - CoG[2]
+        lay$corrections <- 1
+        lay$corrections[lay$Outliers==1] <- lay$nnd[lay$Outliers==1]
+        lay$corrections[lay$Outliers==1] <- lay$corrections[lay$Outliers==1] / max(lay$nnd[lay$Outliers==1])
+        lay$corrections[lay$Outliers==1] <- 1 - lay$corrections[lay$Outliers==1]
+        lay$corrections[lay$Outliers==1] <- lay$corrections[lay$Outliers==1] + mean(sqrt(((lay$x-CoG["x"])^2+((lay$x-CoG["y"])^2))))
+        lay$corrections[lay$Outliers==1] <- lay$corrections[lay$Outliers==1] / max(lay$corrections[lay$Outliers==1])
+        lay$X  <- NA; lay$Y  <- NA
+        lay[c("X","Y")]            <- lay$corrections * lay [,c("x","y")]
+        ## plot each contraction
+        if (PLOT_CONTRACTIONS==TRUE)
+        {
+          plot(lay[,c("X","Y")], pch=lay[,"Outliers"]+1) ; abline(v=0, lty=2) ; abline(h=0, lty=2)
+          points(CoG[1], CoG[2], pch=21, bg=2, cex=2)
+          segments(x0 = lay$x[lay$Outliers==1], y0 = lay$y[lay$Outliers==1], x1 = lay$X[lay$Outliers==1], y1 = lay$Y[lay$Outliers==1], col=2)
+        }
+        ## update the starting  coords
+        lay[c("x","y")] <- lay[c("X","Y")]
+      }
+    }
+    ## normalize the corrected x,y coords to -1, 1
+    colnames(lay ) [2:3]<- c("X","Y")
+    lay[,c("X","Y")] <- apply(lay[,c("X","Y")], 2, normalize_to_range, Min=-1, Max=1)
+    lay <- as.matrix(lay[match(V(net)$name,lay$tag),c("X","Y")])
+    rownames(lay) <- V(net)$name
+    
+    ## rotate network to facilitate comparisons, using two reference ants, 665 and 329
+    colony         <- unique(interactions$colony)
+    queenid        <- task_groups[which(task_groups$task_group=="queen" & task_groups$colony==colony),"tag"]
+    
+    ref_vec <- c(1,-1)
+    obs_vec <- c(lay[vertexi,"X"]-lay[queenid,"X"],lay[vertexi,"Y"]-lay[queenid,"Y"]) #replace by actual queen
+    theta <-  atan2(obs_vec[2],obs_vec[1]) - atan2(ref_vec[2],ref_vec[1])
+    ### then get rotation center
+    center <- c(X=mean(lay[queenid,"X"]),Y=mean(lay[queenid,"Y"]))
+    
+    ### Now do the rotation. First: make "center" the origin
+    lay[,"X"] <- lay[,"X"]-center["X"]
+    lay[,"Y"] <- lay[,"Y"]-center["Y"]
+    ### Second make new lay vector and calculate new coordinates
+    lay_bis <- lay
+    lay_bis[,"X"] <- lay[,"X"]*cos(-theta)-lay[,"Y"]*sin(-theta)
+    lay_bis[,"Y"] <- lay[,"Y"]*cos(-theta)+lay[,"X"]*sin(-theta)
+    ### Third retranslate
+    lay[,"X"] <- lay[,"X"]+center["X"]
+    lay[,"Y"] <- lay[,"Y"]+center["Y"]
+    lay_bis[,"X"] <- lay_bis[,"X"]+center["X"]
+    lay_bis[,"Y"] <- lay_bis[,"Y"]+center["Y"]
+    lay_bis[,c("X","Y")] <- apply(lay_bis[,c("X","Y")], 2, normalize_to_range, Min=-1, Max=1)
+    
+    ### define colours
+    # colony_number  <- as.numeric(gsub("colony","",colony))
+    colony_treated <- treated[which(treated$colony==colony),"tag"]
+    for (colour in colours){
+      if (colour=="task_group"){
+        colony_task_groups <- task_groups[which(task_groups$colony==colony),]
+        colony_task_groups["color"] <- statuses_colours[colony_task_groups[,"task_group"]]
+        V(net)$color <- colony_task_groups[match(V(net)$name,colony_task_groups$tag),"color"]
+        if (length(colours)>1){
+          network_title <- "Task group"
+        }
+      }else if (colour=="measured_load"){
+        qPCR <- qPCR[which(qPCR$colony==colony),c("tag","status","measured_load_ng_per_uL")]
+        qPCR[qPCR$tag=="queen","tag"] <- queenid
+        qPCR <- qPCR[which(!is.na(as.numeric(qPCR$tag))),]
+        if (0%in%qPCR$measured_load_ng_per_uL){
+          replace_val <- min(qPCR$measured_load_ng_per_uL[qPCR$measured_load_ng_per_uL!=0])/sqrt(2)
+        }else{replace_val <- 0}
+        
+        qPCR$log_measured <- log10(qPCR$measured_load_ng_per_uL+replace_val)
+        mini_val <- min(qPCR[,"log_measured"])
+        maxi_val <- max(qPCR[,"log_measured"])
+        
+        qPCR$log_measured_normalised <- 0 + ((qPCR$log_measured-mini_val)/(maxi_val-mini_val))*(1-0)
+        
+        palette <- rev(brewer.pal(9,"YlGnBu"))
+        colour_palette <- colorRampPalette(palette)(1001)
+        col_threshold <- "red"
+        
+        colour_range <- c (mini_val,maxi_val)
+        qPCR[,"colour"] <- colour_palette[1+ceiling(qPCR[,"log_measured_normalised"]*1000)]
+        V(net)$color <- qPCR[match(V(net)$name,qPCR$tag),"colour"]
+        
+        high_loadzes                                     <- qPCR[which(qPCR[,"measured_load_ng_per_uL"]>translated_high_threshold),"tag"]
+        V(net)$shape                                     <- "fcircle"
+        V(net)$shape[which(V(net)$name%in%high_loadzes)] <- "fsquare"
+        
+        network_title <- "qPCR-measured pathogen load"
+      } else if (colour=="simulated_load"){
+        si_outcome <- si_outcome[which(si_outcome$colony==colony&si_outcome$period=="after"),c("tag","simulated_load")]
+        
+        high_loadzes <- si_outcome[which(si_outcome$simulated_load>high_threshold),"tag"]
+        V(net)$shape                                     <- "fcircle"
+        V(net)$shape[which(V(net)$name%in%high_loadzes)] <- "fsquare"
+        
+        si_outcome$log_load <- log10(si_outcome$simulated_load)
+        mini_val <- min(si_outcome[,"log_load"])
+        maxi_val <- max(si_outcome[,"log_load"])
+        
+        si_outcome$log_load_normalised <- 0 + ((si_outcome$log_load-mini_val)/(maxi_val-mini_val))*(1-0)
+        colour_palette <- inferno(1001, alpha = 1, begin = 0, end = 1, direction = 1)
+        colour_range <- c (mini_val,maxi_val)
+        si_outcome[,"colour"] <- colour_palette[1+ceiling(si_outcome[,"log_load_normalised"]*1000)]
+        V(net)$color <- si_outcome[match(V(net)$name,si_outcome$tag),"colour"]
+        network_title <- "Simulated pathogen load"
+      }
+      
+      ### Finally, plot net
+      plot_net <- net
+      ### To improve visibility, delete thinnest edges before plotting
+      plot_net <- igraph::delete.edges(plot_net, E(plot_net) [(E(net)$ori_width/2)<0.02 ] ) #0.02
+      
+      par_mar_ori <- par()$mar
+      if("measured_load" %in% colours){
+        par(mar=c(1.2,0,0.2,0))
+      }else{
+        par(mar=c(0.2,0,1.2,0))
+      }
+      
+      # Scale the layout based on 'size'
+      if (size == "small") {
+        lay_bis <- lay_bis *scale_factor
+        #par(mar=c(0.2,0,1.2,0))
+        #lay$x  <- lay$x  * scale_factor
+        #lay$y  <- lay$y * scale_factor
+      }
+      
+      # if (size == "small") {
+      #   par(mar=par()$mar+1)
+      # } else {
+      #   par(mar=par_mar_ori)  # Reset margins to their original values
+      # }
+      
+      # Create a new graph with edges sorted by weight
+      # edge_list <- get.edgelist(plot_net)
+      # sorted_edges <- edge_list[order(E(plot_net)$weight), ]
+      # plot_net <- graph.edgelist(sorted_edges, directed = FALSE)
+      # 
+      
+      plot(plot_net, layout=lay_bis, edge.arrow.size=0.5, main="",rescale=F, vertex.frame.color="black",vertex.frame.width=line_min )#,"nodes")
+      points(lay_bis[which(V(plot_net)$name%in%colony_treated),"X"],lay_bis[which(V(plot_net)$name%in%colony_treated),"Y"],pch=16,col="black",cex=0.7)
+      if("measured_load" %in% colours){
+        title(sub=paste0(network_title," - size : ",gsub("big", "large", gsub("\\.", " ", size))),font.sub=2,cex.sub=inter_cex,line=0.2,xpd=NA,family=text_font)
+      }else{
+        title(main=paste0(network_title," - size : ",gsub("big", "large", gsub("\\.", " ", size))),font.main=2,cex.main=inter_cex,line=0.2,xpd=NA,family=text_font)
+      }
+      
+      if (grepl("load",colour)){
+        par(mar=c(2,1,1,1))
+        par(mgp=c(1,0.1,0))
+        if (colour=="measured_load"){
+          image(y=1, x=1:length(colour_palette), matrix(1:length(colour_palette), ncol =1),cex.lab=min_cex, col= colour_palette, xlab="", ylab="", xaxt="n", yaxt="n", main="",font=text_font); box(lwd=line_inter)
+          title(main=expression(paste("(ng/", mu, "L)")),cex.main=inter_cex)
+        }else{
+          image(y=1, x=1:length(colour_palette), matrix(1:length(colour_palette), ncol =1),cex.lab=min_cex, col= colour_palette, xlab="", ylab="", xaxt="n", yaxt="n", main="",font=text_font); box(lwd=line_inter)
+          title(main="(Proportion of exposure dose)",cex.main=inter_cex,font.main=1)
+        }
+        colour_vals <- mini_val+c(0:1000)*(maxi_val-mini_val)/1000
+        ats <- ceiling(colour_range[1]):floor(colour_range[2])
+        
+        labs <- format(10^(ats),scientific=T)
+        for (at in 1:length(ats)){
+          ats[at] <- closest_match(ats[at] ,colour_vals)
+        }
+        axis(side = 1, at=ats, labels = labs, las=1, cex.axis=min_cex,lend="square",tcl=-0.2,lwd=line_inter)  ## ensure to back-transform the labels!!
+        if (colour=="simulated_load"){
+          thresh <- closest_match(log10(high_threshold) ,colour_vals)
+          
+          par(xpd=F)
+          abline(v=thresh,col="white",lwd=1.5)
+          abline(v=thresh,col="springgreen2",lwd=1)
+          
+        }else{
+          thresh <- closest_match(log10(translated_high_threshold) ,colour_vals)
+          
+          par(xpd=F)
+          abline(v=thresh,col="white",lwd=1.5)
+          abline(v=thresh,col=col_threshold,lwd=1)
+        }
+      }
+      par(mar=par_mar_ori)
+    }
+  }
+}
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 5.19 plot_observed_vs_random() ####
+
+plot_observed_vs_random <- function(data_path,experiments,data_input = NULL, seedTitle=F) { #, size = NULL
+  
+  saved_plot <- list()
+  formatted_outcomes <- c()
+  
+  # Create a layout matrix to plot all results in a grid
+  N_cols <- ceiling(length(variable_list) / 2) * 4 # must be always even as the plots by size are generated independently
+  if (N_cols == 2) {
+    layout_matrix <- matrix(1:(2 * N_cols), nrow = 1)
+  }else if (N_cols == 8) {
+    layout_matrix <- matrix(1:(6), nrow = 1) # this is a terrible way of doing it.....
+  }else {
+    #layout_matrix <- matrix(1:(2 * N_cols), nrow = 2, byrow = TRUE)
+    layout_matrix <- matrix(1:(1 * N_cols), nrow = 1, byrow = TRUE)
+  }
+  
+  if (seedTitle) {
+    first_row <- rep(1, N_cols) # Create a row of ones to fit the title
+    layout_matrix <- rbind(first_row, layout_matrix+1) # Combine the first row of ones with the existing matrix
+    # Create a layout heights vector
+    layout_heights <- c(2/20, rep(18/20 , nrow(layout_matrix) - 1))
+    # Set up the layout
+    layout(layout_matrix, heights = layout_heights)
+    # Set up the layout
+    #layout(layout_matrix, heights = c(0.05,0.45,0.45)) 
+    # title settings
+    par(mar = c(0,0,0,0)); plot(1,1,type = "n",frame.plot = FALSE,axes = FALSE); u <- par("usr")
+    # Add a black line above the title
+    abline(h=u[4] - 0.005, col="black", lwd=1)  # Adjust 0.1 as needed to set the desired line position
+    # Adjust title position using the adj parameter
+    #text(1, u[4], labels = names(seeds[seeds==seed]), font=2, adj=c(0.5, 1.2), pos = 1)  # Adjust 1.2 to move title up or down as needed
+    text(1,u[4] - 0.3,labels = names(seeds[seeds==seed]),font=2, pos = 1)
+  }else{
+    # Set up the layout
+    layout(layout_matrix)
+  }
+  
+  # ###1. read data
+  # setwd(data_path)
+  # file_list <- list.files(pattern=pattern)
+  # print(file_list)
+  # data <- NULL
+  # for (file in file_list){
+  #   data <- rbind(data,read.table(file,header=T,stringsAsFactors = F))  
+  # }
+  # ##remove any duplicated line
+  # starting_data <- data[which(!duplicated(data)),]
+  # 
+  # ##2. Extract exposure and size from treatment column
+  # data$exposure <- unlist(lapply( data$treatment, function(x)  unlist(strsplit(x,split="\\.") )[1]  ))
+  # data$size     <- unlist(lapply( data$treatment, function(x)  unlist(strsplit(x,split="\\.") )[2]  ))
+  # 
+  ###1. read data
+  setwd(data_path)
+  file_list <- list.files(pattern=pattern)
+  starting_data <- NULL
+  
+  for (file in file_list){
+    data_input <- rbind(data_input,read.table(file,header=T,stringsAsFactors = F))}
+  
+  if (is.null(data_input)) {
+    ### read-in data###
+    for (experiment in experiments){
+      print(experiment)
+      ### data files
+      setwd(data_path)
+      file_list <- list.files(pattern=pattern)
+      temp <- NULL
+      for (file in file_list){
+        dat <- read.table(file,header=T,stringsAsFactors=F)
+        dat <- dat[,which(names(dat)%in%c("randy","colony","treatment","period","time_hours","time_of_day",variable_list))]
+        temp <- rbind(temp,dat)
+        rm(list=c("dat"))
+      }
+      temp <- temp[,order(names(temp))]
+      temp <- data.frame(experiment=experiment,temp,stringsAsFactors = F)
+      if (!is.null(starting_data)){
+        if (!all(names(starting_data)%in%names(temp))){
+          temp[names(starting_data)[which(!names(starting_data)%in%names(temp))]] <- NA
+          temp <- temp[,names(starting_data)]
+        }
+      }
+      
+      starting_data <- rbind(starting_data,temp)
+      rm(list=c("temp"))
+      
+    }
+    
+    
+  }else{starting_data <- data_input}
+  
+  #add info
+  starting_data$size     <- unlist(lapply( starting_data$treatment, function(x)  unlist(strsplit(x,split="\\.") )[2]  ))
+  starting_data$size      <- factor(starting_data$size    , levels=size_order   [which(size_order%in%starting_data$size )])
+  
+  # # replace big with large
+  # data$period <- ifelse(grepl("before", data$period), "pre", 
+  #                       ifelse(grepl("after", data$period), "post", data$period))
+  
+  ### statistics
+  ### make sure treatment, exposure, size and period are factors with levels in the desired order
+  starting_data$treatment <- factor(starting_data$treatment , levels=treatment_order[which(treatment_order%in%starting_data$treatment )])
+  starting_data$size      <- factor(starting_data$size    , levels=size_order   [which(size_order%in%starting_data$size )])
+  
+  ### modify period values to be simple and match what scatterplot function expects
+  #starting_data["colony"] <- as.character(interaction(starting_data$experiment,starting_data$colony))
+  
+  for (variable in variable_list) {
+    Edgington_outcome <- c()
+    variable_names <-  names(variable_list)[which(variable_list == variable)]
+    #save base data
+    ori_data <- starting_data
+    
+    ori_data["variable"] <- ori_data[,variable]
+    cohens_d <- compare_cohens_d(data=ori_data)
+    
+    # Find global y-axis limits
+    min_y <- min(ori_data[, variable], na.rm=TRUE)
+    max_y <- max(ori_data[, variable], na.rm=TRUE)
+    
+    # Loop through each size
+    loop_N <- 0
+    for (current_size in levels(ori_data$size)) {
+      loop_N <- loop_N+1
+      if (is.even(loop_N)) { #change spacing for every second plot
+        par(mar=c(2, 0, 5, 2.1))  #2054
+      }else{
+        par(mar=c(2, 2.1, 5, 0))  #2450  Adjust margins as needed          #mfrow=c(1, 2), #Set up two-panel layout 
+      }
+      
+      # Subset data by size
+      data <- ori_data[ori_data$size == current_size, ]
+      
+      data["variable"] <- data[,variable]
+      data[which(!is.finite(data$variable)),"variable"] <- NA
+      
+      ### get random and observed mean
+      randys <- aggregate(variable~colony+treatment+randy,FUN=mean,data=data[which(data$randy!="observed"),]);
+      randys <- as.data.frame(as.matrix(randys));randys$variable <- as.numeric(as.character(randys$variable))
+      ### then get mean, median and standard error
+      randys <- aggregate(variable~colony+treatment,function(x)cbind(mean(x),median(x),std.error(x),length(x)),data=randys);
+      randys <- as.data.frame(as.matrix(randys))
+      names(randys)[names(randys)=="variable.1"] <- "random_mean";names(randys)[names(randys)=="variable.2"] <- "random_median";names(randys)[names(randys)=="variable.3"] <- "random_std.error";names(randys)[names(randys)=="variable.4"] <- "random_nb"
+      
+      ### do the same for observed
+      observeds <- aggregate(variable~colony+treatment+randy,FUN=mean,data=data[which(data$randy=="observed"),])
+      observeds <- as.data.frame(as.matrix(observeds));observeds$variable <- as.numeric(as.character(observeds$variable))
+      observeds <- aggregate(variable~colony+treatment,function(x)cbind(mean(x),median(x),length(x)),data=observeds);
+      observeds <- as.data.frame(as.matrix(observeds))
+      names(observeds)[names(observeds)=="variable.1"] <- "observed_mean";names(observeds)[names(observeds)=="variable.2"] <- "observed_median";names(observeds)[names(observeds)=="variable.3"] <- "observed_nb"
+      
+      randys <- merge(randys,observeds);
+      randys$colony <- as.character(randys$colony)
+      randys$observed_mean <- as.numeric(as.character(randys$observed_mean))
+      randys$random_mean <- as.numeric(as.character( randys$random_mean))
+      randys$observed_median <- as.numeric(as.character(randys$observed_median))
+      randys$random_median <- as.numeric(as.character( randys$random_median))
+      randys$random_std.error <- as.numeric(as.character( randys$random_std.error))
+      
+      randys["deviation"] <- randys$observed_median-randys$random_median
+      randys["relative_deviation"] <- (randys$observed_median-randys$random_median)/abs(randys$random_median)
+      randys["p_value"] <- NA
+      randys["variable"] <- variable
+      randys["n_observed"] <- NA
+      randys["n_random"] <- NA
+      
+      for (coli in unique(randys$colony)){
+        random <- aggregate(variable~colony+treatment+randy,FUN=mean,data=data[which(data$colony==coli&data$randy!="observed"),])[,"variable"];
+        observed <- aggregate(variable~colony+treatment+randy,FUN=mean,data=data[which(data$colony==coli&data$randy=="observed"),])[,"variable"];
+        ### Get one-sided p: proportion of random values that are greater than observed values. Will be 0 if all values are lower and 1 if all values are greater
+        one_sided_p <- length(which(random>observed))/length(random)
+        
+        randys[which(randys$colony==coli),"p_value"] <- one_sided_p
+        randys[which(randys$colony==coli),"one_sided_p_value_obs_lower_than_rand"] <- 1-one_sided_p
+        randys[which(randys$colony==coli),"one_sided_p_value_obs_greater_than_rand"] <- one_sided_p
+        randys[which(randys$colony==coli),"effect_sign"] <- sign( randys[which(randys$colony==coli),"deviation"])
+        randys[which(randys$colony==coli),"n_observed"] <- length(observed)
+        randys[which(randys$colony==coli),"n_random"] <- length(random)
+      }
+      randys_toprint <- data.frame(variable=variable,randys[c("colony","treatment","deviation","relative_deviation","effect_sign","one_sided_p_value_obs_lower_than_rand","one_sided_p_value_obs_greater_than_rand")],stringsAsFactors = F)
+      randys_toprint[which(randys_toprint$effect_sign==1),"effect_signs"] <- "+"
+      randys_toprint[which(randys_toprint$effect_sign==-1),"effect_signs"] <- "-"
+      randys_toprint[which(randys_toprint$effect_sign==0),"effect_signs"] <- "0"
+      
+      ### now the stats: meta-analysis
+      p_values_meta_analysis <- meta_analysis(p_values = randys[,"p_value"],effects = randys[,"relative_deviation"],std.errors = randys[,"random_std.error"])
+      
+      ### modify randys for plot
+      forplot <- data.frame(network="random",randys[c("colony","treatment","random_median")],stringsAsFactors=F); names(forplot)[grepl("median",names(forplot))] <- "median"
+      forplot2 <- data.frame(network="observed",randys[c("colony","treatment","observed_median")],stringsAsFactors=F); names(forplot2)[grepl("median",names(forplot2))] <- "median"
+      
+      forplot <- aggregate(median~network+colony+treatment,FUN=mean,data=forplot)
+      forplot2 <- aggregate(median~network+colony+treatment,FUN=mean,data=forplot2)
+      forplot <- rbind(forplot,forplot2)
+      forplot$network <- factor(forplot$network,levels = c("random","observed"))
+      ### get colony ordering from observed
+      col_medians <- aggregate(median~colony,FUN=median,data=forplot2)
+      col_medians <- col_medians [order(col_medians$median),]
+      col_list <- col_medians$colony
+      colour_pal <- colorRampPalette(brewer.pal(11, "Spectral"))(length(col_list))
+      par(bty="n",xaxt = "n")
+      
+      # Set y-axis limits to be consistent across the two sizes
+      ylim = c(min_y, max_y)
+      # # Store default par settings
+      # op <- par(no.readonly = TRUE)
+      # # Adjust mgp for y-axis title
+      par(mgp = c(1.3, 0.5, 0)) #mgp[2] controls the axis labels
+      
+      for (coli in rev(col_list)){
+        if (coli==col_list[length(col_list)]){
+          addy <- F
+        }else{
+          addy <- T
+        }
+        
+        titl <- names(variable_list[variable_list==variable])
+        if (grepl("delta",titl)){
+          titl1 <- unlist(strsplit(titl,"delta"))[1]
+          titl2 <- unlist(strsplit(titl,"delta"))[2]
+          titl <- substitute(paste(labo,Delta,laby),list(labo=titl1,laby=titl2))
+        }
+        #stripchart(median ~ network, data = forplot[forplot$colony==coli,],vertical = TRUE,pch=16,col=alpha(colour_pal[which(coli==col_list)],1),method = 'jitter', jitter = 0.3,ylim=c(min(c(0,forplot$median)),max(c(forplot$median))), main = "",ylab=titl,add=addy,bty="l",cex=0.5,cex.axis=min_cex,cex.lab=inter_cex)
+        
+        if (is.even(loop_N)) { #remove y axis for every second plot
+          stripchart(median ~ network, data = forplot[forplot$colony==coli,],vertical = TRUE,pch=16,col=alpha(colour_pal[which(coli==col_list)],1),method = 'jitter', jitter = 0.3,ylim=ylim,main = "",ylab="",yaxt = "n",add=addy,bty="l",cex=0.5,cex.axis=min_cex,cex.lab=inter_cex)
+          #par(mar=c(2, 0, 4, 1)) # ,oma=c(0,0,0,0) # Adjust the right margin to make the second panel smaller
+        }else{
+          stripchart(median ~ network, data = forplot[forplot$colony==coli,],vertical = TRUE,pch=16,col=alpha(colour_pal[which(coli==col_list)],1),method = 'jitter', jitter = 0.3,ylim=ylim, main = "",ylab=titl,add=addy,bty="l",cex=0.5,cex.axis=min_cex,cex.lab=inter_cex)
+        }
+        
+      }
+      par(mgp = c(3, 1, 0))  #par(op)
+      
+      ### make boxplot
+      forplot3 <- data.frame(as.matrix(aggregate(median~network,function(x)cbind(mean(x),std.error(x)),data=forplot)),stringsAsFactors = F)
+      names(forplot3) <- c("network","mean","se")
+      
+      boxplot(median ~ network, data = forplot, 
+              outline = FALSE, notch=F,    ## avoid double-plotting outliers, if any
+              main = "",yaxt="n",add=T,col=alpha("white",0),medlwd=line_max,boxlwd=line_min+0.5*(line_max-line_min),whisklwd=line_min,whisklty=1,staplelwd=line_min,boxwex=0.7,bty="l")
+      
+      par(xpd=T)
+      
+      ### add stat
+      pval <- p_values_meta_analysis$two_sided_p
+      one_sidedpval <- p_values_meta_analysis$one_sided_p
+      statistic <- p_values_meta_analysis$meta_statistic
+      
+      print(paste(variable_names,": z=",statistic,"; two-sided p =",pval))
+      Edgington_outcome <- c(Edgington_outcome,paste0(ifelse(current_size=="big","large",current_size),": |Z score| = ", abs(round(as.numeric(statistic),2)),", P ≤ ",format(from_p_to_prounded(as.numeric(pval)),scientific=F) ))
+      
+      # add p_val
+      if (pval>0.05){p_cex <- max_cex*1.1*0.6;adjust_line <- 0;fonty <- 1}else{p_cex <- max_cex*1.1*0.6;adjust_line <- 0; fonty <-  2} # adjust titles ##inter_cex*0.6
+      #      if (pval>0.05){p_cex <- inter_cex;adjust_line <- 0.3;fonty <- 1}else{p_cex <- max_cex*1.1;adjust_line <- 0; fonty <-  2}
+      
+      # add size title
+      title(main=ifelse(current_size=="big","large",current_size),cex.main=p_cex,font.main=fonty,line=stat_line+adjust_line+2.2,xpd=T)
+      
+      # add cohen's d information under the size group
+      title(main= paste0("d=",round(cohens_d$d_coeff[which(cohens_d$d_coeff$size==current_size),"mean_d"],2)),
+            cex.main=p_cex,font.main=3,line=stat_line+adjust_line+1.3,xpd=T)
+      
+      if (current_size=="small") {
+        title(main=cohens_d$sig_sym,cex.main=p_cex,font.main=fonty,line=stat_line+adjust_line+2.2,adj=1,xpd=T) # cohen's d diff. p_val
+        title(main=from_p_to_ptext(cohens_d$p_value),cex.main=p_cex,font.main=fonty,line=stat_line+adjust_line+2.9,adj=1,xpd=T) # cohen's d diff. direction
+      }
+      
+      title(main=from_p_to_ptext(pval),cex.main=p_cex,font.main=fonty,line=stat_line+adjust_line,xpd=T)
+      par(xpd=F)
+      par(xaxt = "s")
+      # Adjust the mgp parameter to move the x-axis labels further up
+      par(mgp = c(3, 0, 0))  # Adjust the second value to control the distance of the labels
+      axis(side=1,at=c(1,2),labels=c(full_statuses_names["random"],""),tick=F,lty=0,cex.axis=inter_cex*0.7)
+      axis(side=1,at=c(1,2),labels=c("",full_statuses_names["observed"]),tick=F,lty=0,cex.axis=inter_cex*0.7)
+      par(mgp = c(3, 1, 0)) 
+    }
+    
+    Edgington_outcome <- paste(Edgington_outcome,collapse = ' - ')
+    
+    predictor="size"
+    if (seedTitle) {
+      formatted_outcome <- paste0("(Edgington combined tests (", tolower(names(seeds[seeds==seed])),", ", variable_names,", ",predictor,") ",Edgington_outcome,"; Cohen's d comparison: |Z score|"," = ", abs(round(as.numeric(cohens_d$Z_stat),2)), ", P ≤ ",format(from_p_to_prounded(as.numeric(cohens_d$p_value)),scientific=F),")")
+    }else{
+      formatted_outcome <- paste0("(Edgington combined tests (", variable_names,", ",predictor,") ",Edgington_outcome,"; Cohen's d comparison: |Z score|"," = ", abs(round(as.numeric(cohens_d$Z_stat),2)), ", P ≤ ",format(from_p_to_prounded(as.numeric(cohens_d$p_value)),scientific=F),")")
+    }
+    formatted_outcomes <- c(formatted_outcomes, formatted_outcome)
+    
+  }
+  
+  # Capture the current plot
+  saved_plot[[variable]] <- recordPlot()
+  #par(mar=c(5, 5, 2, 1)) 
+  #graphics.off() # Close all devices
+  return(list(formatted_outcomes=formatted_outcomes, saved_plot=saved_plot))
+  #return(saved_plot)
+}
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 5.20 plot_observed_vs_random() ####
+#version specific to task_group
+plot_observed_vs_random_TASK <- function(data_path,experiments,data_input = NULL, seedTitle=F) { #, size = NULL
+  
+  saved_plot <- list()
+  formatted_outcomes <- c()
+  
+  # Create a layout matrix to plot all results in a grid
+  N_cols <- ceiling(length(variable_list) / 2) * 4 # must be always even as the plots by size are generated independently
+  if (N_cols == 2) {
+    layout_matrix <- matrix(1:(2 * N_cols), nrow = 1)
+  } else {
+    layout_matrix <- matrix(1:(2 * N_cols), nrow = 2, byrow = TRUE)
+    layout_matrix <- matrix(1:(1 * N_cols), nrow = 1, byrow = TRUE)
+  }
+  
+  if (seedTitle) {
+    first_row <- rep(1, N_cols) # Create a row of ones to fit the title
+    layout_matrix <- rbind(first_row, layout_matrix+1) # Combine the first row of ones with the existing matrix
+    # Create a layout heights vector
+    layout_heights <- c(2/20, rep(18/20 , nrow(layout_matrix) - 1))
+    # Set up the layout
+    layout(layout_matrix, heights = layout_heights)
+    # Set up the layout
+    #layout(layout_matrix, heights = c(0.05,0.45,0.45)) 
+    # title settings
+    par(mar = c(0,0,0,0)); plot(1,1,type = "n",frame.plot = FALSE,axes = FALSE); u <- par("usr")
+    # Add a black line above the title
+    abline(h=u[4] - 0.05, col="black", lwd=1)  # Adjust 0.1 as needed to set the desired line position
+    # Adjust title position using the adj parameter
+    # text(1, u[4], labels = names(seeds[seeds==seed]), font=2, adj=c(0.5, 1.2), pos = 1)  # Adjust 1.2 to move title up or down as needed
+    text(1,u[4] - 0.3,labels = names(seeds[seeds==seed]),font=2, pos = 1)
+  }else{
+    # Set up the layout
+    layout(layout_matrix)
+  }
+  
+  ### 1. read data
+  setwd(data_path)
+  file_list <- list.files(pattern=pattern)
+  starting_data <- NULL
+  
+  for (file in file_list){
+    data_input <- rbind(data_input,read.table(file,header=T,stringsAsFactors = F))}
+  
+  if (is.null(data_input)) {
+    ### read-in data ###
+    for (experiment in experiments){
+      print(experiment)
+      ### data files
+      setwd(data_path)
+      file_list <- list.files(pattern=pattern)
+      temp <- NULL
+      for (file in file_list){
+        dat <- read.table(file,header=T,stringsAsFactors=F)
+        dat <- dat[,which(names(dat)%in%c("randy","colony","treatment","period","time_hours","time_of_day",variable_list))]
+        temp <- rbind(temp,dat)
+        rm(list=c("dat"))
+      }
+      temp <- temp[,order(names(temp))]
+      temp <- data.frame(experiment=experiment,temp,stringsAsFactors = F)
+      if (!is.null(starting_data)){
+        if (!all(names(starting_data)%in%names(temp))){
+          temp[names(starting_data)[which(!names(starting_data)%in%names(temp))]] <- NA
+          temp <- temp[,names(starting_data)]
+        }
+      }
+      
+      starting_data <- rbind(starting_data,temp)
+      rm(list=c("temp"))
+    }
+    
+  }else{starting_data <- data_input}
+  
+  
+  starting_data$size     <- unlist(lapply( starting_data$treatment, function(x)  unlist(strsplit(x,split="\\.") )[2]  ))
+  starting_data$size      <- factor(starting_data$size    , levels=size_order   [which(size_order%in%starting_data$size )])
+  
+  # 1. Identify columns that end with "_FOR" or "_NUR"
+  cols <- grep("(_FOR|_NUR)$", names(starting_data), value = TRUE)
+  
+  # 2. Extract root names
+  roots <- unique(sub("(_FOR|_NUR)$", "", cols))
+  
+  # Data reshaping for current_task
+  for (root in roots) {
+    starting_data[paste0(root, "_task_group")] <- NA
+  }
+  starting_data$task_group <- NA
+  df_FOR <- starting_data
+  df_NUR <- starting_data
+  df_FOR$task_group <- "forager"
+  df_NUR$task_group <- "nurse"
+  combined_data <- rbind(df_FOR, df_NUR)
+  for (root in roots) {
+    combined_data <- combined_data %>%
+      dplyr::mutate(!!paste0(root, "_task_group") := case_when(
+        task_group == "forager" ~ !!sym(paste0(root, "_FOR")),
+        task_group == "nurse" ~ !!sym(paste0(root, "_NUR"))
+      ))
+  }
+  combined_data <- combined_data %>%
+    dplyr::select(-all_of(cols))
+  combined_data$task_group <- as.factor(combined_data$task_group)
+  
+  # 1. Duplicate the Data
+  big_data <- combined_data %>% filter(size == "big")
+  small_data <- combined_data %>% filter(size == "small")
+  # 2. Reshape Each Subset
+  # For "big"
+  big_data <- big_data %>%
+    mutate(across(all_of(sapply(roots, function(root) paste0(root, "_task_group"))),
+                  ~ .x,
+                  .names = "{.col}_big")) %>%
+    select(-size)
+  # For "small"
+  small_data <- small_data %>%
+    mutate(across(all_of(sapply(roots, function(root) paste0(root, "_task_group"))),
+                  ~ .x,
+                  .names = "{.col}_small")) %>%
+    select(-size)
+  # 1. Identify Common Columns
+  common_cols <- intersect(names(big_data), names(small_data))
+  # 2. Join the Datasets
+  wide_data <- full_join(big_data, small_data, by = common_cols)
+  
+  starting_data <- wide_data
+  
+  #add info
+  starting_data$task_group      <- factor(starting_data$task_group    , levels=task_group_order   [which(task_group_order%in%starting_data$task_group )])
+  starting_data$treatment <- factor(starting_data$treatment , levels=treatment_order[which(treatment_order%in%starting_data$treatment )])
+  
+  # Modify variable_list to include the new "_task_group" variables
+  variable_list <- c(paste0(roots, "_big"), paste0(roots, "_small"))  # for (root in roots) {
+  names(variable_list) <- gsub("_big", "_large", variable_list)   # Replace "big" with "large"
+  names(variable_list) <- sub(".*_(\\w+)$", "\\1", names(variable_list))
+  names(variable_list) <- paste0(roots, " (",  names(variable_list), ")")
+  
+  #   variable_list[paste0(root, "_task_group")] <- paste0(root, "_task_group")
+  # }
+  
+  for (variable in sort(variable_list)) {
+    
+    Edgington_outcome <- c()
+    
+    variable_names <-  names(variable_list)[which(variable_list == variable)]
+    #save base data
+    ori_data <- starting_data
+    
+    ori_data["variable"] <- ori_data[,variable]
+    cohens_d <- compare_cohens_d_task(data=ori_data)
+    
+    # Find global y-axis limits
+    min_y <- min(ori_data[, variable], na.rm=TRUE)
+    max_y <- max(ori_data[, variable], na.rm=TRUE)
+    
+    # Loop through each size
+    loop_N <- 0
+    for (current_task in levels(ori_data$task_group)) {
+      loop_N <- loop_N+1
+      
+      if (is.even(loop_N)) { #change spacing for every second plot
+        par(mar=c(2, 0, 5, 2.1))  #2054
+      }else{
+        par(mar=c(2, 2.1, 5, 0))  #2450  Adjust margins as needed          #mfrow=c(1, 2), #Set up two-panel layout 
+      }
+      
+      # Subset data by task_group instead of size
+      data <- ori_data[ori_data$task_group == current_task, ]
+      
+      
+      data["variable"] <- data[,variable]
+      data[which(!is.finite(data$variable)),"variable"] <- NA
+      
+      ### get random and observed mean
+      randys <- aggregate(variable~colony+treatment+randy,FUN=mean,data=data[which(data$randy!="observed"),]);
+      randys <- as.data.frame(as.matrix(randys));randys$variable <- as.numeric(as.character(randys$variable))
+      ### then get mean, median and standard error
+      randys <- aggregate(variable~colony+treatment,function(x)cbind(mean(x),median(x),std.error(x),length(x)),data=randys);
+      randys <- as.data.frame(as.matrix(randys))
+      names(randys)[names(randys)=="variable.1"] <- "random_mean";names(randys)[names(randys)=="variable.2"] <- "random_median";names(randys)[names(randys)=="variable.3"] <- "random_std.error";names(randys)[names(randys)=="variable.4"] <- "random_nb"
+      
+      ### do the same for observed
+      observeds <- aggregate(variable~colony+treatment+randy,FUN=mean,data=data[which(data$randy=="observed"),])
+      observeds <- as.data.frame(as.matrix(observeds));observeds$variable <- as.numeric(as.character(observeds$variable))
+      observeds <- aggregate(variable~colony+treatment,function(x)cbind(mean(x),median(x),length(x)),data=observeds);
+      observeds <- as.data.frame(as.matrix(observeds))
+      names(observeds)[names(observeds)=="variable.1"] <- "observed_mean";names(observeds)[names(observeds)=="variable.2"] <- "observed_median";names(observeds)[names(observeds)=="variable.3"] <- "observed_nb"
+      
+      randys <- merge(randys,observeds);
+      randys$colony <- as.character(randys$colony)
+      randys$observed_mean <- as.numeric(as.character(randys$observed_mean))
+      randys$random_mean <- as.numeric(as.character( randys$random_mean))
+      randys$observed_median <- as.numeric(as.character(randys$observed_median))
+      randys$random_median <- as.numeric(as.character( randys$random_median))
+      randys$random_std.error <- as.numeric(as.character( randys$random_std.error))
+      
+      randys["deviation"] <- randys$observed_median-randys$random_median
+      randys["relative_deviation"] <- (randys$observed_median-randys$random_median)/abs(randys$random_median)
+      randys["p_value"] <- NA
+      randys["variable"] <- variable
+      randys["n_observed"] <- NA
+      randys["n_random"] <- NA
+      
+      for (coli in unique(randys$colony)){
+        random <- aggregate(variable~colony+treatment+randy,FUN=mean,data=data[which(data$colony==coli&data$randy!="observed"),])[,"variable"];
+        observed <- aggregate(variable~colony+treatment+randy,FUN=mean,data=data[which(data$colony==coli&data$randy=="observed"),])[,"variable"];
+        ### Get one-sided p: proportion of random values that are greater than observed values. Will be 0 if all values are lower and 1 if all values are greater
+        one_sided_p <- length(which(random>observed))/length(random)
+        
+        randys[which(randys$colony==coli),"p_value"] <- one_sided_p
+        randys[which(randys$colony==coli),"one_sided_p_value_obs_lower_than_rand"] <- 1-one_sided_p
+        randys[which(randys$colony==coli),"one_sided_p_value_obs_greater_than_rand"] <- one_sided_p
+        randys[which(randys$colony==coli),"effect_sign"] <- sign( randys[which(randys$colony==coli),"deviation"])
+        randys[which(randys$colony==coli),"n_observed"] <- length(observed)
+        randys[which(randys$colony==coli),"n_random"] <- length(random)
+      }
+      randys_toprint <- data.frame(variable=variable,randys[c("colony","treatment","deviation","relative_deviation","effect_sign","one_sided_p_value_obs_lower_than_rand","one_sided_p_value_obs_greater_than_rand")],stringsAsFactors = F)
+      randys_toprint[which(randys_toprint$effect_sign==1),"effect_signs"] <- "+"
+      randys_toprint[which(randys_toprint$effect_sign==-1),"effect_signs"] <- "-"
+      randys_toprint[which(randys_toprint$effect_sign==0),"effect_signs"] <- "0"
+      
+      ### now the stats: meta-analysis
+      p_values_meta_analysis <- meta_analysis(p_values = randys[,"p_value"],effects = randys[,"relative_deviation"],std.errors = randys[,"random_std.error"])
+      
+      ### modify randys for plot
+      forplot <- data.frame(network="random",randys[c("colony","treatment","random_median")],stringsAsFactors=F); names(forplot)[grepl("median",names(forplot))] <- "median"
+      forplot2 <- data.frame(network="observed",randys[c("colony","treatment","observed_median")],stringsAsFactors=F); names(forplot2)[grepl("median",names(forplot2))] <- "median"
+      
+      forplot <- aggregate(median~network+colony+treatment,FUN=mean,data=forplot)
+      forplot2 <- aggregate(median~network+colony+treatment,FUN=mean,data=forplot2)
+      forplot <- rbind(forplot,forplot2)
+      forplot$network <- factor(forplot$network,levels = c("random","observed"))
+      ### get colony ordering from observed
+      col_medians <- aggregate(median~colony,FUN=median,data=forplot2)
+      col_medians <- col_medians [order(col_medians$median),]
+      col_list <- col_medians$colony
+      colour_pal <- colorRampPalette(brewer.pal(11, "Spectral"))(length(col_list))
+      par(bty="n",xaxt = "n")
+      
+      
+      # Set y-axis limits to be consistent across the two sizes
+      ylim = c(min_y, max_y)
+      # # Store default par settings
+      # op <- par(no.readonly = TRUE)
+      # # Adjust mgp for y-axis title
+      par(mgp = c(1.3, 0.5, 0)) #mgp[2] controls the axis labels
+      
+      for (coli in rev(col_list)){
+        if (coli==col_list[length(col_list)]){
+          addy <- F
+        }else{
+          addy <- T
+        }
+        
+        titl <- names(variable_list[variable_list==variable])
+        if (grepl("delta",titl)){
+          titl1 <- unlist(strsplit(titl,"delta"))[1]
+          titl2 <- unlist(strsplit(titl,"delta"))[2]
+          titl <- substitute(paste(labo,Delta,laby),list(labo=titl1,laby=titl2))
+        }
+        # stripchart(median ~ network, data = forplot[forplot$colony==coli,],vertical = TRUE,pch=16,col=alpha(colour_pal[which(coli==col_list)],1),method = 'jitter', jitter = 0.3,ylim=c(min(c(0,forplot$median)),max(c(forplot$median))), main = "",ylab=titl,add=addy,bty="l",cex=0.5,cex.axis=min_cex,cex.lab=inter_cex)
+        
+        if (is.even(loop_N)) { #remove y axis for every second plot
+          stripchart(median ~ network, data = forplot[forplot$colony==coli,],vertical = TRUE,pch=16,col=alpha(colour_pal[which(coli==col_list)],1),method = 'jitter', jitter = 0.3,ylim=ylim,main = "",ylab="",yaxt = "n",add=addy,bty="l",cex=0.5,cex.axis=min_cex,cex.lab=inter_cex)
+          # par(mar=c(2, 0, 4, 1)) # ,oma=c(0,0,0,0) # Adjust the right margin to make the second panel smaller
+        }else{
+          stripchart(median ~ network, data = forplot[forplot$colony==coli,],vertical = TRUE,pch=16,col=alpha(colour_pal[which(coli==col_list)],1),method = 'jitter', jitter = 0.3,ylim=ylim, main = "",ylab=titl,add=addy,bty="l",cex=0.5,cex.axis=min_cex,cex.lab=inter_cex)
+        }
+      }
+      par(mgp = c(3, 1, 0))  #par(op)
+      
+      ### make boxplot
+      forplot3 <- data.frame(as.matrix(aggregate(median~network,function(x)cbind(mean(x),std.error(x)),data=forplot)),stringsAsFactors = F)
+      names(forplot3) <- c("network","mean","se")
+      
+      boxplot(median ~ network, data = forplot, 
+              outline = FALSE, notch=F,    ## avoid double-plotting outliers, if any
+              main = "",yaxt="n",add=T,col=alpha("white",0),medlwd=line_max,boxlwd=line_min+0.5*(line_max-line_min),whisklwd=line_min,whisklty=1,staplelwd=line_min,boxwex=0.7,bty="l")
+      
+      par(xpd=T)
+      
+      ### add stat
+      pval <- p_values_meta_analysis$two_sided_p
+      one_sidedpval <- p_values_meta_analysis$one_sided_p
+      statistic <- p_values_meta_analysis$meta_statistic
+      
+      print(paste(variable_names,": z=",statistic,"; two-sided p =",pval))
+      Edgington_outcome <- c(Edgington_outcome,paste0(current_task,": |Z score| = ", abs(round(as.numeric(statistic),2)),", P ≤ ",format(from_p_to_prounded(as.numeric(pval)),scientific=F) ))
+      
+      # add p_val
+      if (pval>0.05){p_cex <- max_cex*1.1*0.6;adjust_line <- 0.3;fonty <- 1}else{p_cex <- max_cex*1.1*0.6;adjust_line <- 0; fonty <-  2} # adjust titles  inter_cex*0.6
+      #      if (pval>0.05){p_cex <- inter_cex;adjust_line <- 0.3;fonty <- 1}else{p_cex <- max_cex*1.1;adjust_line <- 0; fonty <-  2}
+      
+      # #add size title
+      # title(main=ifelse(current_size=="big","large",current_size),cex.main=p_cex,font.main=fonty,line=stat_line+adjust_line+2.2,xpd=T)
+      # Add task_group title instead of size title
+      title(main = current_task, cex.main = p_cex, font.main = fonty, line = stat_line + adjust_line + 2.2, xpd = T)
+      
+      # add cohen's d information under the size group
+      title(main= paste0("d=",round(cohens_d$d_coeff[which(cohens_d$d_coeff$task_group==current_task),"mean_d"],2)),
+            cex.main=p_cex,font.main=3,line=stat_line+adjust_line+1.3,xpd=T)
+      
+      if (current_task=="nurse") {
+        title(main=cohens_d$sig_sym,cex.main=p_cex,font.main=fonty,line=stat_line+adjust_line+2.2,adj=1,xpd=T) # cohen's d diff. p_val
+        title(main=from_p_to_ptext(cohens_d$p_value),cex.main=p_cex,font.main=fonty,line=stat_line+adjust_line+2.9,adj=1,xpd=T) # cohen's d diff. direction
+      }
+      
+      title(main=from_p_to_ptext(pval),cex.main=p_cex,font.main=fonty,line=stat_line+adjust_line,xpd=T)
+      par(xpd=F)
+      par(xaxt = "s")
+      # Adjust the mgp parameter to move the x-axis labels further up
+      par(mgp = c(3, 0, 0))  # Adjust the second value to control the distance of the labels
+      axis(side=1,at=c(1,2),labels=c(full_statuses_names["random"],""),tick=F,lty=0,cex.axis=inter_cex*0.7)
+      axis(side=1,at=c(1,2),labels=c("",full_statuses_names["observed"]),tick=F,lty=0,cex.axis=inter_cex*0.7)
+      par(mgp = c(3, 1, 0)) 
+    }
+    
+    Edgington_outcome <- paste(Edgington_outcome,collapse = ' - ')
+    
+    predictor="task_group"
+    if (seedTitle) {
+      formatted_outcome <- paste0("(Edgington combined tests (", tolower(names(seeds[seeds==seed])),", ", variable_names,", ",predictor,") ",Edgington_outcome,"; Cohen's d comparison: |Z score|"," = ", abs(round(as.numeric(cohens_d$Z_stat),2)), ", P ≤ ",format(from_p_to_prounded(as.numeric(cohens_d$p_value)),scientific=F),")")
+    }else{
+      formatted_outcome <- paste0("(Edgington combined tests (", variable_names,", ",predictor,") ",Edgington_outcome,"; Cohen's d comparison: |Z score|"," = ", abs(round(as.numeric(cohens_d$Z_stat),2)), ", P ≤ ",format(from_p_to_prounded(as.numeric(cohens_d$p_value)),scientific=F),")")
+    }
+    formatted_outcomes <- c(formatted_outcomes, formatted_outcome)
+  }
+  
+  # Capture the current plot
+  saved_plot[[variable]] <- recordPlot()
+  #par(mar=c(5, 5, 2, 1)) 
+  #graphics.off() # Close all devices
+  return(list(formatted_outcomes=formatted_outcomes, saved_plot=saved_plot))
+  #return(saved_plot)
+}
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 5.21 compare_cohens_d() ####
+#Compare Mean Cohen's d standardised effect size
+compare_cohens_d <- function(data) {
+  
+  # Ensure inputs are in correct data structure format
+  data$randy <- as.factor(data$randy)
+  data$size      <- factor(data$size    , levels=size_order   [which(size_order%in%data$size )])
+  
+  # aggregate if file is split in windows
+  if ("time_hours" %in% names(data)) {
+    data <- aggregate(variable~colony+size+randy,FUN=mean,data=data)
+  }
+  
+  
+  # re-assing labels
+  GroupA <- levels(data$size)[1]
+  GroupB <- levels(data$size)[2]
+  
+  d_A <- compute_cohens_d(data$variable[data$size == GroupA], data$randy[data$size == GroupA]) # this is not absolute diff, as the directionality (sign) is important to tell us how the relationship goes for each permutation comparison and give a realistic estimate of the diff
+  d_B <- compute_cohens_d(data$variable[data$size == GroupB], data$randy[data$size == GroupB])
+  
+  # Compute the Mean and Variance of Effect Sizes for Both Groups
+  mean_d_A <- abs(mean(d_A)) # I calculate the absolute mean which represents the magnitude of the effect
+  var_d_A <- var(d_A)
+  
+  mean_d_B <- abs(mean(d_B))
+  var_d_B <- var(d_B)
+  
+  # Compute Standard Error for the Difference in Mean Effect Sizes
+  SE_diff <- sqrt(var_d_A/length(d_A) + var_d_B/length(d_B))
+  
+  # Compute the Difference in Mean Effect Sizes
+  d_diff <- mean_d_A - mean_d_B
+  
+  # Test for significance using z-test
+  z <- d_diff / SE_diff
+  # two-tailed test
+  p <- 2 * (1 - pnorm(abs(z)))
+  
+  if (p<0.05) {
+    if (mean_d_A>mean_d_B) {
+      print(paste(toupper(GroupA),round(mean_d_A,2),"has a mean effect size larger then",toupper(GroupB),round(mean_d_B,2),"(p=",p,")"))
+    }else{print(paste(toupper(GroupB),round(mean_d_B,2),"has a mean effect size larger then",toupper(GroupA),round(mean_d_A,2),"( p=",p,")"))}
+  }
+  
+  #assuming that the group large is plotted after group small
+  sig_sym <- ifelse(mean_d_A>mean_d_B,">","<")
+  
+  d_coeff <- data.frame(size = c(levels(data$size)[1],levels(data$size)[2]), mean_d = c(mean_d_A,mean_d_B))
+  
+  # Return a list containing all the results
+  return(list(
+    #d_values_A = d_A,
+    #d_values_B = d_B,
+    #mean_d_A = mean_d_A,
+    #mean_d_B = mean_d_B,
+    #var_d_A = var_d_A,
+    #var_d_B = var_d_B,
+    #SE_diff = SE_diff,
+    #d_diff = d_diff,
+    #z_value = z,
+    d_coeff = d_coeff,
+    sig_sym = sig_sym,
+    p_value = p,
+    Z_stat = z
+  ))
+}
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 5.22 compare_cohens_d_task() ####
+# version specific to task group
+compare_cohens_d_task <- function(data) {
+  
+  # Ensure inputs are in correct data structure format
+  data$randy <- as.factor(data$randy)
+  data$task_group      <- factor(data$task_group    , levels=task_group_order   [which(task_group_order%in%data$task_group )])
+  
+  # aggregate if file is split in windows
+  if ("time_hours" %in% names(data)) {
+    data <- aggregate(variable~colony+task_group+randy,FUN=mean,data=data)
+  }
+
+  # re-assing labels
+  GroupA <- levels(data$task_group)[1]
+  GroupB <- levels(data$task_group)[2]
+  
+  d_A <- compute_cohens_d(data$variable[data$task_group == GroupA], data$randy[data$task_group == GroupA]) # this is not absolute diff, as the directionality (sign) is important to tell us how the relationship goes for each permutation comparison and give a realistic estimate of the diff
+  d_B <- compute_cohens_d(data$variable[data$task_group == GroupB], data$randy[data$task_group == GroupB])
+  
+  # Compute the Mean and Variance of Effect Sizes for Both Groups
+  mean_d_A <- abs(mean(d_A)) # I calculate the absolute mean which represents the magnitude of the effect
+  var_d_A <- var(d_A)
+  
+  mean_d_B <- abs(mean(d_B))
+  var_d_B <- var(d_B)
+  
+  # Compute Standard Error for the Difference in Mean Effect Sizes
+  SE_diff <- sqrt(var_d_A/length(d_A) + var_d_B/length(d_B))
+  
+  # Compute the Difference in Mean Effect Sizes
+  d_diff <- mean_d_A - mean_d_B
+  
+  # Test for significance using z-test
+  z <- d_diff / SE_diff
+  # two-tailed test
+  p <- 2 * (1 - pnorm(abs(z)))
+  
+  if (p<0.05) {
+    if (mean_d_A>mean_d_B) {
+      print(paste(toupper(GroupA),round(mean_d_A,2),"has a mean effect size larger then",toupper(GroupB),round(mean_d_B,2),"(p=",p,")"))
+    }else{print(paste(toupper(GroupB),round(mean_d_B,2),"has a mean effect size larger then",toupper(GroupA),round(mean_d_A,2),"( p=",p,")"))}
+  }
+  
+  #assuming that the group large is plotted after group small
+  sig_sym <- ifelse(mean_d_A>mean_d_B,">","<")
+  
+  d_coeff <- data.frame(task_group = c(levels(data$task_group)[1],levels(data$task_group)[2]), mean_d = c(mean_d_A,mean_d_B))
+  
+  # Return a list containing all the results
+  return(list(
+    #d_values_A = d_A,
+    #d_values_B = d_B,
+    #mean_d_A = mean_d_A,
+    #mean_d_B = mean_d_B,
+    #var_d_A = var_d_A,
+    #var_d_B = var_d_B,
+    #SE_diff = SE_diff,
+    #d_diff = d_diff,
+    #z_value = z,
+    d_coeff = d_coeff,
+    sig_sym = sig_sym,
+    p_value = p,
+    Z_stat = z
+  ))
+}
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 5.23 compute_cohens_d() ####
+# Compute Cohen's d (effect's size) for obs VS permutations
+compute_cohens_d <- function(group_variable, orig_perm_factor) {
+  d_values <- c()
+  original_mean <- mean(group_variable[orig_perm_factor == "observed"])
+  original_sd <- sd(group_variable[orig_perm_factor == "observed"])
+  # Compute Cohen's d for Each Permutation in Both Groups
+  # each perm value is compared against the original observed value
+  for (RANDY in unique(orig_perm_factor[!grepl("observed",orig_perm_factor)]) ) {
+    perm_means <- mean(group_variable[orig_perm_factor == RANDY])
+    perm_sds   <- sd(group_variable[orig_perm_factor == RANDY])
+    pooled_sds <- sqrt((original_sd^2 + perm_sds^2) / 2)
+    d_value <- (original_mean - perm_means) / pooled_sds
+    d_values <- c(d_values,d_value)
+  }
+  return(d_values)
+}
+
+# Example usage
+# values <- c(rnorm(10, 50, 10), rnorm(10, 52, 10), rnorm(10, 60, 10), rnorm(10, 62, 10))
+# orig_perm_factor <- factor(c(rep("original", 2), rep("permutation", 18), rep("original", 2), rep("permutation", 18)))
+# group_factor <- factor(c(rep("Group A", 20), rep("Group B", 20)))
+# data <- data.frame(values=values,
+#                    orig_perm_factor=orig_perm_factor,
+#                    group_factor=group_factor)
+# ggplot(data,aes(x=orig_perm_factor ,y=values)) + geom_boxplot() + geom_jitter() + facet_grid(.~group_factor)
+# result <- compare_cohens_d(values, orig_perm_factor, group_factor)
+# print(result)
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 5.24 collective_analysis_no_rescal() ####
+#this function performs no rescaling but has if-statements to skip time_of_day for simulation data
+# this function also tests the data from the random VS observed dataset, comparing observed big VS observed small (Rand is done in function plot_age_dol) 
+collective_analysis_no_rescal <- function(data_path=data_path,showPlot=T){
+  ### 1. read data
+  setwd(data_path)
+  file_list <- list.files(pattern=pattern)
+  print(file_list)
+  data <- NULL
+  for (file in file_list){
+    data <- rbind(data,read.table(file,header=T,stringsAsFactors = F))  
+  }
+  print(names(data))
+  data <- data[which(!duplicated(data)),] ## remove any duplicated line
+  
+  ## 2. Extract exposure and size from treatment column
+  data$exposure <- unlist(lapply( data$treatment, function(x)  unlist(strsplit(x,split="\\.") )[1]  ))
+  data$size     <- unlist(lapply( data$treatment, function(x)  unlist(strsplit(x,split="\\.") )[2]  ))
+  
+  ## 2. Loop over variables
+  data_ori <- data
+  stats_outcomes    <- NULL
+  post_hoc_outcomes <- NULL
+  # stats_outcomes1    <- NULL
+  # post_hoc_outcomes1 <- NULL
+  barplot_delta_period_list <- list()
+  
+  for (i in 1:length(variable_list)){
+    # for (i in c(1)){
+    print(paste0("######## ",variable_list[i]," ########"))
+    data <- data_ori
+    
+    ### create a variable column
+    data$untransformed_variable <- data[,variable_list[i]]
+    
+    ### transform variable
+    if (transf_variable_list[i]=="log"){
+      print("Logging variable...")
+      data[!is.na(data$untransformed_variable),"variable"] <- log_transf(data[!is.na(data$untransformed_variable),"untransformed_variable"] )
+    }else if (grepl("power",transf_variable_list[i])){
+      data[!is.na(data$untransformed_variable),"variable"]  <- (data[!is.na(data$untransformed_variable),"untransformed_variable"] )^as.numeric(gsub("power","",transf_variable_list[i]))
+    }else if (transf_variable_list[i]=="sqrt"){
+      data[!is.na(data$untransformed_variable),"variable"]  <- sqrt_transf(data[!is.na(data$untransformed_variable),"untransformed_variable"] )
+    }else if (transf_variable_list[i]=="Box_Cox"){
+      data[!is.na(data$untransformed_variable),"variable"]  <- Box_Cox(data[!is.na(data$untransformed_variable),"untransformed_variable"] )
+    }else if (transf_variable_list[i]=="none"){
+      data$variable <- data$untransformed_variable
+    }
+    
+    # Check if 'before' or 'after' is present in the 'period' column
+    data$period <- ifelse(grepl("before", data$period), "pre", 
+                          ifelse(grepl("after", data$period), "post", data$period))
+
+    ### statistics ### ### ### ###
+    ### make sure treatment, exposure, size and period are factors with levels in the desired order
+    data$treatment <- factor(data$treatment , levels=treatment_order[which(treatment_order%in%data$treatment )])
+    data$size      <- factor(data$size    , levels=size_order   [which(size_order%in%data$size )])
+    data$exposure  <- factor(data$exposure , levels=exposure_order[which(exposure_order%in%data$exposure )])
+    data$period    <- factor(data$period    , levels=period_order   [which(period_order%in%data$period )])
+    
+    if (!grepl("interactions.dat",pattern)) { #random_vs_observed data
+  
+      ### fit model - using treatment
+      if (grepl("simulation_results",pattern)) { #simulation data won't have time_of_day
+        model <- lmer(   variable ~ period*treatment + (1|colony) ,data=data)
+      }else{
+        model <- lmer(   variable ~ period*treatment + (1|time_of_day) + (1|colony) ,data=data)
+      }
+      anov  <- anova(model)
+      p_interaction_treatment <- anov["period:treatment","Pr(>F)"]
+      
+      # Check if the model converged
+      if(length(summary(model)$optinfo$conv$lme4$messages) != 0) {
+        # If the model fails to converge, calculate VIF
+        # The Variance Inflation Factor (VIF) is a measure of multicollinearity. A rule of thumb is that if the VIF is greater than 5, then the explanatory variables are highly correlated, which can affect the stability and interpretability of the model
+        vif_values <- car::vif(model)
+        
+        # If any VIF is > 10, assign p_interaction_treatment = 1, and try simpler model 
+        if(any(vif_values[, "GVIF"] > 10)) {
+          p_interaction_treatment <- 1
+          warning(paste0(variable_list[i],": model multicollinearity detected, try simpler model"))
+        }
+      }
+      
+      stats_outcomes <- rbind(stats_outcomes,data.frame(variable=variable_list[i],predictor="period:treatment",df=paste(round(anov["period:treatment","NumDF"]),round(anov["period:treatment","DenDF"]),sep=","),Fvalue=anov["period:treatment","F value"],pval=p_interaction_treatment,stringsAsFactors = F))
+      
+      ### check interaction
+      if (p_interaction_treatment<=0.05){
+        test_norm(residuals(model))
+        # print("Significant interaction between 4-way treatment and period.")
+        # print(anov)
+        contrast_matrix <- rbind(
+          "Delta_control.small minus Delta_control.big"=c(0,0,0,0,0,-1,0,0),
+          "Delta_control.small minus Delta_pathogen.small"=c(0,0,0,0,0,0,-1,0),
+          "Delta_control.small minus Delta_pathogen.big"=c(0,0,0,0,0,0,0,-1),
+          "Delta_control.big minus Delta_pathogen.small"=c(0,0,0,0,0,1,-1,0),
+          "Delta_control.big minus Delta_pathogen.big"=c(0,0,0,0,0,1,0,-1),
+          "Delta_pathogen.small minus Delta_pathogen.big"=c(0,0,0,0,0,0,1,-1))
+        posthoc_groups_treatments        <- list(get_posthoc_groups(model=model,contrast_matrix=contrast_matrix,which_levels="treatment_order",dataset=data))
+        names(posthoc_groups_treatments) <- variable_list[i]
+        post_hoc_outcomes                <- c(post_hoc_outcomes,posthoc_groups_treatments)
+      }else{
+        # print( "Interaction between 4-way treatment and period is not significant:")
+        # print(anov["period:treatment",])
+
+        ### if interaction with treatment is not significant, repeat analysis, but separating size and exposure
+        ### fit model 
+        if (grepl("simulation_results",pattern)) { #simulation data won't have time_of_day
+          model <- lmer(   variable ~ period*exposure + period*size + (1|colony) ,data=data,control = model_n_interations)
+        }else{
+          model <- lmer(   variable ~ period*exposure + period*size + (1|time_of_day) + (1|colony) ,data=data,control = model_n_interations)
+        }
+        
+        anov  <- anova(model)
+        p_interaction_exposure <- anov["Pr(>F)"]["period:exposure","Pr(>F)"]
+        p_interaction_size     <- anov["Pr(>F)"]["period:size","Pr(>F)"] 
+        
+        if (p_interaction_size<=0.05&p_interaction_exposure<=0.05){
+          stats_outcomes <- rbind(stats_outcomes,data.frame(variable=variable_list[i],predictor="period:exposure",df=paste(round(anov["period:exposure","NumDF"]),round(anov["period:exposure","DenDF"]),sep=","),Fvalue=anov["period:exposure","F value"],pval=anov["period:exposure","Pr(>F)"],stringsAsFactors = F))
+          stats_outcomes <- rbind(stats_outcomes,data.frame(variable=variable_list[i],predictor="period:size",df=paste(round(anov["period:size","NumDF"]),round(anov["period:size","DenDF"]),sep=","),Fvalue=anov["period:size","F value"],pval=anov["period:size","Pr(>F)"],stringsAsFactors = F))
+ 
+          test_norm(residuals(model))
+          # print("Significant interaction between exposure (pathogen vs solvent) and period, AND significant interaction beween size (small vs big) and period.")
+          # print(anov)
+          
+          contrast_matrix_exposure <- rbind("Delta_control minus Delta_pathogen"=c(0,0,0,0,-1,0))
+          contrast_matrix_size     <- rbind("Delta_small minus Delta_big"=c(0,0,0,0,0,-1))
+          
+          posthoc_groups_exposure <- get_posthoc_groups(model=model,contrast_matrix=contrast_matrix_exposure,which_levels="exposure_order",dataset=data)
+          posthoc_groups_size     <- get_posthoc_groups(model=model,contrast_matrix=contrast_matrix_size    ,which_levels="size_order",dataset=data)
+          
+        }else{
+          if (p_interaction_size>p_interaction_exposure){ 
+            ### if interaction with size is not significant and greater than interaction with exposure, repeat analysis, but exposure only
+            # print( "Interaction between size and period is not significant:")
+            # print(anov["period:size",])
+            stats_outcomes <- rbind(stats_outcomes,data.frame(variable=variable_list[i],predictor="period:size",df=paste(round(anov["period:size","NumDF"]),round(anov["period:size","DenDF"]),sep=","),Fvalue=anov["period:size","F value"],pval=anov["period:size","Pr(>F)"],stringsAsFactors = F))
+            
+            ### fit model
+            if (grepl("simulation_results",pattern)) { #simulation data won't have time_of_day
+              model <- lmer(   variable ~ period*exposure + (1|colony) ,data=data,control = model_n_interations)
+            }else{
+              model <- lmer(   variable ~ period*exposure + (1|time_of_day) + (1|colony) ,data=data,control = model_n_interations)
+            }
+            anov  <- anova(model)
+            test_norm(residuals(model))
+            for (rowi in 1:nrow(anov)){
+              stats_outcomes <- rbind(stats_outcomes,data.frame(variable=variable_list[i],predictor=rownames(anov[rowi,]),df=paste(round(anov[rowi,"NumDF"]),round(anov[rowi,"DenDF"]),sep=","),Fvalue=anov[rowi,"F value"],pval=anov[rowi,"Pr(>F)"],stringsAsFactors = F))
+            }
+            
+            p_interaction_exposure <- anov["Pr(>F)"]["period:exposure","Pr(>F)"]
+            if (p_interaction_exposure>0.05){
+              # print( "Interaction between exposure and period is not significant:")
+              # print(anov["period:exposure",])
+              
+            }else{
+              contrast_matrix_exposure <- rbind("Delta_control minus Delta_pathogen"=c(0,0,0,-1))
+              
+              posthoc_groups_exposure <- list(get_posthoc_groups(model=model,contrast_matrix=contrast_matrix_exposure,which_levels="exposure_order",dataset=data))
+              names(posthoc_groups_exposure) <- variable_list[i]
+              post_hoc_outcomes                <- c(post_hoc_outcomes,posthoc_groups_exposure)
+              # print( "Significant interaction between exposure and period:")
+              # print(anov)
+            }
+            
+          }else{
+            ### if interaction with exposure is not significant and greater than interaction with size, repeat analysis, but size only
+            stats_outcomes <- rbind(stats_outcomes,data.frame(variable=variable_list[i],predictor="period:exposure",df=paste(round(anov["period:exposure","NumDF"]),round(anov["period:exposure","DenDF"]),sep=","),Fvalue=anov["period:exposure","F value"],pval=anov["period:exposure","Pr(>F)"],stringsAsFactors = F))
+            # print( "Interaction between exposure and period is not significant:")
+            # print(anov["period:exposure",])
+            
+            ### fit model
+            if (grepl("simulation_results",pattern)) { #simulation data won't have time_of_day
+              model <- lmer(   variable ~ period*size + (1|colony) ,data=data ,control = model_n_interations)
+            }else{
+              model <- lmer(   variable ~ period*size + (1|time_of_day) + (1|colony) ,data=data ,control = model_n_interations)
+            }
+            anov  <- anova(model)
+            test_norm(residuals(model))
+            for (rowi in 1:nrow(anov)){
+              stats_outcomes <- rbind(stats_outcomes,data.frame(variable=variable_list[i],predictor=rownames(anov[rowi,]),df=paste(round(anov[rowi,"NumDF"]),round(anov[rowi,"DenDF"]),sep=","),Fvalue=anov[rowi,"F value"],pval=anov[rowi,"Pr(>F)"],stringsAsFactors = F))
+            }
+            
+            p_interaction_size <- anov["Pr(>F)"]["period:size","Pr(>F)"]
+            if (p_interaction_size>0.05){
+              # print( "Interaction between size and period is not significant:")
+              # print(anov)
+              
+            }else{
+              # print( "Significant interaction between size and period:")
+              # print(anov)
+              contrast_matrix_size <- rbind("Delta_small minus Delta_big"=c(0,0,0,-1))
+              
+              posthoc_groups_size <- list(get_posthoc_groups(model=model,contrast_matrix=contrast_matrix_size,which_levels="size_order",dataset=data))
+              names(posthoc_groups_size) <- variable_list[i]
+              post_hoc_outcomes                <- c(post_hoc_outcomes,posthoc_groups_size)
+            }
+          }
+        }
+      }
+    }else{# if pre_only is TRUE
+      print("random VS observed stats")
+      # keep only Obs
+      data <- data[which(data$randy=="observed"),]
+      model <- lm(variable ~ size,data=data) 
+      anov  <- anova(model)
+      p_size <- anov["size","Pr(>F)"]
+      test_norm(residuals(model))
+      stats_outcomes <- rbind(stats_outcomes,data.frame(variable=variable_list[i],predictor="size",df=paste(round(anov["size","Df"]),sep=","),Fvalue=anov["size","F value"],pval=p_size,stringsAsFactors = F))
+    }
+    
+    rm(list=ls()[which(grepl("p_interaction",ls()))])
+    rm(list=ls()[which(grepl("posthoc_groups_",ls()))])
+    
+    if (!grepl("interactions.dat",pattern)) { #random_vs_observed data
+      #plot
+      barplot_delta_period <- barplot_delta(dataset=data,predictor="treatment",post_hoc_outcomes=post_hoc_outcomes,stats_outcomes=stats_outcomes,i=i,type="collective",collective=T,plot_untransformed=F,diff_type="") #form_stat=NULL,
+      if (showPlot) {print(barplot_delta_period)}
+      barplot_delta_period_list[[variable_list[i]]]        <- barplot_delta_period
+      #names(barplot_delta_period_list[[i]]) <- variable_list[i]
+      # # add cleaning step
+      # post_hoc_outcomes1 <- c(post_hoc_outcomes1,post_hoc_outcomes)
+      # stats_outcomes1    <- c(stats_outcomes1,stats_outcomes)
+      # 
+      # rm(list = ls()[which(names(ls()) == "post_hoc_outcomes")])
+      # rm(list = ls()[which(names(ls()) == "stats_outcomes")])
+    }
+  }
+  rownames(stats_outcomes) <- NULL
+  
+  # add  formatted output
+  if (!grepl("interactions.dat",pattern)) { #random_vs_observed data
+    stats_outcomes$formatted <- paste0("(GLMM,treatment-induced changes (", stats_outcomes$variable,", ",stats_outcomes$predictor,"): F(",stats_outcomes$df,") = ", round(stats_outcomes$Fvalue,3), ", P ≤ ",format(from_p_to_prounded(stats_outcomes$pval),scientific=F),")")
+    return(list(stats_outcomes=stats_outcomes,    post_hoc_outcomes=post_hoc_outcomes,  barplot_delta_period_list=barplot_delta_period_list))
+  }else{
+    stats_outcomes$formatted <- paste0("(LM,pre-treatment difference (", stats_outcomes$variable,", ",stats_outcomes$predictor,"): F(",stats_outcomes$df,") = ", round(stats_outcomes$Fvalue,3), ", P ≤ ",format(from_p_to_prounded(stats_outcomes$pval),scientific=F),")")
+    return(list(stats_outcomes=stats_outcomes))
+  }
+}
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 5.25 collective_analysis_rescal() ####
+#this function handles rescaling by pre-exposure mean for each size
+collective_analysis_rescal <- function(data_path=data_path,showPlot=T){
+  ### 1. read data
+  setwd(data_path)
+  file_list <- list.files(pattern=pattern)
+  print(file_list)
+  data <- NULL
+  for (file in file_list){
+    data <- rbind(data,read.table(file,header=T,stringsAsFactors = F))  
+  }
+  ## remove any duplicated line
+  data <- data[which(!duplicated(data)),]
+  
+  ## 2. Extract exposure and size from treatment column
+  data$exposure <- unlist(lapply( data$treatment, function(x)  unlist(strsplit(x,split="\\.") )[1]  ))
+  data$size     <- unlist(lapply( data$treatment, function(x)  unlist(strsplit(x,split="\\.") )[2]  ))
+  
+  print(names(data))
+  
+  ## 2. Loop over variables
+  data_ori <- data
+  stats_outcomes    <- NULL
+  post_hoc_outcomes <- NULL
+  # stats_outcomes1    <- NULL
+  # post_hoc_outcomes1 <- NULL
+  barplot_delta_period_list <- list()
+  
+  for (i in 1:length(variable_list)){
+    # for (i in c(1)){
+    print(paste0("######## ",variable_list[i]," ########"))
+    data <- data_ori
+    
+    ### create a variable column
+    data$untransformed_variable <- data[,variable_list[i]]
+    
+    ### rescale, for each treatment, using "pre" period as reference
+    means <- aggregate(untransformed_variable~size,data=data[which(data$period=="pre"),],FUN=mean)
+    names(means)[2] <- "pre_mean"
+    data <- merge(data,means)
+    data$untransformed_variable <- data$untransformed_variable/data$pre_mean
+    
+    
+    ### transform variable
+    if (transf_variable_list[i]=="log"){
+      print("Logging variable...")
+      data[!is.na(data$untransformed_variable),"variable"] <- log_transf(data[!is.na(data$untransformed_variable),"untransformed_variable"] )
+    }else if (grepl("power",transf_variable_list[i])){
+      data[!is.na(data$untransformed_variable),"variable"]  <- (data[!is.na(data$untransformed_variable),"untransformed_variable"] )^as.numeric(gsub("power","",transf_variable_list[i]))
+    }else if (transf_variable_list[i]=="sqrt"){
+      data[!is.na(data$untransformed_variable),"variable"]  <- sqrt_transf(data[!is.na(data$untransformed_variable),"untransformed_variable"] )
+    }else if (transf_variable_list[i]=="Box_Cox"){
+      data[!is.na(data$untransformed_variable),"variable"]  <- Box_Cox(data[!is.na(data$untransformed_variable),"untransformed_variable"] )
+    }else if (transf_variable_list[i]=="none"){
+      data$variable <- data$untransformed_variable
+    }
+    
+    # Check if 'before' or 'after' is present in the 'period' column
+    data$period <- ifelse(grepl("before", data$period), "pre", 
+                          ifelse(grepl("after", data$period), "post", data$period))
+    
+    ### statistics ### ### ### ###
+    ### make sure treatment, exposure, size and period are factors with levels in the desired order
+    data$treatment <- factor(data$treatment , levels=treatment_order[which(treatment_order%in%data$treatment )])
+    data$size      <- factor(data$size    , levels=size_order   [which(size_order%in%data$size )])
+    data$exposure  <- factor(data$exposure , levels=exposure_order[which(exposure_order%in%data$exposure )])
+    data$period    <- factor(data$period    , levels=period_order   [which(period_order%in%data$period )])
+    
+    ### fit model - using treatment
+    model <- lmer(   variable ~ period*treatment + (1|time_of_day) + (1|colony) ,data=data,control = model_n_interations)
+    anov  <- anova(model)
+    p_interaction_treatment <- anov["period:treatment","Pr(>F)"]
+    p_period <- anov["period",]; print(p_period)
+    
+    # Check if the model converged
+    if(length(summary(model)$optinfo$conv$lme4$messages) != 0) {
+      # If the model fails to converge, calculate VIF
+      # The Variance Inflation Factor (VIF) is a measure of multicollinearity. A rule of thumb is that if the VIF is greater than 5, then the explanatory variables are highly correlated, which can affect the stability and interpretability of the model
+      vif_values <- car::vif(model)
+      # If any VIF is > 10, assign p_interaction_treatment = 1, and try simpler model 
+      if(any(vif_values[, "GVIF"] > 10)) {
+        p_interaction_treatment <- 1
+        warning(paste0(variable_list[i],": model multicollinearity detected, try simpler model"))
+      }
+    }
+    
+    stats_outcomes <- rbind(stats_outcomes,data.frame(variable=variable_list[i],predictor="period:treatment",df=paste(round(anov["period:treatment","NumDF"]),round(anov["period:treatment","DenDF"]),sep=","),Fvalue=anov["period:treatment","F value"],pval=p_interaction_treatment,stringsAsFactors = F))
+    ### check interaction
+    if (p_interaction_treatment<=0.05){
+      test_norm(residuals(model))
+      # print("Significant interaction between 4-way treatment and period.")
+      # print(anov)
+      contrast_matrix <- rbind(
+        "Delta_control.small minus Delta_control.big"=c(0,0,0,0,0,-1,0,0),
+        "Delta_control.small minus Delta_pathogen.small"=c(0,0,0,0,0,0,-1,0),
+        "Delta_control.small minus Delta_pathogen.big"=c(0,0,0,0,0,0,0,-1),
+        "Delta_control.big minus Delta_pathogen.small"=c(0,0,0,0,0,1,-1,0),
+        "Delta_control.big minus Delta_pathogen.big"=c(0,0,0,0,0,1,0,-1),
+        "Delta_pathogen.small minus Delta_pathogen.big"=c(0,0,0,0,0,0,1,-1))
+      
+      posthoc_groups_treatments        <- list(get_posthoc_groups(model=model,contrast_matrix=contrast_matrix,which_levels="treatment_order",dataset=data))
+      names(posthoc_groups_treatments) <- variable_list[i]
+      post_hoc_outcomes                <- c(post_hoc_outcomes,posthoc_groups_treatments)
+
+    }else{
+      # print( "Interaction between 4-way treatment and period is not significant:")
+      # print(anov["period:treatment",])
+      ### if interaction with treatment is not significant, repeat analysis, but separating size and exposure
+      ### fit model 
+      model <- lmer(   variable ~ period*exposure + period*size + (1|time_of_day) + (1|colony) ,data=data ,control = model_n_interations)
+      anov  <- anova(model)
+      p_interaction_exposure <- anov["Pr(>F)"]["period:exposure","Pr(>F)"]
+      p_interaction_size     <- anov["Pr(>F)"]["period:size","Pr(>F)"] 
+      
+      if (p_interaction_size<=0.05&p_interaction_exposure<=0.05){
+        stats_outcomes <- rbind(stats_outcomes,data.frame(variable=variable_list[i],predictor="period:exposure",df=paste(round(anov["period:exposure","NumDF"]),round(anov["period:exposure","DenDF"]),sep=","),Fvalue=anov["period:exposure","F value"],pval=anov["period:exposure","Pr(>F)"],stringsAsFactors = F))
+        stats_outcomes <- rbind(stats_outcomes,data.frame(variable=variable_list[i],predictor="period:size",df=paste(round(anov["period:size","NumDF"]),round(anov["period:size","DenDF"]),sep=","),Fvalue=anov["period:size","F value"],pval=anov["period:size","Pr(>F)"],stringsAsFactors = F))
+        test_norm(residuals(model))
+        # print("Significant interaction between exposure (pathogen vs solvent) and period, AND significant interaction beween size (small vs big) and period.")
+        # print(anov)
+        
+        contrast_matrix_exposure <- rbind("Delta_control minus Delta_pathogen"=c(0,0,0,0,-1,0))
+        contrast_matrix_size     <- rbind("Delta_small minus Delta_big"=c(0,0,0,0,0,-1))
+        
+        posthoc_groups_exposure <- get_posthoc_groups(model=model,contrast_matrix=contrast_matrix_exposure,which_levels="exposure_order",dataset=data)
+        posthoc_groups_size     <- get_posthoc_groups(model=model,contrast_matrix=contrast_matrix_size    ,which_levels="size_order",dataset=data)
+        
+      }else{
+        if (p_interaction_size>p_interaction_exposure){ 
+          ### if interaction with size is not significant and greater than interaction with exposure, repeat analysis, but exposure only
+          # print( "Interaction between size and period is not significant:")
+          # print(anov["period:size",])
+          stats_outcomes <- rbind(stats_outcomes,data.frame(variable=variable_list[i],predictor="period:size",df=paste(round(anov["period:size","NumDF"]),round(anov["period:size","DenDF"]),sep=","),Fvalue=anov["period:size","F value"],pval=anov["period:size","Pr(>F)"],stringsAsFactors = F))
+          
+          ### fit model 
+          model <- lmer(   variable ~ period*exposure + (1|time_of_day) + (1|colony) ,data=data ,control = model_n_interations)
+          anov  <- anova(model)
+          test_norm(residuals(model))
+          for (rowi in 1:nrow(anov)){
+            stats_outcomes <- rbind(stats_outcomes,data.frame(variable=variable_list[i],predictor=rownames(anov[rowi,]),df=paste(round(anov[rowi,"NumDF"]),round(anov[rowi,"DenDF"]),sep=","),Fvalue=anov[rowi,"F value"],pval=anov[rowi,"Pr(>F)"],stringsAsFactors = F))
+          }
+          
+          p_interaction_exposure <- anov["Pr(>F)"]["period:exposure","Pr(>F)"]
+          if (p_interaction_exposure>0.05){
+            # print( "Interaction between exposure and period is not significant:")
+            # print(anov["period:exposure",])
+            
+          }else{
+            contrast_matrix_exposure <- rbind("Delta_control minus Delta_pathogen"=c(0,0,0,-1))
+            
+            posthoc_groups_exposure <- list(get_posthoc_groups(model=model,contrast_matrix=contrast_matrix_exposure,which_levels="exposure_order",dataset=data))
+            names(posthoc_groups_exposure) <- variable_list[i]
+            post_hoc_outcomes                <- c(post_hoc_outcomes,posthoc_groups_exposure)
+            # print( "Significant interaction between exposure and period:")
+            # print(anov)
+          }
+        }else{
+          ###if interaction with exposure is not significant and greater than interaction with size, repeat analysis, but size only
+          stats_outcomes <- rbind(stats_outcomes,data.frame(variable=variable_list[i],predictor="period:exposure",df=paste(round(anov["period:exposure","NumDF"]),round(anov["period:exposure","DenDF"]),sep=","),Fvalue=anov["period:exposure","F value"],pval=anov["period:exposure","Pr(>F)"],stringsAsFactors = F))
+          
+          # print( "Interaction between exposure and period is not significant:")
+          # print(anov["period:exposure",])
+          # 
+          ### fit model 
+          model <- lmer(   variable ~ period*size + (1|time_of_day) + (1|colony) ,data=data ,control = model_n_interations)
+          anov  <- anova(model)
+          test_norm(residuals(model))
+          for (rowi in 1:nrow(anov)){
+            stats_outcomes <- rbind(stats_outcomes,data.frame(variable=variable_list[i],predictor=rownames(anov[rowi,]),df=paste(round(anov[rowi,"NumDF"]),round(anov[rowi,"DenDF"]),sep=","),Fvalue=anov[rowi,"F value"],pval=anov[rowi,"Pr(>F)"],stringsAsFactors = F))
+          }
+          
+          p_interaction_size <- anov["Pr(>F)"]["period:size","Pr(>F)"]
+          if (p_interaction_size>0.05){
+            # print( "Interaction between size and period is not significant:")
+            # print(anov)
+          }else{
+            # print( "Significant interaction between size and period:")
+            # print(anov)
+            contrast_matrix_size <- rbind("Delta_small minus Delta_big"=c(0,0,0,-1))
+            
+            posthoc_groups_size <- list(get_posthoc_groups(model=model,contrast_matrix=contrast_matrix_size,which_levels="size_order",dataset=data))
+            names(posthoc_groups_size) <- variable_list[i]
+            post_hoc_outcomes                <- c(post_hoc_outcomes,posthoc_groups_size)}  
+        }
+      } 
+    }
+    
+    rm(list=ls()[which(grepl("p_interaction",ls()))])
+    rm(list=ls()[which(grepl("posthoc_groups_",ls()))])
+    
+    ### plot ###
+    barplot_delta_period <- barplot_delta(dataset=data,predictor="treatment",post_hoc_outcomes=post_hoc_outcomes,stats_outcomes=stats_outcomes,i=i,type="collective",collective=T,plot_untransformed=F,diff_type="") #form_stat=NULL,
+    if (showPlot) {print(barplot_delta_period)}
+    barplot_delta_period_list[[variable_list[i]]]        <- barplot_delta_period
+  
+    # # add cleaning step
+    # post_hoc_outcomes1 <- c(post_hoc_outcomes1,post_hoc_outcomes)
+    # stats_outcomes1    <- c(stats_outcomes1,stats_outcomes)
+    # 
+    # rm(list = ls()[which(names(ls()) == "post_hoc_outcomes")])
+    # rm(list = ls()[which(names(ls()) == "stats_outcomes")])
+  }
+  rownames(stats_outcomes) <- NULL
+  # add  formatted output
+  stats_outcomes$formatted <- paste0("(GLMM,treatment-induced changes (", stats_outcomes$variable,", ",stats_outcomes$predictor,"): F(",stats_outcomes$df,") = ", round(stats_outcomes$Fvalue,3), ", P ≤ ",format(from_p_to_prounded(stats_outcomes$pval),scientific=F),")")
+  
+  return(list(stats_outcomes=stats_outcomes,    post_hoc_outcomes=post_hoc_outcomes,  barplot_delta_period_list=barplot_delta_period_list))
+}
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 5.26 individual_ONE_analysis() ####
+individual_ONE_analysis <- function(data_path=data_path,which_individuals,pre_only=FALSE,showPlot=T){
+  # for ONE type of individuals (e.g. treated workers only, or queens only)
+  
+  ### 1. read data
+  setwd(data_path)
+  file_list <- list.files(pattern=pattern)
+  print(file_list)
+  data <- NULL
+  for (file in file_list){
+    data <- rbind(data,read.table(file,header=T,stringsAsFactors = F))  
+  }
+  data <- data[which(!duplicated(data)),] ## remove any duplicated line
+  print(names(data))
+  ## 2a. Extract exposure and size from treatment column
+  data$exposure <- unlist(lapply( data$treatment, function(x)  unlist(strsplit(x,split="\\.") )[1]  ))
+  data$size     <- unlist(lapply( data$treatment, function(x)  unlist(strsplit(x,split="\\.") )[2]  ))
+  
+  ## 2b. add information on task group
+  if (pattern %in% c("individual_behavioural_data", "individual_simulation_results_observed")) {
+    task_groups <- read.table(paste(root_path,"original_data",task_group_file,sep="/"),header=T,stringsAsFactors = F)
+    task_groups <- task_groups[which(!duplicated(task_groups)),]
+    data        <- merge(data,task_groups[c("colony","tag","task_group")],all.x=T,all.y=F)
+    
+  } else if (pattern=="individual_data") {
+    #make sure that the task_group is named correctly
+    data$task_group <- data$status 
+    data$status     <- NULL
+    treated_worker_list <- read.table(paste(root_path,"original_data","treated_worker_list.txt",sep="/"),header=T,stringsAsFactors = F)
+    treated_worker_list <- treated_worker_list[which(!duplicated(treated_worker_list)),]
+    treated_worker_list$status <- "treated"
+    data        <- merge(data,treated_worker_list[c("colony","tag","status")],all.x=T,all.y=F) 
+    data[which(is.na(data$status)),"status"] <- "untreated"
+  }
+  
+  data[which(data$status=="treated"),"task_group"] <- "treated"
+  
+  ## 2c. keep only target individuals
+  data <- data[which(data$task_group%in%which_individuals),]
+  print(paste("",which_individuals,"",sep=" xxxxxxxxxx "))
+  
+  ## 2c.1 keep only target period
+  if (pre_only==T) {
+    data <- data[which(data$period=="pre"),]
+    print(paste("","pre period only","",sep=" xxxxxxxxxx "))
+  }
+  
+  
+  ## 2d.  ###add a unique antid column
+  data <- within(data,antID <- paste(colony,tag,sep="_"))
+  
+  ## 2. Loop over variables
+  data_ori <- data
+  stats_outcomes    <- NULL
+  post_hoc_outcomes <- NULL
+  # stats_outcomes1    <- NULL
+  # post_hoc_outcomes1 <- NULL
+  barplot_delta_period_list <- list()
+  
+  for (i in 1:length(variable_list)){
+    print(paste0("######## ",variable_list[i]," ########"))
+    data <- data_ori
+    
+    ### create a variable column
+    data$untransformed_variable <- data[,variable_list[i]]
+    
+    ### transform variable
+    if (transf_variable_list[i]=="log"){
+      print("Logging variable...")
+      data[!is.na(data$untransformed_variable),"variable"] <- log_transf(data[!is.na(data$untransformed_variable),"untransformed_variable"] )
+    }else if (grepl("power",transf_variable_list[i])){
+      data[!is.na(data$untransformed_variable),"variable"]  <- (data[!is.na(data$untransformed_variable),"untransformed_variable"] )^as.numeric(gsub("power","",transf_variable_list[i]))
+    }else if (transf_variable_list[i]=="sqrt"){
+      data[!is.na(data$untransformed_variable),"variable"]  <- sqrt_transf(data[!is.na(data$untransformed_variable),"untransformed_variable"] )
+    }else if (transf_variable_list[i]=="Box_Cox"){
+      data[!is.na(data$untransformed_variable),"variable"]  <- Box_Cox(data[!is.na(data$untransformed_variable),"untransformed_variable"] )
+    }else if (transf_variable_list[i]=="none"){
+      data$variable <- data$untransformed_variable
+    }
+    # Check if 'before' or 'after' is present in the 'period' column
+    data$period <- ifelse(grepl("before", data$period), "pre", 
+                          ifelse(grepl("after", data$period), "post", data$period))
+    
+    #hist(data$variable, breaks = 100)
+    ###statistics
+    ###make sure treatment, exposure, size and period are factors with levels in the desired order
+    data$treatment <- factor(data$treatment , levels=treatment_order[which(treatment_order%in%data$treatment )])
+    data$size      <- factor(data$size    , levels=size_order   [which(size_order%in%data$size )])
+    data$exposure  <- factor(data$exposure , levels=exposure_order[which(exposure_order%in%data$exposure )])
+    data$period    <- factor(data$period    , levels=period_order   [which(period_order%in%data$period )])
+    data$antID     <- factor( data$antID)
+    
+    ## if not pre_only
+    if (pre_only!=TRUE) {
+      ### fit model - using treatment
+      if (grepl("simulation_results",pattern)) { #simulation data won't have time_of_day
+        model <- lmer(   variable ~ period*treatment + (1|colony) + (1|antID) ,data=data ,control = model_n_interations)
+      }else {
+        model <- lmer(   variable ~ period*treatment + (1|time_of_day) + (1|colony) + (1|antID) ,data=data ,control = model_n_interations)
+      }
+      anov  <- anova(model)
+      p_interaction_treatment <- anov["period:treatment","Pr(>F)"]
+      p_period <- anov["period",]; print(p_period)
+      
+      # Check if the model converged
+      if(length(summary(model)$optinfo$conv$lme4$messages) != 0) {
+        # If the model fails to converge, calculate VIF
+        # The Variance Inflation Factor (VIF) is a measure of multicollinearity. A rule of thumb is that if the VIF is greater than 5, then the explanatory variables are highly correlated, which can affect the stability and interpretability of the model
+        vif_values <- car::vif(model)
+        
+        # If any VIF is > 10, assign p_interaction_treatment = 1, and try simpler model 
+        if(any(vif_values[, "GVIF"] > 10)) {
+          p_interaction_treatment <- 1
+          warning(paste0(variable_list[i],": model multicollinearity detected, try simpler model"))
+        }
+      }
+      
+      stats_outcomes <- rbind(stats_outcomes,data.frame(variable=variable_list[i],predictor="period:treatment",df=paste(round(anov["period:treatment","NumDF"]),round(anov["period:treatment","DenDF"]),sep=","),Fvalue=anov["period:treatment","F value"],pval=p_interaction_treatment,stringsAsFactors = F))
+      ### check interaction
+      if (p_interaction_treatment<=0.05){
+        test_norm(residuals(model))
+        # print("Significant interaction between 4-way treatment and period.")
+        # print(anov)
+        
+        contrast_matrix <- rbind(
+          "Delta_control.small minus Delta_control.big"=c(0,0,0,0,0,-1,0,0),
+          "Delta_control.small minus Delta_pathogen.small"=c(0,0,0,0,0,0,-1,0),
+          "Delta_control.small minus Delta_pathogen.big"=c(0,0,0,0,0,0,0,-1),
+          "Delta_control.big minus Delta_pathogen.small"=c(0,0,0,0,0,1,-1,0),
+          "Delta_control.big minus Delta_pathogen.big"=c(0,0,0,0,0,1,0,-1),
+          "Delta_pathogen.small minus Delta_pathogen.big"=c(0,0,0,0,0,0,1,-1))
+        
+        posthoc_groups_treatments        <- list(get_posthoc_groups(model=model,contrast_matrix=contrast_matrix,which_levels="treatment_order",dataset=data))
+        names(posthoc_groups_treatments) <- variable_list[i]
+        post_hoc_outcomes                <- c(post_hoc_outcomes,posthoc_groups_treatments)
+        }else{
+        # print( "Interaction between 4-way treatment and period is not significant:")
+        # print(anov["period:treatment",])
+        
+        ### if interaction with treatment is not significant, repeat analysis, but separating size and exposure
+        ### fit model 
+        if (grepl("simulation_results",pattern)) { #simulation data won't have time_of_day
+          model <- lmer(   variable ~ period*exposure + period*size + (1|colony) + (1|antID),data=data ,control = model_n_interations)
+        }else{
+          model <- lmer(   variable ~ period*exposure + period*size + (1|time_of_day) + (1|colony) + (1|antID),data=data ,control = model_n_interations)
+        }
+        
+        anov  <- anova(model)
+        p_interaction_exposure <- anov["Pr(>F)"]["period:exposure","Pr(>F)"]
+        p_interaction_size     <- anov["Pr(>F)"]["period:size","Pr(>F)"] 
+        
+        if (p_interaction_size<=0.05&p_interaction_exposure<=0.05){
+          stats_outcomes <- rbind(stats_outcomes,data.frame(variable=variable_list[i],predictor="period:exposure",df=paste(round(anov["period:exposure","NumDF"]),round(anov["period:exposure","DenDF"]),sep=","),Fvalue=anov["period:exposure","F value"],pval=anov["period:exposure","Pr(>F)"],stringsAsFactors = F))
+          stats_outcomes <- rbind(stats_outcomes,data.frame(variable=variable_list[i],predictor="period:size",df=paste(round(anov["period:size","NumDF"]),round(anov["period:size","DenDF"]),sep=","),Fvalue=anov["period:size","F value"],pval=anov["period:size","Pr(>F)"],stringsAsFactors = F))
+          
+          
+          test_norm(residuals(model))
+          # print("Significant interaction between exposure (pathogen vs solvent) and period, AND significant interaction beween size (small vs big) and period.")
+          # print(anov)
+          
+          contrast_matrix_exposure <- rbind("Delta_control minus Delta_pathogen"=c(0,0,0,0,-1,0))
+          contrast_matrix_size     <- rbind("Delta_small minus Delta_big"=c(0,0,0,0,0,-1))
+          
+          posthoc_groups_exposure <- get_posthoc_groups(model=model,contrast_matrix=contrast_matrix_exposure,which_levels="exposure_order",dataset=data)
+          posthoc_groups_size     <- get_posthoc_groups(model=model,contrast_matrix=contrast_matrix_size    ,which_levels="size_order",dataset=data)
+          
+        }else{
+          if (p_interaction_size>p_interaction_exposure){ 
+            ###if interaction with size is not significant and greater than interaction with exposure, repeat analysis, but exposure only
+            # print( "Interaction between size and period is not significant:")
+            # print(anov["period:size",])
+            stats_outcomes <- rbind(stats_outcomes,data.frame(variable=variable_list[i],predictor="period:size",df=paste(round(anov["period:size","NumDF"]),round(anov["period:size","DenDF"]),sep=","),Fvalue=anov["period:size","F value"],pval=anov["period:size","Pr(>F)"],stringsAsFactors = F))
+            
+            ###fit model
+            if (grepl("simulation_results",pattern)) { #simulation data won't have time_of_day
+              model <- lmer(   variable ~ period*exposure + (1|colony) + (1|antID),data=data ,control = model_n_interations)
+            }else{
+              model <- lmer(   variable ~ period*exposure + (1|time_of_day) + (1|colony) + (1|antID),data=data ,control = model_n_interations)
+            }
+            
+            anov  <- anova(model)
+            test_norm(residuals(model))
+            for (rowi in 1:nrow(anov)){
+              stats_outcomes <- rbind(stats_outcomes,data.frame(variable=variable_list[i],predictor=rownames(anov[rowi,]),df=paste(round(anov[rowi,"NumDF"]),round(anov[rowi,"DenDF"]),sep=","),Fvalue=anov[rowi,"F value"],pval=anov[rowi,"Pr(>F)"],stringsAsFactors = F))
+            }
+            
+            p_interaction_exposure <- anov["Pr(>F)"]["period:exposure","Pr(>F)"]
+            if (p_interaction_exposure>0.05){
+              # print( "Interaction between exposure and period is not significant:")
+              # print(anov["period:exposure",])
+              
+            }else{
+              contrast_matrix_exposure <- rbind("Delta_control minus Delta_pathogen"=c(0,0,0,-1))
+              
+              posthoc_groups_exposure <- list(get_posthoc_groups(model=model,contrast_matrix=contrast_matrix_exposure,which_levels="exposure_order",dataset=data))
+              names(posthoc_groups_exposure) <- variable_list[i]
+              post_hoc_outcomes                <- c(post_hoc_outcomes,posthoc_groups_exposure)
+              # print( "Significant interaction between exposure and period:")
+              # print(anov)
+            }
+          }else{
+            ### if interaction with exposure is not significant and greater than interaction with size, repeat analysis, but size only
+            stats_outcomes <- rbind(stats_outcomes,data.frame(variable=variable_list[i],predictor="period:exposure",df=paste(round(anov["period:exposure","NumDF"]),round(anov["period:exposure","DenDF"]),sep=","),Fvalue=anov["period:exposure","F value"],pval=anov["period:exposure","Pr(>F)"],stringsAsFactors = F))
+            
+            # print( "Interaction between exposure and period is not significant:")
+            # print(anov["period:exposure",])
+            # 
+            ### fit model 
+            if (grepl("simulation_results",pattern)) { #simulation data won't have time_of_day
+              model <- lmer(   variable ~ period*size + (1|colony) + (1|antID),data=data ,control = model_n_interations)
+            }else{
+              model <- lmer(   variable ~ period*size + (1|colony) + (1|antID),data=data ,control = model_n_interations)
+            }
+            anov  <- anova(model)
+            test_norm(residuals(model))
+            for (rowi in 1:nrow(anov)){
+              stats_outcomes <- rbind(stats_outcomes,data.frame(variable=variable_list[i],predictor=rownames(anov[rowi,]),df=paste(round(anov[rowi,"NumDF"]),round(anov[rowi,"DenDF"]),sep=","),Fvalue=anov[rowi,"F value"],pval=anov[rowi,"Pr(>F)"],stringsAsFactors = F))}
+            p_interaction_size <- anov["Pr(>F)"]["period:size","Pr(>F)"]
+            if (p_interaction_size>0.05){
+              # print( "Interaction between size and period is not significant:")
+              # print(anov)
+            }else{
+              # print( "Significant interaction between size and period:")
+              # print(anov)
+              contrast_matrix_size <- rbind("Delta_small minus Delta_big"=c(0,0,0,-1))
+              posthoc_groups_size <- list(get_posthoc_groups(model=model,contrast_matrix=contrast_matrix_size,which_levels="size_order",dataset=data))
+              names(posthoc_groups_size) <- variable_list[i]
+              post_hoc_outcomes                <- c(post_hoc_outcomes,posthoc_groups_size)
+              }
+           }
+        }
+      }
+    }else{# if pre_only is TRUE
+      print("pre_only stats")
+      ### fit model - using treatment
+      if (grepl("simulation_results",pattern)) { #simulation data won't have time_of_day
+        model <- lmer(   variable ~ size + (1|colony) + (1|antID) ,data=data ,control = model_n_interations)
+      }else {
+        model <- lmer(   variable ~ size + (1|time_of_day) + (1|colony) + (1|antID) ,data=data ,control = model_n_interations)
+      }
+      
+      # Check if the model converged
+      if(length(summary(model)$optinfo$conv$lme4$messages) != 0) {
+        
+        warning(paste0(variable_list[i],": model failed to converge, changing default BOBYQA optimiser for the Nelder-Mead optimisation routine used by default in earlier 1.0.x previous versions"))
+        model <- lmer(   variable ~ size + (1|time_of_day) + (1|colony) + (1|antID) ,data=data , control = lmerControl(optimizer ="Nelder_Mead"))
+        # change optimizer https://stats.stackexchange.com/questions/242109/model-failed-to-converge-warning-in-lmer
+      }
+      anov  <- anova(model)
+      p_size <- anov["size","Pr(>F)"]
+      test_norm(residuals(model))
+      stats_outcomes <- rbind(stats_outcomes,data.frame(variable=variable_list[i],predictor="size",df=paste(round(anov["size","NumDF"]),round(anov["size","DenDF"]),sep=","),Fvalue=anov["size","F value"],pval=p_size,stringsAsFactors = F))
+    }
+    
+    rm(list=ls()[which(grepl("p_interaction",ls()))])
+    rm(list=ls()[which(grepl("posthoc_groups_",ls()))])
+    
+    # plot
+    if (pre_only!=T) {
+      #predictor="treatment"
+      barplot_delta_period <- barplot_delta(dataset=data,predictor="treatment",post_hoc_outcomes=post_hoc_outcomes,stats_outcomes=stats_outcomes,i=i,type="individual",collective=F,plot_untransformed=F,diff_type="absolute_difference") #form_stat=NULL,
+    } else{
+      #predictor="size"
+      barplot_delta_period <- barplot_delta(dataset=data,predictor="size",post_hoc_outcomes=post_hoc_outcomes,stats_outcomes=stats_outcomes,i=i,type="individual",collective=F,plot_untransformed=F,diff_type="absolute_difference",pre_only=pre_only) #form_stat=NULL,
+    }
+    
+    
+    if (showPlot) {print(barplot_delta_period)}
+    
+    barplot_delta_period_list[[variable_list[i]]]        <- barplot_delta_period 
+    # ADD SAVING OF THE PLOT on single pdf file as done in plot_grooming file
+    # # add cleaning step
+    # post_hoc_outcomes1 <- c(post_hoc_outcomes1,post_hoc_outcomes)
+    # stats_outcomes1    <- c(stats_outcomes1,stats_outcomes)
+    # 
+    # rm(list = ls()[which(names(ls()) == "post_hoc_outcomes")])
+    # rm(list = ls()[which(names(ls()) == "stats_outcomes")])
+  }
+  rownames(stats_outcomes) <- NULL
+  
+  # add  formatted output
+  if (pre_only!=T) {
+    stats_outcomes$formatted <- paste0("(GLMM,treatment-induced changes (", stats_outcomes$variable,", ",stats_outcomes$predictor,"): F(",stats_outcomes$df,") = ", round(stats_outcomes$Fvalue,3), ", P ≤ ",format(from_p_to_prounded(stats_outcomes$pval),scientific=F),")")
+  } else {
+    stats_outcomes$formatted <- paste0("(GLMM, size differences (", stats_outcomes$variable,", ",stats_outcomes$predictor,"): F(",stats_outcomes$df,") = ", round(stats_outcomes$Fvalue,3), ", P ≤ ",format(from_p_to_prounded(stats_outcomes$pval),scientific=F),")")
+  }
+  
+  return(list(stats_outcomes=stats_outcomes,    post_hoc_outcomes=post_hoc_outcomes,  barplot_delta_period_list=barplot_delta_period_list))
+}
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 5.27 individual_TWO_analysis() ####
+# this function currently does not handle grepl("simulation_results",pattern) for models without time_of_day
+individual_TWO_analysis <- function(data_path=data_path,which_individuals,showPlot=T){
+  # for ONE type of individuals (e.g. treated workers only, or queens only)
+  
+  ### 1. read data
+  setwd(data_path)
+  file_list <- list.files(pattern=pattern)
+  print(file_list)
+  data <- NULL
+  for (file in file_list){
+    data <- rbind(data,read.table(file,header=T,stringsAsFactors = F))  
+  }
+  ## remove any duplicated line
+  data <- data[which(!duplicated(data)),]
+  
+  print(names(data))
+  
+  ## 2a. Extract exposure and size from treatment column
+  data$exposure <- unlist(lapply( data$treatment, function(x)  unlist(strsplit(x,split="\\.") )[1]  ))
+  data$size     <- unlist(lapply( data$treatment, function(x)  unlist(strsplit(x,split="\\.") )[2]  ))
+  
+  ## 2b. add information on task group
+  if (pattern %in% c("individual_behavioural_data", "individual_simulation_results_observed")) {
+    task_groups <- read.table(paste(root_path,"original_data",task_group_file,sep="/"),header=T,stringsAsFactors = F)
+    task_groups <- task_groups[which(!duplicated(task_groups)),]
+    data        <- merge(data,task_groups[c("colony","tag","task_group")],all.x=T,all.y=F)
+    
+  } else if (pattern=="individual_data") {
+    #make sure that the task_group is named correctly
+    data$task_group <- data$status 
+    data$status     <- NULL
+    treated_worker_list <- read.table(paste(root_path,"original_data","treated_worker_list.txt",sep="/"),header=T,stringsAsFactors = F)
+    treated_worker_list <- treated_worker_list[which(!duplicated(treated_worker_list)),]
+    treated_worker_list$status <- "treated"
+    data        <- merge(data,treated_worker_list[c("colony","tag","status")],all.x=T,all.y=F) 
+    data[which(is.na(data$status)),"status"] <- "untreated"
+  } 
+  
+  data[which(data$status=="treated"),"task_group"] <- "treated"
+  
+  ## 2c. keep only target individuals
+  data <- data[which(data$task_group%in%which_individuals),]
+  
+  ## 2d.  ###add a unique antid column
+  data <- within(data,antID <- paste(colony,tag,sep="_"))
+  
+  ### 2. Loop over variables
+  data_ori <- data
+  stats_outcomes    <- NULL
+  post_hoc_outcomes <- NULL
+  # stats_outcomes1    <- NULL
+  # post_hoc_outcomes1 <- NULL
+  barplot_delta_period_list <- list()
+  
+  for (i in 1:length(variable_list)){
+    print(paste0("######## ",variable_list[i]," ########"))
+    data <- data_ori
+    
+    ### create a variable column
+    data$untransformed_variable <- data[,variable_list[i]]
+    
+    ### transform variable
+    if (transf_variable_list[i]=="log"){
+      print("Logging variable...")
+      data[!is.na(data$untransformed_variable),"variable"] <- log_transf(data[!is.na(data$untransformed_variable),"untransformed_variable"] )
+    }else if (grepl("power",transf_variable_list[i])){
+      data[!is.na(data$untransformed_variable),"variable"]  <- (data[!is.na(data$untransformed_variable),"untransformed_variable"] )^as.numeric(gsub("power","",transf_variable_list[i]))
+    }else if (transf_variable_list[i]=="sqrt"){
+      data[!is.na(data$untransformed_variable),"variable"]  <- sqrt_transf(data[!is.na(data$untransformed_variable),"untransformed_variable"] )
+    }else if (transf_variable_list[i]=="Box_Cox"){
+      data[!is.na(data$untransformed_variable),"variable"]  <- Box_Cox(data[!is.na(data$untransformed_variable),"untransformed_variable"] )
+    }else if (transf_variable_list[i]=="none"){
+      data$variable <- data$untransformed_variable
+    }
+    
+    ### statistics
+    ### make sure treatment, exposure, size, period and task_group are factors with levels in the desired order
+    data$treatment  <- factor(data$treatment , levels=treatment_order [which(treatment_order %in%data$treatment )])
+    data$size       <- factor(data$size      , levels=size_order      [which(size_order      %in%data$size )])
+    data$exposure   <- factor(data$exposure  , levels=exposure_order  [which(exposure_order  %in%data$exposure )])
+    data$period     <- factor(data$period    , levels=period_order    [which(period_order    %in%data$period )])
+    data$antID      <- factor(data$antID )
+    data$task_group <- factor(data$task_group, levels=task_group_order[which(task_group_order%in%data$task_group )])
+    
+    ###fit model - using treatment and task_group in 3-way interaction
+    model <- lmer(   variable ~ period*treatment*task_group + (1|time_of_day) + (1|colony) + (1|antID) ,data=data ,control = model_n_interations)
+    anov  <- anova(model)
+    p_interaction_treatment_group <- anov["period:treatment:task_group","Pr(>F)"]
+    
+    # Check if the model converged
+    if(length(summary(model)$optinfo$conv$lme4$messages) != 0) {
+      # If the model fails to converge, calculate VIF
+      # The Variance Inflation Factor (VIF) is a measure of multicollinearity. A rule of thumb is that if the VIF is greater than 5, then the explanatory variables are highly correlated, which can affect the stability and interpretability of the model
+      vif_values <- car::vif(model)
+      
+      # If any VIF is > 10, assign p_interaction_treatment = 1, and try simpler model 
+      if(any(vif_values[, "GVIF"] > 10)) {
+        p_interaction_treatment <- 1
+        warning("model multicollinearity detected, try simpler model")
+      }
+    }
+    
+    stats_outcomes <- rbind(stats_outcomes,data.frame(variable=variable_list[i],predictor="period:treatment:task_group",df=paste(round(anov["period:treatment:task_group","NumDF"]),round(anov["period:treatment:task_group","DenDF"]),sep=","),Fvalue=anov["period:treatment:task_group","F value"],pval=anov["period:treatment:task_group","Pr(>F)"],stringsAsFactors = F))
+    
+    if (p_interaction_treatment_group<=0.05){
+      test_norm(residuals(model))
+      
+      level_names <- expand.grid(levels(data$treatment),levels(data$task_group))
+      level_names <- within(level_names,Var3<-paste(Var1,Var2,sep="."))$Var3
+      names(level_names) <- level_names
+      
+      ### contrast matrix will depend on how many groups are included here!
+      if (length(levels(data$task_group))==2){
+        contrast_matrix <- rbind(
+          "1 minus 2"=c(0,0,0,0,0,0,-1,0,0,0,0,0,0,0,0,0),
+          "1 minus 3"=c(0,0,0,0,0,0,0,-1,0,0,0,0,0,0,0,0),
+          "1 minus 4"=c(0,0,0,0,0,0,0,0,-1,0,0,0,0,0,0,0),
+          "1 minus 5"=c(0,0,0,0,0,0,0,0,0,-1,0,0,0,0,0,0),
+          "1 minus 6"=c(0,0,0,0,0,0,-1,0,0,-1,0,0,0,-1,0,0),
+          "1 minus 7"=c(0,0,0,0,0,0,0,-1,0,-1,0,0,0,0,-1,0),
+          "1 minus 8"=c(0,0,0,0,0,0,0,0,-1,-1,0,0,0,0,0,-1),
+          "2 minus 3"=c(0,0,0,0,0,0,1,-1,0,0,0,0,0,0,0,0),
+          "2 minus 4"=c(0,0,0,0,0,0,1,0,-1,0,0,0,0,0,0,0),
+          "2 minus 5"=c(0,0,0,0,0,0,1,0,0,-1,0,0,0,0,0,0),
+          "2 minus 6"=c(0,0,0,0,0,0,0,0,0,-1,0,0,0,-1,0,0),
+          "2 minus 7"=c(0,0,0,0,0,0,1,-1,0,-1,0,0,0,0,-1,0),
+          "2 minus 8"=c(0,0,0,0,0,0,1,0,-1,-1,0,0,0,0,0,-1),
+          "3 minus 4"=c(0,0,0,0,0,0,0,1,-1,0,0,0,0,0,0,0),
+          "3 minus 5"=c(0,0,0,0,0,0,0,1,0,-1,0,0,0,0,0,0),
+          "3 minus 6"=c(0,0,0,0,0,0,-1,1,0,-1,0,0,0,-1,0,0),
+          "3 minus 7"=c(0,0,0,0,0,0,0,0,0,-1,0,0,0,0,-1,0),
+          "3 minus 8"=c(0,0,0,0,0,0,0,1,-1,-1,0,0,0,0,0,-1),
+          "4 minus 5"=c(0,0,0,0,0,0,0,0,1,-1,0,0,0,0,0,0),
+          "4 minus 6"=c(0,0,0,0,0,0,-1,0,1,-1,0,0,0,-1,0,0),
+          "4 minus 7"=c(0,0,0,0,0,0,0,-1,1,-1,0,0,0,0,-1,0),
+          "4 minus 8"=c(0,0,0,0,0,0,0,0,0,-1,0,0,0,0,0,-1),
+          "5 minus 6"=c(0,0,0,0,0,0,-1,0,0,0,0,0,0,-1,0,0),
+          "5 minus 7"=c(0,0,0,0,0,0,0,-1,0,0,0,0,0,0,-1,0),
+          "5 minus 8"=c(0,0,0,0,0,0,0,0,-1,0,0,0,0,0,0,-1),
+          "6 minus 7"=c(0,0,0,0,0,0,1,-1,0,0,0,0,0,1,-1,0),
+          "6 minus 8"=c(0,0,0,0,0,0,1,0,-1,0,0,0,0,1,0,-1),
+          "7 minus 8"=c(0,0,0,0,0,0,0,1,-1,0,0,0,0,0,1,-1))
+        for (j in 1:length(level_names)){
+          rownames(contrast_matrix) <- gsub(j,level_names[j],rownames(contrast_matrix))
+        }
+        
+      }else{print("TOO MANY TASK GROUP LEVELS _ CANNOT COPE")}
+      posthoc_groups_treatment_task_groups        <- list(get_posthoc_groups(model=model,contrast_matrix=contrast_matrix,which_levels="level_names",dataset=data, level_names=level_names))
+      names(posthoc_groups_treatment_task_groups) <- variable_list[i]
+      post_hoc_outcomes                           <- c(post_hoc_outcomes,posthoc_groups_treatment_task_groups)
+      
+    }else{
+      
+      ### fit model - using treatment
+      model <- lmer(   variable ~ period*treatment + (1|time_of_day) + (1|colony) + (1|antID) ,data=data ,control = model_n_interations)
+      anov  <- anova(model)
+      p_interaction_treatment <- anov["period:treatment","Pr(>F)"]
+      
+      stats_outcomes <- rbind(stats_outcomes,data.frame(variable=variable_list[i],predictor="period:treatment",df=paste(round(anov["period:treatment","NumDF"]),round(anov["period:treatment","DenDF"]),sep=","),Fvalue=anov["period:treatment","F value"],pval=p_interaction_treatment,stringsAsFactors = F))
+      ### check interaction
+      if (p_interaction_treatment<=0.05){
+        test_norm(residuals(model))
+        # print("Significant interaction between 4-way treatment and period.")
+        # print(anov)
+        
+        contrast_matrix <- rbind(
+          "Delta_control.small minus Delta_control.big"=c(0,0,0,0,0,-1,0,0),
+          "Delta_control.small minus Delta_pathogen.small"=c(0,0,0,0,0,0,-1,0),
+          "Delta_control.small minus Delta_pathogen.big"=c(0,0,0,0,0,0,0,-1),
+          "Delta_control.big minus Delta_pathogen.small"=c(0,0,0,0,0,1,-1,0),
+          "Delta_control.big minus Delta_pathogen.big"=c(0,0,0,0,0,1,0,-1),
+          "Delta_pathogen.small minus Delta_pathogen.big"=c(0,0,0,0,0,0,1,-1))
+                posthoc_groups_treatments        <- list(get_posthoc_groups(model=model,contrast_matrix=contrast_matrix,which_levels="treatment_order",dataset=data))
+        names(posthoc_groups_treatments) <- variable_list[i]
+        post_hoc_outcomes                <- c(post_hoc_outcomes,posthoc_groups_treatments)
+        }else{
+        # print( "Interaction between 4-way treatment and period is not significant:")
+        # print(anov["period:treatment",])
+        
+        ### if interaction with treatment is not significant, repeat analysis, but separating size and exposure
+        ### fit model 
+        model <- lmer(   variable ~ period*exposure + period*size + (1|time_of_day) + (1|colony) + (1|antID),data=data ,control = model_n_interations)
+        anov  <- anova(model)
+        p_interaction_exposure <- anov["Pr(>F)"]["period:exposure","Pr(>F)"]
+        p_interaction_size     <- anov["Pr(>F)"]["period:size","Pr(>F)"] 
+        
+        if (p_interaction_size<=0.05&p_interaction_exposure<=0.05){
+          stats_outcomes <- rbind(stats_outcomes,data.frame(variable=variable_list[i],predictor="period:exposure",df=paste(round(anov["period:exposure","NumDF"]),round(anov["period:exposure","DenDF"]),sep=","),Fvalue=anov["period:exposure","F value"],pval=anov["period:exposure","Pr(>F)"],stringsAsFactors = F))
+          stats_outcomes <- rbind(stats_outcomes,data.frame(variable=variable_list[i],predictor="period:size",df=paste(round(anov["period:size","NumDF"]),round(anov["period:size","DenDF"]),sep=","),Fvalue=anov["period:size","F value"],pval=anov["period:size","Pr(>F)"],stringsAsFactors = F))
+          
+          test_norm(residuals(model))
+          # print("Significant interaction between exposure (pathogen vs solvent) and period, AND significant interaction beween size (small vs big) and period.")
+          # print(anov)
+          
+          contrast_matrix_exposure <- rbind("Delta_control minus Delta_pathogen"=c(0,0,0,0,-1,0))
+          contrast_matrix_size     <- rbind("Delta_small minus Delta_big"=c(0,0,0,0,0,-1))
+          
+          posthoc_groups_exposure <- get_posthoc_groups(model=model,contrast_matrix=contrast_matrix_exposure,which_levels="exposure_order",dataset=data)
+          posthoc_groups_size     <- get_posthoc_groups(model=model,contrast_matrix=contrast_matrix_size    ,which_levels="size_order",dataset=data)
+          
+        }else{
+          if (p_interaction_size>p_interaction_exposure){ 
+            ### if interaction with size is not significant and greater than interaction with exposure, repeat analysis, but exposure only
+            # print( "Interaction between size and period is not significant:")
+            # print(anov["period:size",])
+            stats_outcomes <- rbind(stats_outcomes,data.frame(variable=variable_list[i],predictor="period:size",df=paste(round(anov["period:size","NumDF"]),round(anov["period:size","DenDF"]),sep=","),Fvalue=anov["period:size","F value"],pval=anov["period:size","Pr(>F)"],stringsAsFactors = F))
+            
+            ### fit model 
+            model <- lmer(   variable ~ period*exposure + (1|time_of_day) + (1|colony) + (1|antID),data=data ,control = model_n_interations)
+            anov  <- anova(model)
+            test_norm(residuals(model))
+            for (rowi in 1:nrow(anov)){
+              stats_outcomes <- rbind(stats_outcomes,data.frame(variable=variable_list[i],predictor=rownames(anov[rowi,]),df=paste(round(anov[rowi,"NumDF"]),round(anov[rowi,"DenDF"]),sep=","),Fvalue=anov[rowi,"F value"],pval=anov[rowi,"Pr(>F)"],stringsAsFactors = F))
+            }
+            
+            p_interaction_exposure <- anov["Pr(>F)"]["period:exposure","Pr(>F)"]
+            if (p_interaction_exposure>0.05){
+              # print( "Interaction between exposure and period is not significant:")
+              # print(anov["period:exposure",])
+              
+            }else{
+              contrast_matrix_exposure <- rbind("Delta_control minus Delta_pathogen"=c(0,0,0,-1))
+              
+              posthoc_groups_exposure <- list(get_posthoc_groups(model=model,contrast_matrix=contrast_matrix_exposure,which_levels="exposure_order",dataset=data))
+              names(posthoc_groups_exposure) <- variable_list[i]
+              post_hoc_outcomes                <- c(post_hoc_outcomes,posthoc_groups_exposure)
+              # print( "Significant interaction between exposure and period:")
+              # print(anov)
+            }
+          }else{
+            ### if interaction with exposure is not significant and greater than interaction with size, repeat analysis, but size only
+            stats_outcomes <- rbind(stats_outcomes,data.frame(variable=variable_list[i],predictor="period:exposure",df=paste(round(anov["period:exposure","NumDF"]),round(anov["period:exposure","DenDF"]),sep=","),Fvalue=anov["period:exposure","F value"],pval=anov["period:exposure","Pr(>F)"],stringsAsFactors = F))
+            # print( "Interaction between exposure and period is not significant:")
+            # print(anov["period:exposure",])
+            # 
+            ###fit model 
+            model <- lmer(   variable ~ period*size + (1|time_of_day) + (1|colony) + (1|antID),data=data ,control = model_n_interations)
+            anov  <- anova(model)
+            test_norm(residuals(model))
+            for (rowi in 1:nrow(anov)){
+              stats_outcomes <- rbind(stats_outcomes,data.frame(variable=variable_list[i],predictor=rownames(anov[rowi,]),df=paste(round(anov[rowi,"NumDF"]),round(anov[rowi,"DenDF"]),sep=","),Fvalue=anov[rowi,"F value"],pval=anov[rowi,"Pr(>F)"],stringsAsFactors = F))
+            }
+            
+            p_interaction_size <- anov["Pr(>F)"]["period:size","Pr(>F)"]
+            if (p_interaction_size>0.05){
+              # print( "Interaction between size and period is not significant:")
+              # print(anov)
+              
+            }else{
+              # print( "Significant interaction between size and period:")
+              # print(anov)
+              contrast_matrix_size <- rbind("Delta_small minus Delta_big"=c(0,0,0,-1))
+              
+              posthoc_groups_size <- list(get_posthoc_groups(model=model,contrast_matrix=contrast_matrix_size,which_levels="size_order",dataset=data))
+              names(posthoc_groups_size) <- variable_list[i]
+              post_hoc_outcomes                <- c(post_hoc_outcomes,posthoc_groups_size)
+            }
+          }
+        }
+      }
+    }
+    rm(list=ls()[which(grepl("p_interaction",ls()))])
+    rm(list=ls()[which(grepl("posthoc_groups_",ls()))])
+    
+    barplot_delta_period <- barplot_delta(dataset=data,predictor="treatment",post_hoc_outcomes=post_hoc_outcomes,stats_outcomes=stats_outcomes,i=i,type="individual",collective=F,plot_untransformed=F,diff_type="absolute_difference") #form_stat=NULL,
+    if (showPlot) {print(barplot_delta_period)}
+    
+    barplot_delta_period_list[[variable_list[i]]]        <- barplot_delta_period
+    ## add cleaning step
+    # post_hoc_outcomes1 <- c(post_hoc_outcomes1,post_hoc_outcomes)
+    # stats_outcomes1    <- c(stats_outcomes1,stats_outcomes)
+    # 
+    # rm(list = ls()[which(names(ls()) == "post_hoc_outcomes")])
+    # rm(list = ls()[which(names(ls()) == "stats_outcomes")])
+  }
+  rownames(stats_outcomes) <- NULL
+  
+  # add  formatted output
+  stats_outcomes$formatted <- paste0("(GLMM,treatment-induced changes (", stats_outcomes$variable,", ",stats_outcomes$predictor,"): F(",stats_outcomes$df,") = ", round(stats_outcomes$Fvalue,3), ", P ≤ ",format(from_p_to_prounded(stats_outcomes$pval),scientific=F),")")
+  return(list(stats_outcomes=stats_outcomes,    post_hoc_outcomes=post_hoc_outcomes,  barplot_delta_period_list=barplot_delta_period_list))
+}
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 5.28 line_plot() ####
+line_plot <- function(data_path, which_individuals,showPlot=T){
+  ### 1. read data
+  setwd(data_path)
+  file_list <- list.files(pattern=pattern)
+  print(file_list)
+  warning("this function is not well generalised")
+  data <- NULL
+  for (file in file_list){
+    data <- rbind(data,read.table(file,header=T,stringsAsFactors = F))  
+  }
+  ## remove any duplicated line
+  data <- data[which(!duplicated(data)),]
+  
+  ## 2a. Extract exposure and size from treatment column
+  data$exposure <- unlist(lapply( data$treatment, function(x)  unlist(strsplit(x,split="\\.") )[1]  ))
+  data$size     <- unlist(lapply( data$treatment, function(x)  unlist(strsplit(x,split="\\.") )[2]  ))
+  
+  ## 2b. add information on task group
+  if (pattern=="individual_behavioural_data") {
+    task_groups <- read.table(paste(root_path,"original_data",task_group_file,sep="/"),header=T,stringsAsFactors = F)
+    task_groups <- task_groups[which(!duplicated(task_groups)),]
+    data        <- merge(data,task_groups[c("colony","tag","task_group")],all.x=T,all.y=F)
+    
+  } else if (pattern=="individual_data") {
+    #make sure that the task_group is named correctly
+    data$task_group <- data$status 
+    data$status     <- NULL
+    treated_worker_list <- read.table(paste(root_path,"original_data","treated_worker_list.txt",sep="/"),header=T,stringsAsFactors = F)
+    treated_worker_list <- treated_worker_list[which(!duplicated(treated_worker_list)),]
+    treated_worker_list$status <- "treated"
+    data        <- merge(data,treated_worker_list[c("colony","tag","status")],all.x=T,all.y=F) 
+    data[which(is.na(data$status)),"status"] <- "untreated"
+  } 
+  
+  data[which(data$status=="treated"),"task_group"] <- "treated"
+  
+  ## 2c. keep only target individuals
+  data <- data[which(data$task_group%in%which_individuals),]
+  
+  ## 2d.  ###add a unique antid column
+  data <- within(data,antID <- paste(colony,tag,sep="_"))
+  
+  ### 2. Loop over variables
+  data_ori <- data
+  
+  line_plot_obj_list <- list()
+  
+  for (i in 1:length(variable_list)){
+    print(paste0("######## ",variable_list[i]," ########"))
+    data <- data_ori
+    
+    
+    ###create a variable column
+    data$untransformed_variable <- data[,variable_list[i]]
+    # 
+    # ###transform variable
+    # if (transf_variable_list[i]=="log"){
+    #   print("Logging variable...")
+    #   data[!is.na(data$untransformed_variable),"variable"] <- log_transf(data[!is.na(data$untransformed_variable),"untransformed_variable"] )
+    # }else if (grepl("power",transf_variable_list[i])){
+    #   data[!is.na(data$untransformed_variable),"variable"]  <- (data[!is.na(data$untransformed_variable),"untransformed_variable"] )^as.numeric(gsub("power","",transf_variable_list[i]))
+    # }else if (transf_variable_list[i]=="sqrt"){
+    #   data[!is.na(data$untransformed_variable),"variable"]  <- sqrt_transf(data[!is.na(data$untransformed_variable),"untransformed_variable"] )
+    # }else if (transf_variable_list[i]=="none"){
+    #   data$variable <- data$untransformed_variable
+    # }
+    #hist(data$variable, breaks = 100)
+    ###statistics
+    ###make sure treatment, exposure, size and period are factors with levels in the desired order
+    data$treatment <- factor(data$treatment , levels=treatment_order[which(treatment_order%in%data$treatment )])
+    data$size      <- factor(data$size    , levels=size_order   [which(size_order%in%data$size )])
+    data$exposure  <- factor(data$exposure , levels=exposure_order[which(exposure_order%in%data$exposure )])
+    data$period    <- factor(data$period    , levels=period_order   [which(period_order%in%data$period )])
+    data$antID     <- factor( data$antID )
+    
+   # 1. Calculate the mean of the untransformed_variable by tag
+    mean_data <- aggregate(untransformed_variable ~ period + time_hours + treatment + colony, 
+                           FUN = mean, na.rm = T, na.action = na.pass, data)
+    
+    # 2. Calculate the grand mean and standard error dropping the colony factor
+    grand_mean_data <- mean_data %>%
+      group_by(period, time_hours, treatment) %>%
+      summarise(grand_mean = mean(untransformed_variable),
+                standard_error = sd(untransformed_variable) / sqrt(n()))
+    
+    # Add NA values at time_hours == -3
+    unique_treatments <- unique(grand_mean_data$treatment)
+    unique_periods <- unique(grand_mean_data$period)
+    na_rows <- expand.grid(period = unique_periods,
+                           time_hours = -3,
+                           treatment = unique_treatments,
+                           grand_mean = NA,
+                           standard_error = NA)
+    
+    grand_mean_data <- rbind(grand_mean_data, na_rows) %>%
+      arrange(treatment, period, time_hours)
+    
+    # 3. Create a ggplot geom_line with geom_ribbon for the untransformed_variable
+    line_plot_obj <- ggplot(grand_mean_data, aes(x = time_hours, y = grand_mean, color = treatment, group = treatment)) +
+      geom_line() +
+      geom_ribbon(aes(ymin = grand_mean - standard_error, ymax = grand_mean + standard_error, fill = treatment), alpha = 0.2) +
+      scale_x_continuous(limits = c(min(grand_mean_data$time_hours), max(grand_mean_data$time_hours)), expand = c(0, 0)) +
+      labs(#title = "Prop Time Outside by Time Hours and Treatment",
+        x = "Time Hours since treatment exposure",
+        y = names(variable_list[i])
+      ) +
+      STYLE +
+      colFill_treatment +
+      colScale_treatment
+    
+    if (showPlot) {print(line_plot_obj)}
+    line_plot_obj_list[[variable_list[i]]]        <- line_plot_obj
+  }
+  return(line_plot_obj_list)
+}
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 5.29 barplot_delta() ####
+
+barplot_delta <- function(dataset,
+           predictor,
+           post_hoc_outcomes,
+           stats_outcomes,
+           i, #variable number
+           type,
+           collective,
+           plot_untransformed=F,# better to set it to FALSE as it will match the post-hoc letters!
+           diff_type,
+           pre_only=F) {
+    #form_stat=NULL,
+    
+    if (pre_only!=TRUE) {
+      #get difference on RAW data
+      diff <-
+        create_diff(dataset,
+                    predictor,
+                    type,
+                    collective,
+                    plot_untransformed,
+                    diff_type) #form_stat=NULL,
+      diff["time"] <- "Delta"
+    } else{
+      diff <- dataset
+      diff$predictor <- diff[, predictor]
+      diff["time"] <- "pre"
+    }
+    
+    if (!collective) {
+      # I SUM BY INDIVIDUAL, THEN MEAN AFTER
+      diff <-
+        aggregate(
+          na.rm = T,
+          na.action = "na.pass",
+          variable ~ predictor + colony_size + colony + time + tag + task_group,
+          FUN = mean,
+          data = diff
+        )
+    }
+    
+    
+    #mean by colony (drop time_of_day)
+    diff <-
+      aggregate(
+        na.rm = T,
+        na.action = "na.pass",
+        as.formula(paste("variable ~ predictor + colony_size + colony + time",
+                         if (!collective) "+ task_group")),
+        FUN = mean,
+        data = diff
+      )
+    
+    means <-
+      aggregate(
+        na.rm = T,
+        na.action = "na.pass",
+        as.formula(paste("variable ~ time + predictor",
+                         if (!collective) "+ task_group")),
+        FUN = "mean",
+        data = diff
+      )
+    ses <-
+      aggregate(
+        na.rm = T,
+        na.action = "na.pass",
+        as.formula(paste("variable ~ time + predictor",
+                         if (!collective) "+ task_group")),
+        FUN = "std.error",
+        data = diff
+      )
+    
+    names(means)[names(means) == "variable"] <-
+      "mean"
+    names(ses)[names(ses) == "variable"] <-
+      "se"
+    means <- merge(means, ses)
+    means <-
+      means[order(match(means$predictor, status_order),
+                  match(means$time, status_order)), ]
+    #to_plot <- unique(means[c("time","predictor")])
+    
+    ###  PLOT ###
+    # significant letters/stars position
+    max_mean_se <- 1.2 * max(means$mean + means$se)
+    # rename vars
+    
+    if (pre_only!=TRUE) {
+      
+      # if interaction period*treatment
+      if (all(grepl(paste0(levels(dataset$treatment), collapse = "|"), names(post_hoc_outcomes[[variable_list[i]]])))
+          #all(names(post_hoc_outcomes[[variable_list[i]]]) == levels(dataset$treatment))
+      ) {
+        print("period*treatment interaction significant")
+        
+        # Create the base ggplot object
+        plot_var <-
+          ggplot(means,
+                 aes_string(x = "predictor", y = "mean", fill = "predictor")) +
+          STYLE +
+          colFill_treatment +
+          labs(y = paste("\u0394", names(variable_list[i]),
+                         ifelse(transf_variable_list[i] == "none", "", paste0("(", transf_variable_list[i], ")")), #transformation
+                         sep = " "), x = predictor)
+        
+        
+        # if there are two ants groups
+        if (any(grepl("task_group", stats_outcomes[which(stats_outcomes$variable == variable_list[i]),"predictor"])) ) {
+          
+          col_geom <-         list( 
+            geom_errorbar(
+              aes_string(ymin = paste0("mean - se"), ymax = paste0("mean + se"),group="task_group"),
+              position = position_dodge2(width = 0.8, preserve = "single"),
+              color="black"
+            ) ,
+            geom_col(position = position_dodge2(width = 0.8, preserve = "single"), aes_string(col = "task_group"), size = 0.8
+            ),
+            scale_color_manual(values = c("#00FFFF", "#FF00FF"))
+          )
+          
+          plot_var <- plot_var + col_geom
+        } else {
+          
+          col_geom <- list(
+            geom_errorbar(
+              aes_string(ymin = paste0("mean - se"), ymax = paste0("mean + se")),
+              position = position_dodge2(width = 0.8, preserve = "single")
+            ) ,
+            geom_col(position = position_dodge2(width = 0.8, preserve = "single"))
+          )
+          plot_var <- plot_var + col_geom
+        }
+        
+       # add posthoc letters
+        if (variable_list[i] %in% names(post_hoc_outcomes)) {
+          # if there are two ants groups
+          # first if: check if task_group appears in the predictors
+          # second if: return true if stats_outcomes$pval is lower than 0.05 for row that grep "task" in stats_outcomes$predictor
+          if (any(grepl("task_group", stats_outcomes[which(stats_outcomes$variable == variable_list[i]),"predictor"])
+                  &  ifelse(grepl("task_group", stats_outcomes$predictor) & stats_outcomes$pval < 0.05, TRUE, FALSE))
+          ) {
+            
+            reshaped_posthocs <- data.frame(predictor = names(post_hoc_outcomes[[variable_list[i]]]), letters = post_hoc_outcomes[[variable_list[i]]], stringsAsFactors = FALSE)
+            
+            reshaped_posthocs$task_group <-  sub(".*\\.(.*)", "\\1", reshaped_posthocs$predictor)
+            reshaped_posthocs$predictor <- sub("\\.[^.]*$", "", reshaped_posthocs$predictor)
+            
+            warning("geom_text faulty, as it shows letters inverted in each treatment. temporary fix: coloured the letters to help readability")
+            additional_geoms <- list(geom_text(data = reshaped_posthocs,
+                                               aes(label = letters, x = predictor, y = max_mean_se, col  = task_group, group= task_group),
+                                               position = position_dodge2(width = 0.8, preserve = "single"),
+                                               vjust = -0.4
+            ))
+            plot_var <- plot_var + additional_geoms
+            
+            #normal condition (4 groups)
+          }else{
+            
+            reshaped_posthocs <- data.frame(predictor = names(post_hoc_outcomes[[variable_list[i]]]), letters = post_hoc_outcomes[[variable_list[i]]], stringsAsFactors = FALSE)
+            reshaped_posthocs <- merge(reshaped_posthocs,means)
+            
+            # adjust position of letters if vals are negative
+            reshaped_posthocs$se <- ifelse(reshaped_posthocs$mean+reshaped_posthocs$se<0,
+                                           0,
+                                           reshaped_posthocs$se)
+            reshaped_posthocs$mean <- ifelse(reshaped_posthocs$mean<0,0,reshaped_posthocs$mean)
+            
+            additional_geoms <- list(geom_text(data = reshaped_posthocs,
+                                               aes(label = letters, x = predictor, y = mean+se),
+                                               position = position_dodge2(width = 0.8, preserve = "single"),
+                                               vjust = -0.4
+            ))
+            
+            #   list(geom_text(
+            #   aes(label = post_hoc_outcomes[[variable_list[i]]][predictor], y = max_mean_se),
+            #   position = position_dodge2(width = 0.8, preserve = "single"),
+            #   vjust = -0.4
+            # ))
+            plot_var <- plot_var + additional_geoms
+          }
+        }
+        
+        # manage x axis labels
+        if (predictor == "treatment") {
+          scale_geom <- list(scale_x_discrete(
+            labels = function(x)
+              str_wrap(gsub("big", "large", gsub("\\.", " ", x)), width = 4)
+          ))
+          plot_var <- plot_var + scale_geom
+        } else{
+          scale_geom <- list(scale_x_continuous(
+            labels = function(x)
+              str_wrap(x, width = 4),
+            breaks = 1:length(levels(means$predictor)) + c(0, 0, 1, 1)
+          ))
+          plot_var <- plot_var + scale_geom
+        }
+        
+        
+      } else if (all(names(post_hoc_outcomes[[variable_list[i]]]) == levels(dataset$size))
+      ) {
+        print("Only period*size interaction significant")
+        
+        # Reorder the vector by size
+        treatment_order_size <-
+          treatment_order[order(grepl("small", treatment_order, fixed = TRUE), decreasing = TRUE)]
+        means$predictor <-
+          factor(means$predictor , levels = treatment_order_size[which(treatment_order_size %in% means$predictor)])
+        # Add a new variable for grouping and x-axis
+        means$group <-
+          ifelse(grepl("small", means$predictor), "small", "big")
+        #create a gap in the layout add a +1 to the big colonies
+        means$x_axis <-
+          as.numeric(means$predictor) + ifelse(means$group == "big", 1, 0)
+        
+        # Create the base ggplot object
+        plot_var <-
+          ggplot(means, aes(x = x_axis, y = mean, fill = predictor)) +
+          geom_errorbar(aes(ymin = mean - se, ymax = mean + se),
+                        position = position_dodge2(width = 0.8, preserve = "single")) +
+          geom_col(position = position_dodge2(width = 0.8, preserve = "single")) +
+          STYLE +
+          colFill_treatment +
+          labs(y = paste("\u0394", names(variable_list[i]),
+                         ifelse(transf_variable_list[i] == "none", "", paste0("(", transf_variable_list[i], ")")), #transformation
+                         sep = " "), x = predictor) +
+          theme(axis.text.x = element_text())
+        
+        # manage x axis labels
+        if (predictor == "treatment") {
+          scale_geom <- list(scale_x_continuous(
+            labels = function(x)
+              str_wrap(gsub("big", "large", gsub("\\.", " ", x)), width = 4),
+            breaks = 1:length(levels(means$predictor)) + c(0, 0, 1, 1)
+          ))
+          plot_var <- plot_var + scale_geom
+        } else{
+          scale_geom <- list(scale_x_continuous(
+            labels = function(x)
+              str_wrap(x, width = 4),
+            breaks = 1:length(levels(means$predictor)) + c(0, 0, 1, 1)
+          ))
+          plot_var <- plot_var + scale_geom
+        }
+        
+        
+        # Add bar with significant stars 
+        # (for more than 1 element in the ggplot if statement, there is the error: Error in `+.gg`:! Cannot add ggproto objects together )
+        if (variable_list[i] %in% names(post_hoc_outcomes)) {
+          additional_geoms <- list(geom_segment(
+            aes(
+              x = sum(x_axis[group == "small"]) / 2,
+              xend = sum(x_axis[group == "big"]) / 2,
+              y = abs(max_mean_se),
+              yend = abs(max_mean_se)
+            )
+          ),
+          geom_text(
+            aes(
+              x = mean(x_axis),
+              y = abs(max_mean_se + 1 / 2 * (max_mean_se)),
+              label = paste(from_p_to_ptext(stats_outcomes[which(
+                stats_outcomes$variable == variable_list[i] &
+                  stats_outcomes$predictor == "period:size"
+              ), "pval"]),collapse="")
+            )
+          ))
+          plot_var <- plot_var + additional_geoms
+        }
+        
+      } else if (
+        all(names(post_hoc_outcomes[[variable_list[i]]]) %in% levels(dataset$exposure)) #&&
+        #all(levels(dataset$exposure) %in% names(post_hoc_outcomes[[variable_list[i]]])) #extra recursivness
+      ) {
+        print("Only period*exposure interaction significant")
+        
+        # Reorder the vector by size
+        treatment_order_exp <-
+          treatment_order[order(grepl("control", treatment_order, fixed = TRUE),
+                                decreasing = TRUE)]
+        means$predictor <-
+          factor(means$predictor , levels = treatment_order_exp[which(treatment_order_exp %in% means$predictor)])
+        # Add a new variable for grouping and x-axis
+        means$group <-
+          ifelse(grepl("control", means$predictor), "control", "pathogen")
+        #create a gap in the layout add a +1 to the pathogen colonies
+        means$x_axis <-
+          as.numeric(means$predictor) + ifelse(means$group == "pathogen", 1, 0)
+        
+        # Create the base ggplot object
+        plot_var <-
+          ggplot(means, aes(x = x_axis, y = mean, fill = predictor)) +
+          geom_errorbar(aes(ymin = mean - se, ymax = mean + se),
+                        position = position_dodge2(width = 0.8, preserve = "single")) +
+          geom_col(position = position_dodge2(width = 0.8, preserve = "single")) +
+          STYLE +
+          colFill_treatment +
+          labs(y = paste("\u0394", names(variable_list[i]),
+                         ifelse(transf_variable_list[i] == "none", "", paste0("(", transf_variable_list[i], ")")), #transformation
+                         sep = " "), x = predictor) +
+          theme(axis.text.x = element_text())
+        
+        # manage x axis labels
+        if (predictor == "treatment") {
+          scale_geom <- list(scale_x_continuous(
+            labels = function(x)
+              str_wrap(gsub("big", "large", gsub("\\.", " ", x)), width = 4),
+            breaks = 1:length(levels(means$predictor)) + c(0, 0, 1, 1)
+          ))
+          plot_var <- plot_var + scale_geom
+        } else{
+          scale_geom <- list(scale_x_continuous(
+            labels = function(x)
+              str_wrap(x, width = 4),
+            breaks = 1:length(levels(means$predictor)) + c(0, 0, 1, 1)
+          ))
+          plot_var <- plot_var + scale_geom
+        }
+        # 
+        # Add bar with significant stars
+        # for more than 1 element in the ggplot if statement, there is the error: Error in `+.gg`:! Cannot add ggproto objects together )
+        if (variable_list[i] %in% names(post_hoc_outcomes)) {
+          
+          
+          additional_geoms <- list(geom_segment(
+            aes(
+              x = sum(x_axis[group == "control"]) / 2,
+              xend = sum(x_axis[group == "pathogen"]) / 2,
+              y = abs(max_mean_se),
+              yend = abs(max_mean_se)
+            )
+          ),
+          
+          geom_text(
+            aes(
+              x = mean(x_axis),
+              y = abs(max_mean_se + 1 / 2 * (max_mean_se)),
+              label = paste(from_p_to_ptext(stats_outcomes[which(
+                stats_outcomes$variable == variable_list[i] &
+                  stats_outcomes$predictor == "period:exposure"
+              ), "pval"]),collapse="")
+            )
+          ))
+          plot_var <- plot_var + additional_geoms #+ geom_text(aes(label = ''))
+          
+          # print(paste0("*****************************************
+          #              \nFAULTY GEOM!!!\n",stats_outcomes[which(
+          #       stats_outcomes$variable == variable_list[i] &
+          #         stats_outcomes$predictor == "period:exposure"
+          #     ), "pval"]))
+        }
+        
+      }else{
+        plot_var <- plot_var + geom_text(aes(label = '')) #add empty label
+      }
+      
+      if(!all(grepl(paste0(levels(dataset$treatment), collapse = "|"), names(post_hoc_outcomes[[variable_list[i]]])))){#not main int sig
+        if (all(names(post_hoc_outcomes[[variable_list[i]]]) == levels(dataset$size)) && # size is sign
+            all(names(post_hoc_outcomes[[variable_list[i]]]) %in% levels(dataset$exposure)) #exp is sign
+        ) {
+          warning("both period*exposure and period*size are significant. There is currently no plotting contidion for that")
+        }}
+      
+    }else{ # if pre_only==TRUE
+      
+      # Create the base ggplot object
+      plot_var <-
+        ggplot(means,
+               aes_string(x = "predictor", y = "mean", fill = "predictor")) +
+        geom_errorbar(aes(ymin = mean - se, ymax = mean + se),
+                      position = position_dodge2(width = 0.8, preserve = "single")) +
+        geom_col(position = position_dodge2(width = 0.8, preserve = "single")) +
+        STYLE +
+        colFill_treatment +
+        labs(y = paste("pre period ", names(variable_list[i]),
+                       ifelse(transf_variable_list[i] == "none", "", paste0("(", transf_variable_list[i], ")")), #transformation
+                       sep = " "), x = predictor)
+      
+      
+      # Add significant stars 
+      if (variable_list[i] %in% stats_outcomes$variable) {
+        additional_geoms <- list(
+          geom_text(
+            aes(
+              x = mean(as.numeric(means$predictor)),
+              y = abs(max_mean_se), # + 1 / 2 * (max_mean_se)
+              label = paste(from_p_to_ptext(stats_outcomes[which(
+                stats_outcomes$variable == variable_list[i] &
+                  stats_outcomes$predictor == "size"
+              ), "pval"]),collapse="")
+            )
+          ))
+        plot_var <- plot_var + additional_geoms
+      }
+      
+    }
+    
+    
+    #legend modifiers (2 rows and changed labs)
+    plot_var <- plot_var +
+      guides(fill = guide_legend(nrow = 2))
+    # +guides(fill = "none")   # remove treatment legend
+    
+    
+    return(plot_var)
+}
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 5.29 create_diff() ####
+
+create_diff <- function(dataset,
+           predictor,
+           type,
+           collective,
+           plot_untransformed,
+           diff_type) {
+    #form_stat=NULL,
+    if (is.null(dataset)) {
+      return(NULL)
+    } else{
+      
+      ### plot ### ### ### ### ### ### ### ### ### ### ### 
+      
+      dataset$predictor <- dataset[, predictor]
+      befores <-
+        dataset[dataset$period == "pre", ]
+      afters <- dataset[dataset$period == "post", ]
+      # print(plot_untransformed)
+      if (!plot_untransformed) {
+        names(befores)[names(befores) == "variable"] <-
+          "variable_before"
+        names(afters)[names(afters) == "variable"] <- "variable_after"
+      } else{
+        names(befores)[names(befores) == "untransformed_variable"] <-
+          "variable_before"
+        names(afters)[names(afters) == "untransformed_variable"] <-
+          "variable_after"
+      }
+      # if ((!all(!grepl(":treatment:predictor",as.character(form_stat))))|(!all(!grepl(" \\* treatment \\* predictor",as.character(form_stat))))){
+      #   befores <- aggregate(na.rm=T,na.action="na.pass",variable_before~colony_size+colony+predictor+treatment+antid+time_of_day,FUN=mean,data=befores)
+      #   afters <- aggregate(na.rm=T,na.action="na.pass",variable_after~colony_size+colony+predictor+treatment+antid+time_of_day,FUN=mean,data=afters)
+      # }else{
+      # if (!grepl("age",root_path)){
+      
+      if (collective | type != "individual") {
+        befores <-
+          aggregate(
+            na.rm = T,
+            na.action = "na.pass",
+            variable_before ~ colony_size + colony + predictor + size + time_of_day,
+            FUN = mean,
+            data = befores
+          )
+        afters <-
+          aggregate(
+            na.rm = T,
+            na.action = "na.pass",
+            variable_after ~ colony_size + colony + predictor + size + time_of_day,
+            FUN = mean,
+            data = afters
+          )
+      } else{
+        befores <-
+          aggregate(
+            na.rm = T,
+            na.action = "na.pass",
+            variable_before ~ colony_size + colony + predictor + size + tag + time_of_day + task_group,
+            FUN = mean,
+            data = befores
+          )
+        afters <-
+          aggregate(
+            na.rm = T,
+            na.action = "na.pass",
+            variable_after ~ colony_size + colony + predictor + size + tag + time_of_day + task_group,
+            FUN = mean,
+            data = afters
+          )
+      }
+      # } #else{
+      #   if (collective){
+      #     befores <- aggregate(na.rm=T,na.action="na.pass",variable_before~colony_size+colony+treatment+time_of_day,FUN=mean,data=befores)
+      #     afters <- aggregate(na.rm=T,na.action="na.pass",variable_after~colony_size+colony+treatment+time_of_day,FUN=mean,data=afters)
+      #   }else{
+      #     if(type!="individual"){
+      #       befores <- aggregate(na.rm=T,na.action="na.pass",variable_before~colony_size+colony+predictor+treatment+time_of_day,FUN=mean,data=befores)
+      #       afters <- aggregate(na.rm=T,na.action="na.pass",variable_after~colony_size+colony+predictor+treatment+time_of_day,FUN=mean,data=afters)
+      #     }else{
+      #       befores <- aggregate(na.rm=T,na.action="na.pass",variable_before~colony_size+colony+predictor+treatment+antid+time_of_day,FUN=mean,data=befores)
+      #       afters <- aggregate(na.rm=T,na.action="na.pass",variable_after~colony_size+colony+predictor+treatment+antid+time_of_day,FUN=mean,data=afters)
+      #     }
+      #   }
+      # }
+      # }
+      # befores["average_before"] <- mean(befores$variable_before,na.rm=T)
+      
+      diff <- merge(befores, afters, all = T)
+      # if (diff_type=="absolute_difference"){
+      diff["variable"] <-
+        diff$variable_after - diff$variable_before
+      # diff[""] <- "diff"
+      # }
+      # if (diff_type=="normalised_by_average_before"){
+      #   standardisation <- aggregate(variable_before ~ size , FUN=mean,data=befores)
+      #   names(standardisation)[which(names(standardisation)=="variable_before")] <- "average_before"
+      #   befores <- merge(standardisation,befores,all.x=T)
+      #   diff["variable"] <- (diff$variable_after-diff$variable_before)/diff$average_before; # diff[""] <- "diff"
+      # }
+      # if (diff_type=="relative_difference"){
+      #   diff["variable"] <- diff$variable_after-diff$variable_before; diff[""] <- "diff"
+      #   if ("treatment"%in%names(diff)){
+      #     diff_1 <- diff[which(as.character(diff$treatment)==levels(diff$treatment)[1]),]
+      #     diff <- diff[which(!as.character(diff$treatment)==levels(diff$treatment)[1]),]
+      #     diff_1 <- aggregate(na.rm=T,na.action="na.pass",variable~predictor,FUN=get(relative_function),data=diff_1)
+      #     names(diff_1)[names(diff_1)=="variable"] <- "mean_diff_1"
+      #     diff <- merge(diff,diff_1,all.x=T)
+      #     diff$variable <- diff$variable-diff$mean_diff_1
+      #     diff <- diff[,which(names(diff)!="mean_diff_1")]
+      #   }else{
+      #     diff_1 <- diff[which(as.character(diff$predictor)==levels(diff$treatment)[1]),]
+      #     diff <- diff[which(!as.character(diff$predictor)==levels(diff$treatment)[1]),]
+      #
+      #     diff_1 <- aggregate(na.rm=T,na.action="na.pass",variable~1,FUN=get(relative_function),data=diff_1)
+      #     names(diff_1)[names(diff_1)=="variable"] <- "mean_diff_1"
+      #
+      #     diff <- merge(diff,diff_1,all.x=T)
+      #     diff$variable <- diff$variable-diff$mean_diff_1
+      #     diff <- diff[,which(names(diff)!="mean_diff_1")]
+      #
+      #   }
+      #
+      #
+      # }
+      #if (!grepl("age",root_path)){diff$predictor <- factor(diff$predictor)}else{diff$treatment <- factor(diff$treatment)}
+      
+      return(diff)
+    }
+  }
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 5.30 read_data() ####
+
+read_data <- function(data_path, which_individuals){
+  ### 1. read data
+  setwd(data_path)
+  file_list <- list.files(pattern=pattern)
+  print(file_list)
+  warning("this function is not well generalised")
+  data <- NULL
+  for (file in file_list){
+    data <- rbind(data,read.table(file,header=T,stringsAsFactors = F))  
+  }
+  ## remove any duplicated line
+  data <- data[which(!duplicated(data)),]
+  
+  
+  ## 2a. Extract exposure and size from treatment column
+  data$exposure <- unlist(lapply( data$treatment, function(x)  unlist(strsplit(x,split="\\.") )[1]  ))
+  data$size     <- unlist(lapply( data$treatment, function(x)  unlist(strsplit(x,split="\\.") )[2]  ))
+  
+  ## 2b. add information on task group
+  if (pattern=="individual_behavioural_data") {
+    task_groups <- read.table(paste(root_path,"original_data",task_group_file,sep="/"),header=T,stringsAsFactors = F)
+    task_groups <- task_groups[which(!duplicated(task_groups)),]
+    data        <- merge(data,task_groups[c("colony","tag","task_group")],all.x=T,all.y=F)
+    
+  } else if (pattern=="individual_data") {
+    #make sure that the task_group is named correctly
+    data$task_group <- data$status 
+    data$status     <- NULL
+    treated_worker_list <- read.table(paste(root_path,"original_data","treated_worker_list.txt",sep="/"),header=T,stringsAsFactors = F)
+    treated_worker_list <- treated_worker_list[which(!duplicated(treated_worker_list)),]
+    treated_worker_list$status <- "treated"
+    data        <- merge(data,treated_worker_list[c("colony","tag","status")],all.x=T,all.y=F) 
+    data[which(is.na(data$status)),"status"] <- "untreated"
+  } 
+  
+  data[which(data$status=="treated"),"task_group"] <- "treated"
+  
+  ## 2c. keep only target individuals
+  data <- data[which(data$task_group%in%which_individuals),]
+  
+  ## 2d.  ###add a unique antid column
+  data <- within(data,antID <- paste(colony,tag,sep="_"))
+  
+  ### 2. Loop over variables
+  data_ori <- data
+  data_list <- list()
+  # for (i in 1:length(variable_list)){
+  #   print(paste0("######## ",variable_list[i]," ########"))
+  #   data <- data_ori
+  #   
+  #   
+  #   # ###create a variable column
+  #   data$untransformed_variable <- data[,variable_list[i]]
+  #   
+  ###statistics
+  ###make sure treatment, exposure, size and period are factors with levels in the desired order
+  data$treatment <- factor(data$treatment , levels=treatment_order[which(treatment_order%in%data$treatment )])
+  data$size      <- factor(data$size    , levels=size_order   [which(size_order%in%data$size )])
+  data$exposure  <- factor(data$exposure , levels=exposure_order[which(exposure_order%in%data$exposure )])
+  data$period    <- factor(data$period    , levels=period_order   [which(period_order%in%data$period )])
+  data$antID     <- factor( data$antID )
+  # data_list[[variable_list[i]]] <- data
+  #}
+  return(data)
+}
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 5.31 plot_qpcr() ####
+
+plot_qpcr <- function(experiments){
+  plot1 <- function(data,experiment,ylim=ylim){
+    par_mari <- par("mar")
+    par(mar=par_mari-c(0,0.35,0,par_mari[4]))
+    
+    ### Plot (load)=f(caste)
+    data["variable"] <- data$measured_load_ng_per_uL;data["predictor"] <- data$task_group
+    replac_val <- min(data$variable[data$variable!=0],na.rm=T)/sqrt(2)
+    
+    ### transform 
+    data <- aggregate(na.action=na.pass,na.rm=T,log10(variable+replac_val)~predictor+colony,FUN=mean,data=data)
+    names(data)[grepl("variable",names(data))] <-"variable"
+    
+    means <- aggregate(na.rm=T,na.action="na.pass",variable~predictor,FUN="mean",data=data);ses <- aggregate(na.rm=T,na.action="na.pass",variable~predictor,FUN="std.error",data=data);
+    
+    names(means)[grepl("variable",names(means))] <- "mean";names(ses)[grepl("variable",names(ses))] <- "se";means <- merge(means,ses)
+    means <- means[order(match(means$predictor,status_order)),]
+    
+    means[is.na(means$se),"se"] <- 0
+    if (is.null(ylim)){
+      ymin <- min(c(means$mean-means$se),na.rm=T);ymax<- max(c(means$mean+means$se),na.rm=T)
+      ymin <- floor(ymin)
+      ymax <- ceiling(ymax)
+      rangy <- ymax-ymin
+      ymax <- ymax+0.1*rangy
+      yrange <- c(ymin,ymax)
+    }else{
+      ymin <- ylim[1]
+      ymax <- ylim[2]
+      yrange <- ymax-ymin
+      yrange <- c(ymin-0.04*yrange,ymax+0.04*yrange)
+    }
+    
+    barwidth <- 0.5; barwidth_fac_within <- 0.5; barwidth_fac_between <- 2
+    barspace <- c(barwidth_fac_between,barwidth_fac_within,barwidth_fac_within)
+    
+    plotx <- barplot(means$mean,plot=F,width=barwidth,space=barspace)
+    ### empty plot
+    plot(plotx,means$mean,ylim=yrange,xlim=c(min(plotx)- 0.6*(barwidth_fac_between*barwidth/2+barwidth/2),max(plotx)+ 0.6*(barwidth_fac_between*barwidth/2+barwidth/2)),xlab="",ylab=expression(paste("Mean measured pathogen load (ng/", mu, "L) (log)")),bty="n",xaxs="i",yaxs="i",type="n",cex.axis=min_cex,cex.lab=inter_cex,lwd=line_min,xaxt="n",yaxt="n")
+    ### arrows
+    plot_arrows(means=means,plotx=plotx,plot_type="means",LWD=line_max,LENGTH=0.025,colz=statuses_colours[as.character(means$predictor)])
+    ### points
+    points(plotx,means$mean,col=statuses_colours[as.character(means$predictor)],pch=16,cex=max_cex*0.8,lwd=line_min)
+    ### Y-axis
+    axis(2,at=ymin:floor(ymax),labels=format(10^(ymin:floor(ymax)),scientific=T),cex.axis=min_cex,cex.lab=inter_cex,lwd=0,lwd.ticks=1)
+    
+    par(xpd=T)
+    labses <- full_statuses_names[as.character(means$predictor)]
+    labses <- c(labses[1],rep("",length(labses)-1))
+    axis(1,at=plotx,labels=labses,tick=F,cex.axis=inter_cex,las=1,mgp=c(0.8,0.8,0))
+    
+    for (labse in 2:length(labses)){
+      print(par("mgp")[2] + (labse-1)*1)
+      if (labse/2==round(labse/2)){
+        mtext(full_statuses_names[as.character(means$predictor)][labse],side=1,at=plotx[labse],line=0+par("mgp")[1] + 1,cex=par("cex")*inter_cex)
+      }else{
+        mtext(full_statuses_names[as.character(means$predictor)][labse],side=1,at=plotx[labse],line=0+par("mgp")[1] ,cex=par("cex")*inter_cex)
+      }
+    }
+    
+    segments(x0=min(plotx)- 0.6*(barwidth_fac_between*barwidth/2+barwidth/2),y0=yrange[1],x1=max(plotx)+ 0.6*(barwidth_fac_between*barwidth/2+barwidth/2),lwd=line_max)
+    segments(x0=min(plotx)- 0.6*(barwidth_fac_between*barwidth/2+barwidth/2),y0=yrange[1],y1=yrange[2],lwd=line_max)
+    par(xpd=F)
+    
+    
+    data$predictor <- factor(data$predictor,levels=means$predictor)
+    
+    model_lmer <- lmer(variable~predictor+(1|colony),data=data ,control = model_n_interations)
+    test_norm(residuals(model_lmer))
+    pvalue <- Anova(model_lmer)["predictor","Pr(>Chisq)"]
+    print(Anova(model_lmer))
+    # title(ylab=lab_title,cex.lab=1.5,mgp=c(5,1,0))
+    par(xpd=F)
+    abline(h=0)
+    if (pvalue>0.05){p_cex <- inter_cex}else{p_cex <- max_cex}
+    title(main=from_p_to_ptext(pvalue),cex.main=p_cex,font.main=2,line=stat_line,xpd=T)
+    
+    post_hoc <- summary(glht(model_lmer,linfct = mcp(predictor="Tukey")),test=adjusted("BH"))
+    print(post_hoc)
+    post_hoc_groups <- cld(post_hoc)$mcletters$Letters
+    for (idx in 1:length(post_hoc_groups)){
+      group <- post_hoc_groups[as.character(means[idx,"predictor"])]
+      text(x=plotx[idx],y=ymax-0.1*(ymax-ymin),adj=c(0.5,0),labels=as.character(group),xpd=T,cex=inter_cex)
+    }
+    par(mar=par_mari)
+  }
+  
+  all_qpcr_data <- NULL
+  data_for_plot <- NULL
+  for (experiment in experiments){
+    ### read qpcr data
+    warning("rename file qPCR_results.txt instead of qPCR_file.txt")
+    data <- read.table(paste(disk_path,"/",experiment,"/original_data/qPCR/qPCR_results.txt",sep=""),header=T,stringsAsFactors = F)
+    ### keep only ants
+    data <- data[which(!is.na(as.numeric(data$tag))),]
+    ### remove workers that died before the end
+    data <- data[which(data$alive_at_sampling_time),]
+    
+    ### read task group
+    task_groups <-  read.table(paste(disk_path,"/",experiment,"/original_data/",task_group_file,sep=""),header=T,stringsAsFactors = F)
+    ### add task groups info to data
+    data <- merge(data,task_groups,all.x=T,all.y=F)
+    
+    ### keep only pathogen treatments
+    data <- data[grep("pathogen", data$treatment),] #AW
+    
+    ### add metadata
+    data <- data.frame(experiment=experiment,data,stringsAsFactors = F)
+    data$period <- "after"
+    ### list desired variables and transformations
+    data$antid <- as.character(data$colony,data$tag)
+    all_qpcr_data <- rbind(all_qpcr_data,data)
+    data$colony <- as.character(interaction(data$experiment,data$colony))
+    
+    ### remove treated workers
+    data <- data[which(data$status!="treated"),]
+    data_for_plot <- rbind(data_for_plot,data)
+  }
+  
+  all_sim_data <- NULL
+  for (experiment in experiments){
+    data <-read.table(paste(disk_path,experiment,"transmission_simulations/pre_vs_post_treatment/experimentally_exposed_seeds","individual_simulation_results_observed.txt",sep="/"),header=T,stringsAsFactors=F) #AW # in stroeymeyt script there is no trace on how the "calibration/individual_simulation_results.dat" is generated
+    all_sim_data <- rbind(all_sim_data,data.frame(experiment=experiment,data[names(data)!="age"],stringsAsFactors = F))
+    
+    # AW select (as reported in paper figure 2A) load received by untreated ants in post-treatment simulation ("Simulationswere run over the posttreatment networks using experimentally treated foragers as disease origin")
+    all_sim_data <- all_sim_data[grep("pathogen", all_sim_data$treatment),]
+    all_sim_data <- all_sim_data[grep("untreated", all_sim_data$status),]
+    all_sim_data <- all_sim_data[grep("after", all_sim_data$period),]
+  }
+  
+  ### Now join qPCR and simulation data into single data frame
+  all_qpcr_data <- all_qpcr_data[which(!is.na(as.numeric(all_qpcr_data$tag))),]
+  all_qpcr_data <- all_qpcr_data[which(all_qpcr_data$alive_at_sampling_time),]
+  
+  all_sim_qpcr_data <- merge(all_qpcr_data[c("experiment","colony","treatment","tag","status","task_group","age","measured_load_ng_per_uL")],all_sim_data[c("experiment","colony","tag","simulated_load")])
+  
+  ### remove treated individuals
+  all_sim_qpcr_data <- all_sim_qpcr_data[which(all_sim_qpcr_data$status!="treated"),]
+  all_sim_qpcr_data["antid"] <- as.character(interaction(all_sim_qpcr_data$experiment,all_sim_qpcr_data$colony,all_sim_qpcr_data$tag))
+  
+  varb <- "simulated_load"
+  variable_list <- c("measured_load_ng_per_uL")
+  names(variable_list) <-  c("Measured pathogen load (log)")
+  predictor_list <- c( "simulated_load")
+  names(predictor_list) <- c("Simulated pathogen load (log)")
+  transf_variable_list <- c("log") #AW c("log")
+  transf_predictor_list <- c("log") #AW c("log")
+  
+  ymin <- floor(log10(min(all_sim_qpcr_data$measured_load_ng_per_uL[all_sim_qpcr_data$measured_load_ng_per_uL!=0])/sqrt(2))) + 2.8 #AW
+  ymax <- ceiling(log10(max(all_sim_qpcr_data$measured_load_ng_per_uL))) -0.5 #AW
+  xmin <- floor(log10(min(all_sim_qpcr_data[all_sim_qpcr_data[,varb]!=0,varb])/sqrt(2))) + 0.25
+  xmax <- ceiling(log10(max(all_sim_qpcr_data[,varb]))) -0.6
+  
+  analysis <- list(variable_list=variable_list,
+                   predictor_list=predictor_list,
+                   transf_variable_list=transf_variable_list,
+                   transf_predictor_list=transf_predictor_list,
+                   violin_plot_param = list(c(1,0,-0.025,0.2,0.2)))
+  
+  ###
+  # all_sim_qpcr_data_big <- all_sim_qpcr_data[grep("big", all_sim_qpcr_data$treatment),]
+  # all_sim_qpcr_data_small <- all_sim_qpcr_data[grep("small", all_sim_qpcr_data$treatment),]
+  # 
+  # hist(all_sim_qpcr_data_small[,c("measured_load_ng_per_uL","simulated_load")],breaks = 100)
+  # hist(all_sim_qpcr_data_big[,c("measured_load_ng_per_uL","simulated_load")],breaks = 100)
+  
+  #  # Plotting the variables by treatment
+  # print( ggplot(all_sim_qpcr_data, aes(x = measured_load_ng_per_uL, fill = treatment)) +
+  #          geom_histogram(bins = 30, alpha = 0.7) +
+  #          labs(x = "Measured Load (ng/uL)", y = "Frequency") +
+  #          ggtitle("Frequency Histogram of Measured Load by Treatment")
+  # )
+  # 
+  # print(
+  #   ggplot(all_sim_qpcr_data, aes(x = simulated_load, fill = treatment)) +
+  #     geom_histogram(bins = 30, alpha = 0.7) +
+  #     labs(x = "Simulated Load", y = "Frequency") +
+  #     ggtitle("Frequency Histogram of Simulated Load by Treatment")
+  # )
+  
+  print("### Measured vs Simulated ###")
+  predicted_value <- plot_regression(data=all_sim_qpcr_data,time_point="after",analysis=analysis,n_cat_horiz=20,n_cat_vertic=11,pool=c(F,F),collective=T,input_color=colour_palette_age,xmin=xmin,xmax=xmax,ymin=ymin,ymax=ymax,point_cex=1.5,predict=NULL) #,predict=high_threshold TO HAVE SPRINGREEEN AND RED LINES
+  
+  par(xpd=NA)
+  if (varb =="simulated_load"){
+    title(sub=expression(italic("(Prop. exposure dose)")),cex.sub=min_cex,font.sub=1,mgp=c(1,0.1,0))
+  }else if (varb =="predicted_measured_load_ng_per_uL_SI"){
+    title(sub=expression(paste("(ng/", mu, "L) (log)")),cex.sub=min_cex,font.sub=1,mgp=c(1,0.1,0))
+  }
+  par(xpd=F)
+  
+  if (!exists("ymin")){
+    ylim <- NULL
+  }else{
+    ylim <- c(ymin,ymax)
+  }
+  plot1(data=data_for_plot,experiment="both",ylim=NULL)
+  if (exists("predicted_value")){return(predicted_value)}else{return(NULL)} 
+}
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 5.32 plot_distribution() ####
+plot_distribution <- function(experiments,desired_treatments,seeds){
+  par_mar_ori <- par()$mar
+  par(mar=par_mar_ori+c(0,0,0,0.5))
+  if (experiments=="all"){
+    experiments <- c("age_experiment","survival_experiment","main_experiment")
+  }
+  if (experiments =="both"){
+    experiments <- c("age_experiment","main_experiment")
+  }
+  transf <- function(x){
+    return(x^(1/2))
+  }
+  rev_transf <- function(x){
+    return(x^2)
+  }
+  xlabel <- substitute(sqrt ( xlabely),list(xlabely="Simulated load"))
+  ####read data
+  infection_data <- NULL
+  
+  seed <- paste0(seeds,"_seeds") #AW
+  
+  for (experiment in experiments){
+    setwd(paste(disk_path,experiment,"transmission_simulations/pre_vs_post_treatment/",seed,sep="/"))
+    si_outcome <- read.table("individual_simulation_results_observed.txt",header=T,stringsAsFactors = T)
+    si_outcome["ant_id"] <- as.character(interaction(experiment,si_outcome$colony,si_outcome$tag))
+    
+    for (time_point in c("before","after")){
+      si_outcome_temp <- si_outcome[which(si_outcome$period==time_point),c("colony","treatment","tag","status","antid","simulated_load","transmission_rank")]
+      names(si_outcome_temp)[names(si_outcome_temp)%in%c("simulated_load","transmission_rank")] <- paste(names(si_outcome_temp)[names(si_outcome_temp)%in%c("simulated_load","transmission_rank")],time_point,sep="_")
+      assign(paste("si_outcome_",time_point,sep=""),si_outcome_temp)
+    }
+    si_outcome <- merge(si_outcome_before,si_outcome_after)
+    infection_data <- rbind(infection_data,data.frame(experiment=experiment,si_outcome,stringsAsFactors = F))
+  }
+  
+  ### fill in missing untreated and queen info
+  # infection_data[which(infection_data$tag==queenid),"tag"] <- "queen"
+  #infection_data <- infection_data[which(infection_data$task_group=="queen"),"tag"] <- "queen" # AW this line does not make sense
+  
+  ### read task group #AW
+  task_groups <-  read.table(paste(disk_path,"/",experiment,"/original_data/",task_group_file,sep=""),header=T,stringsAsFactors = F)
+  ### add task groups info to data #AW
+  infection_data <- merge(infection_data,task_groups,all.x=T,all.y=F)
+  
+  ### modify data
+  infection_data[,"colony"] <- as.character(interaction(infection_data$experiment,infection_data$colony))
+  
+  ### make new datasets for further analyses######
+  infection_data$status <- as.character(infection_data$status)
+  infection_data <- infection_data[infection_data$status!="treated",]###contains queens and untreated workers
+  infection_data <- infection_data[infection_data$task_group!="queen",]###contains untreated workers
+  
+  ### 1. Make bins
+  xmin <- min(c(transf(infection_data$simulated_load_before),transf(infection_data$simulated_load_after)),na.rm=T)
+  xmin_bis <- min(
+    c(transf(infection_data$simulated_load_before),transf(infection_data$simulated_load_after))
+    [
+      c(transf(infection_data$simulated_load_before),transf(infection_data$simulated_load_after))
+      >0
+    ]
+    ,
+    na.rm=T
+  )
+  xmax <- max(c(transf(infection_data$simulated_load_before),transf(infection_data$simulated_load_after)),na.rm=T)
+  xmin <- min(c(floor((xmin)*100)/100))
+  xmax <- ceiling((xmax)*100)/100
+  breaks <- seq(from=xmin,to=xmax,length.out=23)
+  bw <- 0.09
+  xmax <- ceiling((xmax)*10)/10
+  
+  ### 2. plot histograms plus densities
+  #infection_data <- infection_data[which(infection_data$treatment%in%desired_treatments),]
+  infection_data <- infection_data[grep(paste(desired_treatments, collapse = "|"), infection_data$treatment),] #AW
+  #infection_data <- infection_data[grep("small", infection_data$treatment),] #TEMP
+  
+  
+  afters_dens <- density(transf(infection_data$simulated_load_after),from=xmin,to=xmax,n=500,na.rm=T,bw=bw)
+  befores_dens <- density(transf(infection_data$simulated_load_before),from=xmin,to=xmax,n=500,na.rm=T,bw=bw)
+  
+  percolony_density <- NULL
+  for (colony in sort(unique(infection_data$colony[!is.na(infection_data$colony)]))){
+    if (colony!="age_experiment.colony021"){
+      subsett <- infection_data[which(infection_data$colony==colony),]
+      
+      afters <- density(transf(subsett$simulated_load_after),from=xmin,to=xmax,n=500,na.rm=T,bw=bw)
+      afters$y <- afters$y/sum(afters$y)
+      befores <- density(transf(subsett$simulated_load_before),from=xmin,to=xmax,n=500,na.rm=T,bw=bw)
+      befores$y <- befores$y/sum(befores$y)
+      percolony_density <- rbind(percolony_density,data.frame(colony=colony,xcoor=afters$x,density_after=afters$y,density_before=befores$y,density_diff=afters$y-befores$y))
+    }
+  }
+  
+  ### plot actual distributions
+  forplot <- data.frame(as.matrix(aggregate(cbind(density_after,density_before,density_diff)~xcoor,function(x)cbind(mean(x),std.error(x)),data=percolony_density)))
+  names(forplot) <- c("x","mean_after","std.error_after","mean_before","std.error_before","mean","std.error")
+  forplot["lower_y"] <- forplot$mean-forplot$std.error
+  forplot["top_y"] <- forplot$mean+forplot$std.error
+  forplot <- forplot[order(forplot$x),]
+  
+  xshade <- c(forplot$x,rev(forplot$x))
+  yshade <- c(forplot$lower_y,rev(forplot$top_y))
+  
+  ## get ylims for plots ####
+  ### first get an idea of how the density plots will be distributed
+  ymin_dens <- 2*min(forplot$lower_y)
+  ymax_dens <- max(c(forplot$mean_after,forplot$mean_before))+0.1*(max(c(forplot$mean_after,forplot$mean_before))-min(forplot$mean))
+  neg <- abs(ymin_dens)/abs(ymax_dens)
+  
+  
+  ### second get an idea of how the histogram will be distributed
+  afters <- hist(transf(infection_data$simulated_load_after),breaks=breaks,plot=F)
+  befores <- hist(transf(infection_data$simulated_load_before),breaks=breaks,plot=F)
+  ymax <- max(c(afters$density,befores$density))+0.1*max(c(afters$density,befores$density))
+  ### ...and deduce ymin
+  ymin <- -neg*ymax
+  
+  ### then plot histograms; in frequency
+  befores <- hist(transf(infection_data$simulated_load_before),breaks=breaks,plot=T,col=alpha("blue",0.4),prob=T,ylim=c(ymin,ymax),xlim=c(min(0,xmin),xmax),xaxt="n",yaxt="n",xaxs="i",yaxs="i",main="",bty="l",cex.axis=min_cex,cex.lab=inter_cex,xlab="",lwd=line_min/10,border="black")
+  afters <- hist(transf(infection_data$simulated_load_after),breaks=breaks,col=alpha("red",0.3),add=T,plot=T,prob=T,lwd=line_min/10,border="black")
+  prospected_ats <- axisTicks(c(min(0,xmin),xmax),log=F)
+  prospected_ats <- c(prospected_ats,prospected_ats[length(prospected_ats)]+prospected_ats[length(prospected_ats)]-prospected_ats[-1+length(prospected_ats)])
+  axis(1,at=prospected_ats,cex.axis=min_cex,cex.lab=inter_cex)
+  axis(2,cex.axis=min_cex,cex.lab=inter_cex)
+  title(xlab=xlabel,cex.axis=min_cex,cex.lab=inter_cex,mgp=par()$mgp+c(0.2,0,0))
+  ### then add densities; with new axes
+  par(new=T)
+  ### get new ymin, ymax
+  plot(forplot$x,forplot$mean, type="n", axes=F, xlab=NA, ylab=NA, cex=1.2,col=statuses_colours[desired_treatments],ylim=c(ymin_dens,ymax_dens),xaxs="i",yaxs="i",main="",bty="l",cex.axis=min_cex,cex.lab=inter_cex,xlim=c(min(0,xmin),xmax))
+  polygon(xshade,yshade, border = alpha("yellow",0),col=alpha("yellow",0.6))
+  lines(forplot$x,forplot$mean,lwd=line_max,col="black")
+  
+  ### write legend
+  legend(x=par("usr")[2]+0.05*(par("usr")[2]-par("usr")[1]),y=par("usr")[4]-0.025*(par("usr")[4]-par("usr")[3]),xjust=1,yjust=1,legend=c("Pre-treatment","Post-treatment","Difference"),pt.bg=c(alpha("blue",0.4),alpha("red",0.3),alpha("yellow",0.6)),col=c("black","black",alpha("yellow",0)),bty='n',pch=22,lty=0,lwd=0,pt.lwd=1,pt.cex=1.5,text.col="white",cex=min_cex)
+  legend(x=par("usr")[2]+0.05*(par("usr")[2]-par("usr")[1]),y=par("usr")[4]-0.025*(par("usr")[4]-par("usr")[3]),xjust=1,yjust=1,legend=c("Pre-treatment","Post-treatment","Difference"),col=c(alpha("blue",0),alpha("red",0),"black"),bty='n',lty=c(0,0,1),lwd=c(0,0,1),cex=min_cex)
+  
+  print("KS-test:")
+  ks_test <- ks.test(transf(infection_data$simulated_load_after),transf(infection_data$simulated_load_before))
+  print(ks_test)
+  p_value <- ks_test$p.value
+  
+  where_to_print_stat <- median(c(transf(infection_data$simulated_load_after),transf(infection_data$simulated_load_before)))
+  
+  par(xpd=T) 
+  mtext(full_statuses_names[desired_treatments],side=3,line=stat_line,adj=0.5,cex=par("cex") *inter_cex,font=2)
+  mtext(from_p_to_ptext(p_value),side=3,line=stat_line-1,adj=0.5,cex=par("cex") *max_cex,font=2,at=where_to_print_stat)
+  mtext(seeds,side=3,line=stat_line,adj=0.5,cex=par("cex") *max_cex,font=2,at=where_to_print_stat)
+  
+  # print("Thresholds at which after becomes lower than before")
+  forplot["positive"] <- forplot$mean>=0
+  change <- min(which(diff(forplot$positive)==-1))
+  threshold1 <- rev_transf(forplot[change,"x"])
+  threshold2 <- rev_transf(forplot[change+1,"x"])
+  if(!exists("threshold")){threshold <-round(((threshold1+threshold2)/2)*10000)/10000}
+  
+  par(xpd=F)
+  lines(x=c(transf(threshold),transf(threshold)),y=c(0,ymin_dens),col="springgreen3",lty=1,lwd=2*line_max)
+  ### Now write down "high level", "low_level"
+  arrows(x0=transf(threshold),y0=1.7*min(forplot$lower_y),x1=par("usr")[2],y1=1.7*min(forplot$lower_y),col="springgreen4",code=3,length=0.025)
+  text(x=mean(c(transf(threshold),par("usr")[2])),y=1.5*min(forplot$lower_y),labels="high load",adj=c(0.5,0),cex=min_cex,col="springgreen4",font=3)
+  xmin <-min(c(transf(infection_data$simulated_load_before),transf(infection_data$simulated_load_after)),na.rm=T)
+  arrows(x1=transf(threshold),y0=1.7*min(forplot$lower_y),x0=xmin_bis,y1=1.7*min(forplot$lower_y),col="springgreen2",code=3,length=0.025)
+  text(x=mean(c(transf(threshold),xmin)),y=1.5*min(forplot$lower_y),labels="low load",adj=c(0.5,0),cex=min_cex,col="springgreen2",font=3)
+  
+  par(mar=par_mar_ori)
+}
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 5.33 max_entropy() ####
+# function to compute the maximum possible entropy for a given colony size N:
+max_entropy <- function(N) {
+  p_max = 1/N
+  return(-N * (p_max * log(p_max, base=2)))
+}
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 5.34 norm_entropy() ####
+# Define a function to compute the normalized entropy using the entropy function:
+norm_entropy <- function(variable) {
+  variable <- variable[!is.na(variable)]
+  # Calculate Shannon's entropy using the entropy function
+  H = entropy::entropy(table(variable), unit="log2")
+  
+  # Compute maximum possible entropy based on colony size
+  N = length(variable)
+  H_max = max_entropy(N)
+  
+  # Return normalized entropy
+  return(H / H_max)
+}
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 5.35 perform_dip_test() ####
+# Define a function to perform the dip test and extract the dip statistic
+perform_dip_test <- function(x) {
+  result <- dip.test(x[!is.na(x)])
+  return(result)
+}
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 5.36 calculate_entropy() ####
+# entropy based on prop.time outside
+calculate_entropy <- function(data_path=data_path,which_individuals,number_permutations=100,pre_only=TRUE,showPlot=T){
+  # for ONE type of individuals (e.g. treated workers only, or queens only)
+  ### 1. read data
+  setwd(data_path)
+  file_list <- list.files(pattern=pattern)
+  print(file_list)
+  data <- NULL
+  for (file in file_list){
+    data <- rbind(data,read.table(file,header=T,stringsAsFactors = F))  
+  }
+  ## remove any duplicated line
+  data <- data[which(!duplicated(data)),]
+  
+  ## 2a. Extract exposure and size from treatment column
+  data$exposure <- unlist(lapply( data$treatment, function(x)  unlist(strsplit(x,split="\\.") )[1]  ))
+  data$size     <- unlist(lapply( data$treatment, function(x)  unlist(strsplit(x,split="\\.") )[2]  ))
+  
+  ## 2b. add information on task group
+  if (pattern %in% c("individual_behavioural_data", "individual_simulation_results_observed")) {
+    task_groups <- read.table(paste(root_path,"original_data",task_group_file,sep="/"),header=T,stringsAsFactors = F)
+    task_groups <- task_groups[which(!duplicated(task_groups)),]
+    data        <- merge(data,task_groups[c("colony","tag","task_group")],all.x=T,all.y=F)
+    
+  } else if (pattern=="individual_data") {
+    # make sure that the task_group is named correctly
+    data$task_group <- data$status 
+    data$status     <- NULL
+    treated_worker_list <- read.table(paste(root_path,"original_data","treated_worker_list.txt",sep="/"),header=T,stringsAsFactors = F)
+    treated_worker_list <- treated_worker_list[which(!duplicated(treated_worker_list)),]
+    treated_worker_list$status <- "treated"
+    data        <- merge(data,treated_worker_list[c("colony","tag","status")],all.x=T,all.y=F) 
+    data[which(is.na(data$status)),"status"] <- "untreated"
+  }
+  
+  data[which(data$status=="treated"),"task_group"] <- "treated"
+  
+  ## c. keep only target individuals
+  data <- data[which(data$task_group%in%which_individuals),]
+  print(paste("",which_individuals,"",sep=" xxxxxxxxxx "))
+  
+  ## 2c.1 keep only target period
+  if (pre_only==T) {
+    data <- data[which(data$period=="pre"),]
+    print(paste("","pre period only","",sep=" xxxxxxxxxx "))
+  }
+  
+  ## 2d.  ###add a unique antid column
+  data <- within(data,antID <- paste(colony,tag,sep="_"))
+  data$untransformed_variable <- data$prop_time_outside
+  
+  #hist(data$untransformed_variable, breaks = 100)
+  
+  ### statistics ### ###
+  ### make sure treatment, exposure, size and period are factors with levels in the desired order
+  data$treatment <- factor(data$treatment , levels=treatment_order[which(treatment_order%in%data$treatment )])
+  data$size      <- factor(data$size    , levels=size_order   [which(size_order%in%data$size )])
+  data$exposure  <- factor(data$exposure , levels=exposure_order[which(exposure_order%in%data$exposure )])
+  data$period    <- factor(data$period    , levels=period_order   [which(period_order%in%data$period )])
+  data$antID     <- factor( data$antID)
+  
+  #some plotting
+  data[!is.na(data$untransformed_variable),"variable"] <- log_transf(data[!is.na(data$untransformed_variable),"untransformed_variable"] )
+  
+  # ggplot(data, aes(y = variable,x=task_group, fill = size )) +
+  #   geom_violin() +
+  #   STYLE_generic
+  
+  # Apply the dip test for each group
+  dip_results <- by(data$variable, data$size, perform_dip_test)
+  
+  label_stat <- (paste("Hartigans' dip test \nboth groups",dip_results$small$alternative,
+                       "\n small test stat. D =",round(dip_results$small$statistic,3),
+                       "\n big test stat. D =",round(dip_results$big$statistic,3),
+                       sep = " "))
+  
+  Dip_plot <- ggplot(data, aes(x = variable, fill = size )) +
+    #geom_density(alpha = 0.5) +
+    geom_line(aes(color=size,group = colony), stat="density", size=1, alpha=0.15, adjust=1/1.2) +
+    geom_line(aes(color=size), stat="density",  alpha=1, adjust=1/1.2) + #linewidth=2,
+    #geom_vline(aes(xintercept = 0.02), linetype = "dashed",colour="grey20") + 
+    #geom_histogram(position = "identity", alpha = 0.5, bins = 10) +
+    labs(x = "Prop. time outside (log)",y = "Density") +
+    annotate("text", x = -1.2, y = 1, label = label_stat) +
+    STYLE_generic +
+    theme_minimal()
+  
+  # mean time outside for the full pre-period
+  data_mean <-
+    aggregate(na.rm = T,na.action = "na.pass",
+              untransformed_variable ~ colony_size + colony + size + tag + task_group + colony_size,
+              FUN = mean, data = data)
+  
+  # Calculate normalized entropy for each colony
+  entropy_data <- data_mean %>%
+    group_by(colony,size) %>%
+    summarise(norm_entropy = norm_entropy(untransformed_variable))
+  
+  print("##### Entropy by size ######")
+  model_lm <- lm(norm_entropy ~ size, data= entropy_data)
+  test_norm(residuals(model_lm))
+  pvalue <- Anova(model_lm)["size","Pr(>F)"]
+  #stats_outcomes <- (Anova(model_lm)) 
+  
+  formatted_outcomes <- paste0("(LM, size differences (entropy, size): F(",Anova(model_lm)["size","Df"],") = ", round(Anova(model_lm)["size","F value"],3), ", P ≤ ",format(from_p_to_prounded(Anova(model_lm)["size","Pr(>F)"]),scientific=F),")")
+  
+  # # Create a boxplot using ggplot
+  # entropy_plot <- ggplot(entropy_data, aes(x = size, y = norm_entropy)) +
+  #   geom_boxplot() +
+  #   geom_point(aes(color = colony), position = position_jitter(width = 0.2), size=1) +
+  #   annotate("text", x = 1.5, y = max(entropy_data$norm_entropy-0.05), label = from_p_to_ptext(pvalue)) +
+  #   labs(x = "",y = "Normalized Shannon's entropy",color = "Colony") +
+  #   scale_x_discrete(position = "top", labels = function(x) str_to_title(gsub("big", "large", gsub("\\.", " ", x))))+
+  #   guides(color = "none") +
+  #   theme_minimal() +
+  #   theme(
+  #     panel.grid.major = element_blank(),
+  #     panel.grid.minor = element_blank(),
+  #     #plot.margin = unit(c(2, 1, 1, 1), "lines") # Adjust the top margin as needed
+  #   ) +
+  #   STYLE_generic
+  
+  # Create the spectral palette
+  spectral_palette <-  colorRampPalette(brewer.pal(11, "Spectral"))((length(unique(entropy_data$colony))))
+  
+  
+  # Create a boxplot using ggplot
+  entropy_plot <- ggplot(entropy_data, aes(x = size, y = norm_entropy)) +
+    stat_boxplot(geom ='errorbar',lwd= 0.3, width = 0.1) + 
+    geom_boxplot(lwd= 0.3,width = 0.2) +
+    geom_point(aes(color = colony), position = position_jitter(width = 0.1), size=0.3) +
+    annotate("text", x = 1.5, y = Inf, vjust = 1, label = from_p_to_ptext(pvalue)) + # Adjust vjust as needed
+    labs(x = "",y = "normalized Shannon's entropy",color = "Colony") +
+    scale_x_discrete(position = "top", labels = function(x) str_to_title(gsub("big", "large", gsub("\\.", " ", x))))+
+    scale_color_manual(values = spectral_palette) +
+    guides(color = "none") +
+    theme_minimal() +
+    theme(
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      axis.line.y = element_line(color = "black", size = 0.5), # Adjust size as needed
+      axis.ticks.y = element_line(color = "black", size = 0.5) # Adjust size as needed
+    ) +
+    STYLE_generic
+  
+  
+  print("##### Entropy permutation test ######")
+  
+  ### PERMUTATION TEST to check for difference in VARIANCE
+  ### Is the difference in variance depending only on the difference in sample size between Big and Small colonies?
+  ## permutation run in large colonies (~180) subsampled to small cols size (~30)
+  
+  # subset data by colony size
+  data_large <- data_mean[which(data_mean$size == "big") , ]
+  data_small <- data_mean[which(data_mean$size == "small"), ]
+  large_colonies_list <- unique(data_large$colony)
+  
+  # get the N of treated nurses in the small colonies
+  number_data_small <-  data_small$colony_size
+  
+  # set empty resampled df
+  overall_resampled_table <- NULL
+  
+  # set visual progress bar for permutations
+  pb <- txtProgressBar(min = 0, max = number_permutations, initial = 0) # set progress bar
+  
+  for (permutation in 1:number_permutations) {
+    setTxtProgressBar(pb, permutation)
+    ##### first randomly assign a small size to the large colonies
+    sampling_sizes <- sample(number_data_small, size = length(number_data_small), replace = F)
+    names(sampling_sizes) <- large_colonies_list
+    
+    # resample from the large colonies using the randomly assigned size
+    resampled_table <- NULL
+    for (colony in large_colonies_list) {
+      data_large_subset <- data_large[which(data_large$colony == colony), ]
+      sampled_indices <- sample(1:nrow(data_large_subset), size = sampling_sizes[colony], replace = F)
+      resampled_table <- rbind(resampled_table, data_large_subset[sampled_indices, ])
+    }
+    # generate permutation output
+    overall_resampled_table <- rbind(overall_resampled_table, data.frame(permutation = permutation, resampled_table))
+    # close progress bar
+    if (permutation == number_permutations) {
+      close(pb)
+    }
+  }
+  
+  # Calculate normalized entropy for each permutation combination
+  entropy_data_perm <- overall_resampled_table %>%
+    group_by(colony,size,permutation) %>%
+    summarise(norm_entropy = norm_entropy(untransformed_variable))
+  
+  # Calculate normalized entropy for each permutation combination
+  entropy_data_small <- data_small %>%
+    group_by(colony,size) %>%
+    summarise(norm_entropy = norm_entropy(untransformed_variable))
+  
+  # calculate SD per each permutation
+  standard_deviations_permuted <- aggregate(norm_entropy ~ size + permutation, FUN = sd,na.rm =T, data = entropy_data_perm)
+  names(standard_deviations_permuted)[which(names(standard_deviations_permuted) == "norm_entropy")] <- "sd"
+  mean_standard_deviations_permuted <- aggregate(sd ~ permutation, FUN = mean, data = standard_deviations_permuted)
+  
+  observed_standard_deviations <- aggregate(norm_entropy ~ size , FUN = sd,na.rm =T, data = entropy_data_small)
+  names(observed_standard_deviations)[which(names(observed_standard_deviations) == "norm_entropy")] <- "sd"
+  mean_observed_sd_small <- mean(observed_standard_deviations$sd, na.rm = T)
+  
+  prop_lower <- length(which(mean_standard_deviations_permuted$sd < mean_observed_sd_small)) / length(mean_standard_deviations_permuted$sd)
+  prop_higher <- length(which(mean_standard_deviations_permuted$sd > mean_observed_sd_small)) / length(mean_standard_deviations_permuted$sd)
+  prop_more_extreme <- min(prop_lower, prop_higher)
+  pval <- 2 * prop_more_extreme
+  
+  CI_95 <- quantile(mean_standard_deviations_permuted$sd, probs = c(0.025, 0.975))
+  CI_95
+  mean_observed_sd_small
+  
+  # report results
+  perm_result <- print(paste0("N. permutations=", number_permutations, " pval=", pval))
+  if (unname(CI_95["2.5%"]) < mean_observed_sd_small & mean_observed_sd_small < unname(CI_95["97.5%"])) {
+    print("the standard deviation of the SMALL colonies is INSIDE the distribution of permuted mean SD of the BIG colonies, therefore the observed difference in SD is only caused by the difference in sample sizes between Small and Big.")
+  } else {
+    print("the standard deviation of the SMALL colonies is OUTSIDE the distribution of permuted mean SD of the BIG colonies, therefore the observed difference in SD is REAL.")
+  }
+  
+  # Create the histogram
+  hist(mean_standard_deviations_permuted$sd,
+       xlab= paste("Mean SD of Entropy for",number_permutations,"sub-sampling permutations",sep=" "),
+       main= perm_result)
+  abline(v = mean_observed_sd_small, col = "red")
+  
+  perm_hist <- recordPlot()
+  
+  if (showPlot) {
+    print(Dip_plot)
+    print(entropy_plot)
+  }
+  
+  
+  return(list(Dip_plot=Dip_plot,    entropy_plot=entropy_plot, formatted_outcomes=formatted_outcomes,  perm_hist=perm_hist))
+}
+
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 5.37 silverman_bandwidth() ####
+# --- Silverman's Bandwidth Function ---
+# This function estimates the bandwidth using Silverman's method. 
+# A smaller bandwidth suggests potential multimodality since the kernel density estimate 
+# is more sensitive to nuances in the data, possibly indicating multiple modes.
+silverman_bandwidth <- function(x) {
+  return(bandwidth.nrd( x[!is.na(x)]))
+}
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 5.38 bandwidth_permutation_test() ####
+# --- Bandwidth-Based Permutation Test Function ---
+# This function uses a permutation test approach to compare the bandwidths (indicative of modality) 
+# of two distributions. It checks if the observed difference in bandwidths is statistically 
+# significant by comparing it against differences from randomized partitions of the data.
+bandwidth_permutation_test <- function(data, variable, n_permutations = 1000) {
+  data$ variable <- data[,variable]
+  # Split the dataset into two groups based on the 'size' column
+  group1 <- data$variable[data$size == unique(data$size)[1]]
+  group2 <- data$variable[data$size == unique(data$size)[2]]
+  # Calculate the bandwidths for each original group using Silverman's method
+  bw1_observed <- silverman_bandwidth(group1)
+  bw2_observed <- silverman_bandwidth(group2)
+  # Compute the difference in bandwidths for the original groups
+  bw_diff_observed <- abs(bw1_observed - bw2_observed)
+  # Initialize a vector to store bandwidth differences from permuted samples
+  permuted_diffs <- numeric(n_permutations)
+  # Pool the data from both groups together for permutation
+  combined_data <- c(group1, group2)
+  # Conduct the permutation: Shuffle the combined data and partition into two groups
+  for (i in 1:n_permutations) {
+    # Randomly select data points for the first permuted group
+    permuted_sample <- sample(combined_data, length(group1))
+    # Calculate the bandwidths for the permuted groups using Silverman's method
+    bw1_permuted <- silverman_bandwidth(permuted_sample)
+    bw2_permuted <- silverman_bandwidth(setdiff(combined_data, permuted_sample))
+    # Compute and store the bandwidth difference for this permutation
+    permuted_diffs[i] <- abs(bw1_permuted - bw2_permuted)
+  }
+  # Determine the proportion of permuted differences that are greater or equal to 
+  # the observed difference to compute the p-value
+  p_value <- mean(permuted_diffs >= bw_diff_observed)
+  # Return the p-value
+  return(p_value)
+}
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 5.39 plot_seeds() ####
+
+plot_seeds <- function(experiments,seeds,variables,transf,color_pal){
+  collective_data <- NULL
+  for (seed in seeds){
+    for (experiment in experiments){
+      setwd(paste(disk_path,"/",experiment,"/transmission_simulations/random_vs_observed/",seed,sep=""))
+      temp <- data.frame(experiment=experiment,seed=seed,read.table("collective_simulation_results_observed.txt",header=T,stringsAsFactors = F),stringsAsFactors = F)
+      if (!is.null(collective_data)){
+        collective_data <-collective_data[,names(collective_data)%in%names(temp)]
+        temp <- temp[names(collective_data)]
+      }
+      collective_data <- rbind(collective_data,temp)
+    }
+  }
+  collective_data["colony"] <- as.character(interaction(collective_data$experiment,collective_data$colony))
+  #add info
+  collective_data$size     <- unlist(lapply( collective_data$treatment, function(x)  unlist(strsplit(x,split="\\.") )[2]  ))
+  collective_data$size      <- factor(collective_data$size    , levels=size_order   [which(size_order%in%collective_data$size )])
+  
+  for (variable in variables){
+    collective_data["variable"] <- collective_data[,variable]
+    ori_data <- collective_data[c("colony","seed","variable","size")]
+    transf_variable <- transf[which(variable==variables)]
+    ylabel <- names(variables[variables==variable])
+    
+    if (transf_variable=="log"){
+      print("Logging variable...")
+      ori_data[!is.na(ori_data$variable),"variable"] <- log_transf(ori_data[!is.na(ori_data$variable),"variable"] )
+      ylabel <- substitute(paste(ylabel,italic(" (log)")),list(ylabel=ylabel))
+      
+    }else if (grepl("power",transf_variable)){
+      ori_data[!is.na(ori_data$variable),"variable"]  <- (ori_data[!is.na(ori_data$variable),"variable"] )^as.numeric(gsub("power","",transf_variable))
+      ylabel <- substitute(paste(ylabel,italic(" (") ^pow,italic(")")),list(ylabel=ylabel,pow=as.numeric(gsub("power","",transf_variable))))
+    }else if (transf_variable=="sqrt"){
+      ori_data[!is.na(ori_data$variable),"variable"]  <- sqrt_transf(ori_data[!is.na(ori_data$variable),"variable"] )
+      ylabel <- substitute(paste(ylabel,italic(" ("),sqrt(italic(")"))),list(ylabel=ylabel))
+    }
+    
+    # Find global y-axis limits based off both sizes data
+    forplot <- data.frame(as.matrix(aggregate(variable~seed,function(x)cbind(mean(x),std.error(x)),data=ori_data)),stringsAsFactors = F)
+    names(forplot) <- c("seed","mean","se")
+    forplot$mean <- as.numeric(forplot$mean);forplot$se <- as.numeric(forplot$se)
+    
+    ymin <- min(c(forplot$mean-forplot$se),na.rm=T);ymax<- max(c(forplot$mean+forplot$se),na.rm=T)
+    if (ymin>0){ymin <- 0};if (ymax<0){ymax <- 0}
+    if (grepl("point",plot_type)|grepl("boxplot",plot_type)|grepl("violinplot",plot_type)){
+      rangy <- max(ori_data$variable,na.rm=T)-min(ori_data$variable,na.rm=T)
+      ymin <- min(ymin, min(ori_data$variable,na.rm=T)-0.1*rangy)
+      ymax <- max(ymax, max(ori_data$variable,na.rm=T)+0.1*rangy)
+    }
+    rangy <- ymax-ymin
+    ymin <- ymin-0.005*rangy;ymax <- ymax+0.20*rangy
+    #ymin <- ylim[1]; ymax <- ylim[2];
+    # Loop through each size
+    loop_N <- 0
+    for (current_size in unique(ori_data$size)) {
+      loop_N <- loop_N+1
+      
+      # Subset data by size
+      dat <- ori_data[ori_data$size == current_size, ]
+      dat$seed <- factor(dat$seed,levels=seeds)
+      mod <- lmer(variable~seed+(1|colony),data=dat)
+      pval <- Anova(mod)["seed","Pr(>Chisq)"]
+      
+      # Set y-axis limits to be consistent across the two sizes
+      # ylim = c(min_y, max_y)
+      
+      ### now plot
+      forplot <- data.frame(as.matrix(aggregate(variable~seed,function(x)cbind(mean(x),std.error(x)),data=dat)),stringsAsFactors = F)
+      names(forplot) <- c("seed","mean","se")
+      forplot$mean <- as.numeric(forplot$mean);forplot$se <- as.numeric(forplot$se)
+      
+      # ymin <- min(c(forplot$mean-forplot$se),na.rm=T);ymax<- max(c(forplot$mean+forplot$se),na.rm=T)
+      # if (ymin>0){ymin <- 0};if (ymax<0){ymax <- 0}
+      # if (grepl("point",plot_type)|grepl("boxplot",plot_type)|grepl("violinplot",plot_type)){
+      #   rangy <- max(dat$variable,na.rm=T)-min(dat$variable,na.rm=T)
+      #   ymin <- min(ymin, min(dat$variable,na.rm=T)-0.1*rangy)
+      #   ymax <- max(ymax, max(dat$variable,na.rm=T)+0.1*rangy)
+      #   
+      # }
+      # rangy <- ymax-ymin
+      # ymin <- ymin-0.005*rangy;ymax <- ymax+0.20*rangy
+      barwidth <- 0.5
+      barspace <- 0.5
+      arrowcodes <- c(1,2,3); names(arrowcodes) <- c("-1","1","0")
+      plotx <- barplot(forplot$mean,plot=F,width=barwidth,space=barspace)  
+      if (grepl("bars",plot_type)){
+        plotx <- barplot(forplot$mean,ylim=c(ymin,ymax),xlim=c(min(plotx)-barwidth,max(plotx)+barwidth),xlab="",ylab=ylabel,xaxt="n",bty="n",xaxs="i",yaxs="i",cex=0.5,cex.axis=min_cex,cex.lab=inter_cex,width=barwidth,space=barspace,col=color_pal[forplot$seed],xaxt="n")  
+        plot_arrows(means=forplot,plotx=plotx,plot_type=plot_type,LWD=line_max,LENGTH=0.05,colz=color_pal[forplot$seed])
+      }else if (grepl("boxplot",plot_type)){
+        ### empty plot
+        plot(plotx,forplot$mean,ylim=c(ymin,ymax),xlim=c(min(plotx)-barwidth,max(plotx)+barwidth),xlab="",ylab=ylabel,xaxt="n",bty="n",xaxs="i",yaxs="i",type="n",lwd=line_min,cex.axis=min_cex,cex.lab=inter_cex,xaxt="n")  
+        par(bty="n")
+        for (lvly in 1:nrow(forplot)){
+          boxplot(dat[which(dat$seed==forplot[lvly,"seed"]),"variable"],at=plotx[lvly],add=T,range=1.5,notch=T,names=F,col=color_pal[forplot[lvly,"seed"]],xlab="",ylab="",xaxt="n",xaxs="i",yaxs="i",cex.axis=min_cex,cex.lab=inter_cex,xaxt="n",yaxt="n",medlwd=line_max,boxlwd=line_min+0.5*(line_max-line_min),whisklwd=line_min,whisklty=1,staplelwd=line_min,boxwex=0.7,pch=16)
+        }
+        
+      }else{
+        ### empty plot
+        plot(plotx,forplot$mean,ylim=c(ymin,ymax),xlim=c(min(plotx)-barwidth,max(plotx)+barwidth),xlab="",ylab=ylabel,xaxt="n",bty="n",xaxs="i",yaxs="i",type="n",lwd=line_min,cex.axis=min_cex,cex.lab=inter_cex,xaxt="n")  
+        ### arrows
+        plot_arrows(means=forplot,plotx=plotx,plot_type=plot_type,LWD=line_max,LENGTH=0.05,colz=color_pal[forplot$seed])
+        ### points
+        points(plotx,forplot$mean,cex=1.5*max_cex,pch=16,lwd=line_min,col=color_pal[forplot$seed])  
+      }
+      
+      xlabel <- names(seeds)
+      ### if necessary cut xlab and ylab in 2 lines
+      for (k in 1:length(xlabel)){
+        temp <- xlabel[k]
+        if (nchar(temp)>8){
+          ### split label according to spaces
+          temp <- unlist(strsplit(temp,split=" "))
+          ### count nb of characters in each word
+          temp_length <- unlist(lapply(temp,FUN=nchar))
+          ### find roughly the middle
+          cutsy <- sum(temp_length/2)
+          cumul_length <- 0;cut_index <- NULL
+          for (idx in c(1:length(temp))){
+            cumul_length <- cumul_length + temp_length[idx]
+            if(cumul_length>=cutsy & is.null(cut_index)){
+              cut_index <- idx-1
+            }#if(cumul_length>=cutsy & is.null(cut_index))
+          }#for (idx in c(1:length(temp)))
+          temp <- paste(paste(temp[c(1:cut_index)],collapse=" "),paste(temp[c((cut_index+1):length(temp))],collapse=" "),sep=" \n ")
+          xlabel[k] <- temp
+        }
+      }#for (spec_lab in c("xlabel","ylabel"))
+      
+      par_mgp <- par()$mgp
+      par(mgp=c(1.3,0.4,0))
+      axis(1,at=plotx,labels=xlabel,tick=F,cex.axis=min_cex)
+      title(xlab="Simulation seeds",cex.lab=inter_cex)
+      par(mgp=par_mgp)
+      par(xpd=F)
+      abline(h=0)
+      
+      if (pval>0.05){p_cex <- inter_cex;adjust_line <- 0.4;fonty <- 1}else{p_cex <- max_cex*1.1;adjust_line <- 0.1; fonty <-  2}
+      
+      title(main=from_p_to_ptext(pval),cex.main=p_cex,font.main=fonty,line=stat_line+adjust_line,xpd=T)
+      title(main=ifelse(current_size=="big","large",current_size),cex.main=p_cex,font.main=fonty,line=stat_line+adjust_line+1.5,xpd=T)
+      
+      if (pval<0.05){
+        post_hoc <- summary(glht(mod,linfct = mcp(seed="Tukey")),test=adjusted("BH"))
+        post_hoc_groups <- cld(post_hoc)$mcletters$Letters
+        post_hoc_groups <- post_hoc_groups[forplot$seed]
+        for (i in 1:length(post_hoc_groups)){
+          mtext(post_hoc_groups[i],side=3,line=stat_line-0.7,at=plotx[i],xpd=T,cex=par("cex") *inter_cex,font=2)
+        }
+      }
+    }#size
+  }
+}
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 5.40 test_norm() old ####
+# new version of this gets loaded in config_user_hd.R
+
+# function to test normality of residuals
+# test_norm <- function(resids) {
+#   print("Testing normality")
+#   if (length(resids) <= 300) {
+#     print("Fewer than 300 data points so performing Shapiro-Wilk's test")
+#     print(shapiro.test(resids))
+#     print("below 0.05, the data significantly deviate from a normal distribution")
+#   } else {
+#     print("More than 300 data points so using the skewness and kurtosis
+# approach")
+#     print("Skewness should be between -3 and +3 (best around zero")
+#     print(skewness(resids))
+#     print("")
+#     print("Excess kurtosis (i.e. absolute kurtosis -3) should be less than 4; ideally around zero")
+#     print(kurtosis(resids))
+#   }
+# }
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 5.41 output_lmer() ####
+# function to report a model output
+output_lmer <- function(model,show_report = F) {
+  print(paste("############### MODEL :",deparse(substitute(m1)),"###############",sep = " "))
+  print("------------RESIDUALS NORMALITY------------")
+  test_norm(residuals(model))
+  print("------------SUMMARY------------")
+  print(summary(model))
+  print("------------ANOVA------------")
+  print(anova(model)) 
+  warning("this uses Type III Analysis of variance, for when there are interactions")
+  print("------------RSQUARED------------")
+  print(r.squaredGLMM(model))
+  print("------------REPORT------------")
+  if (show_report) {
+    print(report(model))
+  }else{ cat("Set show_report to TRUE to obtain a human readable model report")}
+  #tab_model(model)
+}
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 5.42 output_lmer() ####
+# function to simplify a model if the interaction is not significant
+simplify_model <- function(model) {
+  # Extract the model formula
+  model_formula <- formula(model)
+  # Check the significance of the interaction using anova()
+  anova_m1 <- as.data.frame(Anova(model))
+  print(anova_m1)
+  # Find the interaction term in the model formula
+  # define a regular expression pattern to match the desired substring
+  pattern <- "\\b\\w+\\s*\\*\\s*\\w+\\b"
+  # use the sub() function to extract the first match of the pattern
+  interaction_term <- sub(paste0(".*(", pattern, ").*"), "\\1", as.character(model_formula)[3])
+  interaction_vars <- unlist(strsplit(interaction_term, " * "))
+  anova_term <- gsub("\\s*\\*\\s*", ":", interaction_term)
+  # If the Anova of the interaction is not significant, simplify the model by removing the interaction
+  if (anova_m1[which(rownames(anova_m1)== anova_term),"Pr(>Chisq)"] > 0.05) {
+    cat("\n#\nModel interaction NOT significant, simplify\n#\n")
+    model_no_interaction_formula <-  as.formula(gsub("\\*", "+", deparse(model_formula)))
+    model_no_interaction <- update(model, formula = model_no_interaction_formula)
+    #print(summary(m1_no_interaction))
+    print(Anova(model_no_interaction))
+    return(model_no_interaction)
+  } else {
+    cat("\n#\nModel interaction significant, don't simplify\n#\n")
+    return(model)
+  }
+}
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 5.42 has_interaction() ####
+#check if model has interaction
+has_interaction <- function(model) {
+  formula_str <- as.character(formula(model))
+  return(any(grepl(":", formula_str) | grepl("\\*", formula_str)))
+}
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 5.43 compute_posthocs() ####
+# function to perform posthocs
+posthoc_list <- list()
+interactions_to_explore <- list()
+compute_posthocs <- function(model) {
+  #warning("this function has only been tested with lmer()")
+  warning("How to use: \nA.Run on models without interactions. If interaction is present, run 'simplify_model' first. 
+          \nB.If has_interaction= T, paste your variables naming the new var in this format 'VAR1_VAR2'
+          \nC. assign the output of this function to 'posthoc_list'
+          \nD.Optional: provide an ID_model [i.e. formatted as paste(GROUP,VAR,sep='-')] to later recall the posthoc.\n\n")
+  print(paste("model predictor:", paste0(row.names(Anova(model))), sep = " "))
+  # check that there are significant outputs
+  if (length(row.names(Anova(model)[Anova(model)$"Pr(>Chisq)" < 0.05, ])) == 0) {
+    print("there are no significant vars.")
+  } else {
+    for (SIG.VAR in row.names(Anova(model)[Anova(model)$"Pr(>Chisq)" < 0.05, ])) {
+      if (grepl(":", SIG.VAR)) {
+        warning(paste0(SIG.VAR, "is an interaction, currently this situation is not handled by the function. Re-run model using pasted variables"))
+        #interactions_to_explore <- c(interactions_to_explore, list(paste(GENE,GROUP,SIG.VAR,deparse(substitute(model)), sep = "-") ))
+      } else {
+        # check if the variable is not numeric . to do so, we need to access the dataframe from the model
+        if (!is.numeric(get(gsub("\\[.*", "", as.character(model@call)[3]))[, SIG.VAR])) {
+          print(paste0("Performing posthocs for the significant var: ", SIG.VAR))
+          arg <- list("Tukey")
+          names(arg) <- SIG.VAR
+          # glht (mcp) : General linear hypotheses Testing (glht) and multiple comparisons for parametric models (mcp)
+          cmp <- do.call(mcp, arg)
+          posthoc_SIG.VAR <- summary(glht(model, linfct = cmp), test = adjusted("BH"))
+          # Set up a compact letter display of all pair-wise comparisons
+          model_means_cld <- cld(posthoc_SIG.VAR)
+          # create dataframe usable with ggplot geom_text
+          model_means_cld <- as.data.frame(t(t(model_means_cld$mcletters$Letters)))
+          # add column name
+          model_means_cld$newcol <- NA
+          colnames(model_means_cld)[which(names(model_means_cld) == "newcol")] <- SIG.VAR
+          colnames(model_means_cld)[which(names(model_means_cld) == "V1")] <- "letters"
+          model_means_cld[, SIG.VAR] <- row.names(model_means_cld)
+          rownames(model_means_cld) <- NULL
+          # if interaction term, split columns
+          if (grepl("_", SIG.VAR)) {
+            # Split the column into two new columns using "_"
+            #SIG.VAR.STRIP <- names(model_means_cld[grep( "_",model_means_cld)])
+            model_means_cld[, strsplit(SIG.VAR, "_")[[1]]] <- t(sapply(model_means_cld[,SIG.VAR], function(x) strsplit(x, "_")[[1]]))
+          }
+          # add to list
+          posthoc_list <- c(posthoc_list, list(model_means_cld))
+          if (exists("ID_model")) {
+            names(posthoc_list)[length(posthoc_list)] <- paste(ID_model,SIG.VAR,  deparse(substitute(model)),sep = "-")
+          } else {
+            warning("if you provide an ID_model [i.e. formatted as paste(GROUP,VAR,sep='-')] before running the function, it will be easier to later call the posthoc output for plotting")
+            names(posthoc_list)[length(posthoc_list)] <- paste(SIG.VAR,deparse(substitute(model)), sep = "-")
+          }
+          print(paste(deparse(substitute(model)), SIG.VAR, sep = "_"))
+          print(model_means_cld)
+        } # SIG.VAR LOOP
+      } # check if is an interaction
+    } # check if numeric
+    warning("call 'posthoc_list' to get posthocs")
+  } # if significant vars exist
+  return(posthoc_list)
+}
+
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 5.44 nice_print_model_sel() ####
+## pretty print the model selection output
+nice_print_model_sel <- function(model_output) {
+  # clean output
+  sel.table <- round(as.data.frame(model_output)[-c(1:5)], 3)
+  # number of parameters (df) should be K
+  names(sel.table)[1] <- "K"
+  sel.table$Model <- rownames(sel.table)
+  rownames(sel.table) <- NULL
+  # replace Model name with formulas
+  for (i in 1:nrow(sel.table)) sel.table$formula[i] <- as.character(formula(get(sel.table$Model[i])))[3]
+  return(sel.table)
+}
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 5.45 add_star() ####
+# convert significance levels to stars
+add_star <- function(p) {
+  if (p<0.001) {
+    return('***')
+  } else if (p<0.01) {
+    return('**')
+  } else if (p<0.05) {
+    return('*')
+  } else {
+    return('ns')
+  }
+}
+
+### individual immunity ###
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 5.46 assign_CTDiff_15PipErr() ####
+# MAXIMUM ACCEPTED DIFF IN CT between duplicates WITH 15% PIPETTING ERROR# #Efficiency is between 1.95 and 2.05, differing CT values.
+# FUNCTION MODIFIED FROM  # https://rnajournal.cshlp.org/content/23/5/811.full.pdf, BASED ON THE ABOVE
+assign_CTDiff_15PipErr <- function(mean_Ct) {
+  if (is.na(mean_Ct)) {
+    return(0)
+  } else if (mean_Ct > 34.5) {return(1.9)
+  } else if (mean_Ct > 33.5) {return(1.3)
+  } else if (mean_Ct > 32.5) {return(0.9)
+  } else if (mean_Ct > 31.5) {return(0.7)  
+  } else if (mean_Ct >    0) {return(0.5)
+  } else                     {return(0)
+  }
+}
+
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 5.47 SavePrint_plot() ####
+#  PLOT SAVING   
+#standard pixels per inch
+ppi <- 72
+SavePrint_plot <- function(plot_obj, plot_name, dataset_name, save_dir, plot_size = c(7, 4), dpi = 300, font_size = 30, SVG = FALSE) {
+  # Create the directory if it doesn't exist
+  if (!dir.exists(save_dir)) {
+    dir.create(save_dir, recursive = TRUE)
+  }
+  # Modify the plot object to adjust the font size
+  plot_obj_mod <- plot_obj + theme(text = element_text(size = font_size))
+  # Check if the directory is writable
+  if (!file.access(save_dir, 2)) {
+    # Save plot as SVG or png depending on the SVG parameter
+    if (SVG) {
+      # Save plot as SVG
+      ggsave(paste0(save_dir, dataset_name, "_", plot_name, "_", Sys.Date(), ".svg"), 
+             plot = plot_obj_mod, 
+             width = plot_size[1], 
+             height = plot_size[2])  # No dpi for SVG
+    } else {
+      # Save plot as png
+      ggsave(paste0(save_dir, dataset_name, "_", plot_name, "_", Sys.Date(), ".png"), 
+             plot = plot_obj_mod, 
+             width = plot_size[1], 
+             height = plot_size[2], 
+             dpi = dpi)  # Use dpi for png
+    }
+  } else {
+    cat("Error: The directory is not writable.")
+  }
+}
+
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 5.47 Styling functions AW ####
+
+### Stuff partly specific to AW so needs to be adjusted as we go... 
+
+# general
+remove_y_labs <-  list(theme(axis.title.y = element_blank(),
+                             axis.text.y = element_blank(),
+                             axis.ticks.y = element_blank()))
+remove_x_labs <-  list(theme(axis.title.x = element_blank(),
+                             axis.text.x = element_blank(),
+                             axis.ticks.x = element_blank()))
+
+# Function to split text into two lines
+split_title <- function(title) {
+  words <- str_split(title, " ")[[1]]
+  half <- length(words) %/% 2
+  paste(paste(words[1:half], collapse = " "), "\n", paste(words[(half+1):length(words)], collapse = " "), sep = "")
+}
+
+multi_plot_comps <- function(plot_list,ylim_extra,legsize=12){
+  # Set the same y-axis limits for all plots
+  y_limits <- c(min(sapply(plot_list, function(x) ggplot_build(x)$data[[1]]$ymin)), 
+                max(sapply(plot_list, function(x) ggplot_build(x)$data[[1]]$ymax)) + ylim_extra)
+  
+  leg <-cowplot::get_legend(plot_list[[1]] + theme(legend.direction="horizontal",legend.title =element_text(size=legsize), legend.text=element_text(size=legsize)) + guides(fill=guide_legend(nrow=1, ncol=4))) 
+  
+  multi_plot_comps_list <- list(y_limits=y_limits,leg=leg)
+  
+  return(multi_plot_comps_list)
+}
+
+
+### Coloring
+# GENERATE 4 MAIN COLORS FOR THE 4 TREATMENTS BS,BP,SS,SP + SHADES FOR THE RESPECTIVE COLONIES
+
+# Create a color palette with 4 colors as distant as possible
+colors_full <- scales::viridis_pal(option = "D")(100)
+# Create a list to store the subsets of colors
+color_subsets <- list()
+Shades <- list()
+# Loop over the 4 colors to get shades of the colour in a +5, -5 range
+for (i in c(10, 30, 70, 90)) {
+  # BE CAREFUL: IF CHANGING THIS, ALSO CHANGE Treat_colors
+  color_ramp <- colorRampPalette(colors_full[(i - 5):(i + 5)])
+  #color_ramp <- colorRampPalette(colors_full[(i-1):(i+1)])
+  color_subsets[[i]] <- color_ramp(12)
+}
+
+
+Treat_colors <-
+  structure(list(
+    Shades = c(colors_full[10], colors_full[30], colors_full[70], colors_full[90]),
+    Treatment = c(
+      "pathogen.big",
+      "control.big",
+      "pathogen.small",
+      "control.small"
+    )
+  ),
+  row.names = c(NA, 4L),
+  class = "data.frame")
+
+
+#show_col(c(colors_full[10],colors_full[30],colors_full[70],colors_full[90]))
+
+#clean the output
+color_subsets <- color_subsets[lapply(color_subsets, length) > 0]
+
+#Darken the colours progressively to increase contrast among the colonies of the same treatment
+for (i in 1:4) {
+  # Define the color gradient
+  color_shades <- color_subsets[[i]]
+  
+  # Convert the colors from hexadecimal to HSL (hue, saturation, lightness)
+  
+  colors_lightGrad <- c()
+  # Decrease the lightness of each color by an increasing amount
+  lightness_decrease <-
+    rev(seq(
+      from = 0,
+      to = 0.2,
+      length.out = length(color_shades)
+    ))
+  lightness_increase <-
+    seq(from = 0,
+        to = 0.2,
+        length.out = length(color_shades))
+  
+  for (j in 1:length(color_shades)) {
+    hsl_colors <- col2hsl(color_shades[j])
+    hsl_colors[3] <- hsl_colors[3] - lightness_decrease[j]
+    hsl_colors[3] <- hsl_colors[3] + lightness_increase[j]
+    colors_lightGrad <- c(colors_lightGrad, hsl2col(hsl_colors))
+  }
+  
+  Shades[[i]] <- colors_lightGrad
+}
+
+# #inspect output
+# par(mfrow = c(2, 2))
+# for (i in 1:4) {
+#   plot(1:12, 1:12,
+#        col = Shades[[i]], # color_subsets
+#        pch = 19,
+#        cex = 5,
+#        xaxt = "n",
+#        yaxt = "n",
+#        xlab = "",
+#        ylab = "")
+# }
+
+### ADD THE METADATA
+#meta.data <- read.table(paste("/media/cf19810/DISK4/ADRIANO/EXPERIMENT_DATA/Metadata_Exp1_2021_2023-02-27.txt", sep = ""), header = T, stringsAsFactors = F, sep = ",")
+# HARD CODE THEM
+meta.data_size_treat <- c("BS", "SP", "SS", "BP")
+meta.data_REP_treat <-  c("R1BS", "R1SP", "R1SS", "R10BP","R11BP","R11BS","R11SP","R11SS","R12BP","R12BS","R12SP","R13BS","R13SP","R13SS",
+    "R14BP","R14BS","R14SP","R14SS","R2BP","R2BS","R2SP","R2SS","R3BP","R3BS","R3SP","R3SS","R4BP","R4SS","R5BP",
+    "R5SP","R5SS","R6SP","R6SS","R7BP","R7BS","R7SP","R7SS","R8BP","R8BS","R8SP","R8SS","R9BS","R9SP","R9SS")
+
+# create groups to assign the colours
+Cols <- list()
+# divide each size_treat into a list element with its colonies inside
+for (i in 1:length(meta.data_size_treat)) {
+  treatment_labs <- meta.data_size_treat[i]
+  treatment_vector <-
+    unique(meta.data_REP_treat[grepl(treatment_labs, meta.data_REP_treat)])
+  Cols[[i]] <- treatment_vector
+  names(Cols)[i] <- treatment_labs
+}
+#name list elements according to the favoured pattern (the colour order I have been using since the first plots)
+names(Shades)[1] <- "BP"
+names(Shades)[2] <- "BS"
+names(Shades)[3] <- "SP"
+names(Shades)[4] <- "SS"
+
+# dput((list_of_vectors))
+# dput((Shades))
+
+# Create an empty dataframe to store the results
+colour_palette <- data.frame()
+
+# bind together colours, REP_treats and treatments
+# Loop over the list "Cols" to create the dataframe
+for (group in names(Cols)) {
+  group_cols <- Cols[[group]]
+  group_shades <- Shades[[group]]
+  # Take a random subset of the shades that matches the length of the cols
+  rand_shades <- sample(group_shades, length(group_cols))
+  # Create a dataframe with two columns: "Cols" and "Shades"
+  group_colour_palette <-
+    data.frame(Cols = group_cols,
+               Shades = rand_shades,
+               Treatment = group)
+  # Append the current group dataframe to the overall dataframe
+  colour_palette <- rbind(colour_palette, group_colour_palette)
+}
+
+# #visualise output
+# ggplot(colour_palette, aes(x=Treatment, y=Shades, fill=Shades)) +
+#   geom_tile(colour="white", size=0.5) +
+#   scale_fill_identity() +
+#   theme_void() +
+#   labs(title="Colours by Treatment", x="Treatment", y="Shades") +
+#   theme(axis.text.y=element_text(angle=0, hjust=1)) +
+#   facet_wrap(~Treatment, scales = "free_y")
+
+##OVERWRITE THE COLOUR SHADING AS I NEVER USE THE INDIVIDUAL DATA POINTS ANYMORE
+myColors_Treatment <- scales::viridis_pal(option = "D")(4)
+
+myColors_Colony <- colour_palette$Shades
+names(myColors_Colony) <- colour_palette$Cols
+#myColors_Treatment <- Treat_colors$Shades
+names(myColors_Treatment) <- Treat_colors$Treatment
+# PERIOD
+myColors_period <- rev(hue_pal()(2))
+names(myColors_period) <- c("pre", "post")
+#### DEFINE THE FILL AND COLOR AS STANDALONE
+
+#COLOR
+# geom_point(aes(color = Sample)) +
+colScale_Colony <-
+  scale_colour_manual(name = "Colony",
+                      values = myColors_Colony,
+                      drop = TRUE)
+#new_scale_color() +
+#new_scale_fill() +
+# geom_line(aes(color = Sample)) +
+colScale_Treatment <-
+  scale_color_manual(name = "Treatment", values = myColors_Treatment,labels = function(x) str_to_title(gsub("big", "large", gsub("\\.", " ", x))),drop=T) #for lines
+colScale_treatment <-
+  scale_color_manual(name = "treatment", values = myColors_Treatment,labels = function(x) str_to_title(gsub("big", "large", gsub("\\.", " ", x))),drop=T) #for lines
+####FILL
+# geom_point(aes(color = Sample)) +
+colFill_Colony <-
+  scale_fill_manual(name = "Colony",
+                    values = myColors_Colony,
+                    drop = TRUE)
+#new_scale_color() +
+#new_scale_fill() +
+# geom_line(aes(color = Sample)) +
+colFill_Treatment <-
+  scale_fill_manual(name = "Treatment", values = myColors_Treatment,labels = function(x) str_to_title(gsub("big", "large", gsub("\\.", " ", x))),drop=T) #for lines
+colFill_treatment <-
+  scale_fill_manual(name = "treatment", values = myColors_Treatment,labels = function(x) str_to_title(gsub("big", "large", gsub("\\.", " ", x))),drop=T) #for lines
+
+colScale_period <-
+  scale_colour_manual(name = "period",
+                      values = myColors_period,
+                      drop = TRUE,
+                      labels = function(x) str_to_title(x))
+colFill_period  <-
+  scale_fill_manual(name = "period", values = myColors_period,labels = function(x) str_to_title(x)) #for lines
+
+
+#### DEFINE REMAINING PLOT STYLE
+# ggplot PLOT STYLE
+STYLE <- list(#colScale, fillScale,
+  theme_bw(),
+  theme(
+    panel.grid.minor = element_blank(),
+    text = element_text(family = "Liberation Serif") 
+  ))#,
+#scale_x_discrete(labels = function(x) str_wrap(x, width = 4)) # wrap lables when long)
+
+STYLE_CONT <- list(#colScale, fillScale,
+  theme_bw(),
+  theme(
+    panel.grid.minor = element_blank(),
+    text = element_text(family = "Liberation Serif")
+  ))
+
+
+# for plots not involving the treatments
+STYLE_generic <- list(
+  theme(
+    panel.grid.minor = element_blank(),
+    text = element_text(family = "Liberation Serif") 
+  ))#
+
+
+
+# Polled colonies colour (CH4)
+palette <- viridis_pal()(4)
+# Mix the first two colors
+mixed_color1 <- col2rgb(palette[1]) / 2 + col2rgb(palette[2]) / 2
+# Mix the last two colors
+mixed_color2 <- col2rgb(palette[3]) / 2 + col2rgb(palette[4]) / 2
+
+# Convert the mixed RGB values back to a color
+pooled_large_cols_colour <- rgb(mixed_color1[1, ], mixed_color1[2, ], mixed_color1[3, ], maxColorValue = 255)
+pooled_small_cols_colour <- rgb(mixed_color2[1, ], mixed_color2[2, ], mixed_color2[3, ], maxColorValue = 255)
+
+# Display the mixed colors
+#show_col(c(palette,mixed_color1,mixed_color2))
+
+
+
+
+
+#### XXX - Cleaning ####
+remove <-  c("color_ramp","color_shades","color_subsets","colors_full","colors_lightGrad", "colour_palette","Cols","group","group_colour_palette",
+             "group_cols","group_shades","hsl_colors","i","j","lightness_decrease","lightness_increase","meta.data","myColors_Colony",
+             "rand_shades","treatment_labs","Shades","palette") # stuff that can go...
+rm(list = ls()[which(ls() %in% remove)]) # remove things that can go
+to_keep <- c(ls(),"to_keep") # make sure remaining variables are kept 
+clean()
+
+
+
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+# more old code
+#@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+#AW adapted Functions
+
+#old
+# plot_observed_vs_random_ORI <- function(experiments,variables,data_input=NULL,data_path,pattern){
+#   if (is.null(data_input)) {
+#     ###read-in data###
+#     data <- NULL
+#     
+#     for (experiment in experiments){
+#       print(experiment)
+#       ### data files
+#       setwd(paste(disk_path,experiment,data_path,sep="/"))
+#       file_list <- list.files(pattern=pattern)
+#       temp <- NULL
+#       for (file in file_list){
+#         dat <- read.table(file,header=T,stringsAsFactors=F)
+#         dat <- dat[,which(names(dat)%in%c("randy","colony","treatment","period","time_hours","time_of_day",variables))]
+#         temp <- rbind(temp,dat)
+#         rm(list=c("dat"))
+#       }
+#       temp <- temp[,order(names(temp))]
+#       temp <- data.frame(experiment=experiment,temp,stringsAsFactors = F)
+#       if (!is.null(data)){
+#         if (!all(names(data)%in%names(temp))){
+#           temp[names(data)[which(!names(data)%in%names(temp))]] <- NA
+#           temp <- temp[,names(data)]
+#         }
+#       }
+#       
+#       data <- rbind(data,temp)
+#       rm(list=c("temp"))
+#       
+#     }
+#     
+#     ####modify period values to be simple and match what scatterplot function expects
+#     data["colony"] <- as.character(interaction(data$experiment,data$colony))
+#     
+#   }else{data <- data_input}
+#   
+#   for (variable in variables){
+#     data["variable"] <- data[,variable]
+#     data[which(!is.finite(data$variable)),"variable"] <- NA
+#     
+#     #####get random and observed mean
+#     randys <- aggregate(variable~colony+treatment+randy,FUN=mean,data=data[which(data$randy!="observed"),]);
+#     randys <- as.data.frame(as.matrix(randys));randys$variable <- as.numeric(as.character(randys$variable))
+#     #####then get mean, median and standard error
+#     randys <- aggregate(variable~colony+treatment,function(x)cbind(mean(x),median(x),std.error(x),length(x)),data=randys);
+#     randys <- as.data.frame(as.matrix(randys))
+#     names(randys)[names(randys)=="variable.1"] <- "random_mean";names(randys)[names(randys)=="variable.2"] <- "random_median";names(randys)[names(randys)=="variable.3"] <- "random_std.error";names(randys)[names(randys)=="variable.4"] <- "random_nb"
+#     
+#     ###do the same for observed
+#     observeds <- aggregate(variable~colony+treatment+randy,FUN=mean,data=data[which(data$randy=="observed"),])
+#     observeds <- as.data.frame(as.matrix(observeds));observeds$variable <- as.numeric(as.character(observeds$variable))
+#     observeds <- aggregate(variable~colony+treatment,function(x)cbind(mean(x),median(x),length(x)),data=observeds);
+#     observeds <- as.data.frame(as.matrix(observeds))
+#     names(observeds)[names(observeds)=="variable.1"] <- "observed_mean";names(observeds)[names(observeds)=="variable.2"] <- "observed_median";names(observeds)[names(observeds)=="variable.3"] <- "observed_nb"
+#     
+#     randys <- merge(randys,observeds);
+#     randys$colony <- as.character(randys$colony)
+#     randys$observed_mean <- as.numeric(as.character(randys$observed_mean))
+#     randys$random_mean <- as.numeric(as.character( randys$random_mean))
+#     randys$observed_median <- as.numeric(as.character(randys$observed_median))
+#     randys$random_median <- as.numeric(as.character( randys$random_median))
+#     randys$random_std.error <- as.numeric(as.character( randys$random_std.error))
+#     
+#     randys["deviation"] <- randys$observed_median-randys$random_median
+#     randys["relative_deviation"] <- (randys$observed_median-randys$random_median)/abs(randys$random_median)
+#     randys["p_value"] <- NA
+#     randys["variable"] <- variable
+#     randys["n_observed"] <- NA
+#     randys["n_random"] <- NA
+#     
+#     for (coli in unique(randys$colony)){
+#       random <- aggregate(variable~colony+treatment+randy,FUN=mean,data=data[which(data$colony==coli&data$randy!="observed"),])[,"variable"];
+#       observed <- aggregate(variable~colony+treatment+randy,FUN=mean,data=data[which(data$colony==coli&data$randy=="observed"),])[,"variable"];
+#       #####Get one-sided p: proportion of random values that are greater than observed values. Will be 0 if all values are lower and 1 if all values are greater
+#       one_sided_p <- length(which(random>observed))/length(random)
+#       
+#       randys[which(randys$colony==coli),"p_value"] <- one_sided_p
+#       randys[which(randys$colony==coli),"one_sided_p_value_obs_lower_than_rand"] <- 1-one_sided_p
+#       randys[which(randys$colony==coli),"one_sided_p_value_obs_greater_than_rand"] <- one_sided_p
+#       randys[which(randys$colony==coli),"effect_sign"] <- sign( randys[which(randys$colony==coli),"deviation"])
+#       randys[which(randys$colony==coli),"n_observed"] <- length(observed)
+#       randys[which(randys$colony==coli),"n_random"] <- length(random)
+#     }
+#     randys_toprint <- data.frame(variable=variable,randys[c("colony","treatment","deviation","relative_deviation","effect_sign","one_sided_p_value_obs_lower_than_rand","one_sided_p_value_obs_greater_than_rand")],stringsAsFactors = F)
+#     randys_toprint[which(randys_toprint$effect_sign==1),"effect_signs"] <- "+"
+#     randys_toprint[which(randys_toprint$effect_sign==-1),"effect_signs"] <- "-"
+#     randys_toprint[which(randys_toprint$effect_sign==0),"effect_signs"] <- "0"
+#     
+#     #####now the stats: meta-analysis
+#     p_values_meta_analysis <- meta_analysis(p_values = randys[,"p_value"],effects = randys[,"relative_deviation"],std.errors = randys[,"random_std.error"])
+#     
+#     #####modify randys for plot
+#     forplot <- data.frame(network="random",randys[c("colony","treatment","random_median")],stringsAsFactors=F); names(forplot)[grepl("median",names(forplot))] <- "median"
+#     forplot2 <- data.frame(network="observed",randys[c("colony","treatment","observed_median")],stringsAsFactors=F); names(forplot2)[grepl("median",names(forplot2))] <- "median"
+#     
+#     forplot <- aggregate(median~network+colony+treatment,FUN=mean,data=forplot)
+#     forplot2 <- aggregate(median~network+colony+treatment,FUN=mean,data=forplot2)
+#     forplot <- rbind(forplot,forplot2)
+#     forplot$network <- factor(forplot$network,levels = c("random","observed"))
+#     ###get colony ordering from observed
+#     col_medians <- aggregate(median~colony,FUN=median,data=forplot2)
+#     col_medians <- col_medians [order(col_medians$median),]
+#     col_list <- col_medians$colony
+#     colour_pal <- colorRampPalette(brewer.pal(11, "Spectral"))(length(col_list))
+#     par(bty="n",xaxt = "n")
+#     
+#     for (coli in rev(col_list)){
+#       if (coli==col_list[length(col_list)]){
+#         addy <- F
+#       }else{
+#         addy <- T
+#       }
+#       
+#       titl <- names(variables[variables==variable])
+#       if (grepl("delta",titl)){
+#         titl1 <- unlist(strsplit(titl,"delta"))[1]
+#         titl2 <- unlist(strsplit(titl,"delta"))[2]
+#         titl <- substitute(paste(labo,Delta,laby),list(labo=titl1,laby=titl2))
+#       }
+#       stripchart(median ~ network, data = forplot[forplot$colony==coli,],vertical = TRUE,pch=16,col=alpha(colour_pal[which(coli==col_list)],1),method = 'jitter', jitter = 0.3,ylim=c(min(c(0,forplot$median)),max(c(forplot$median))), main = "",ylab=titl,add=addy,bty="l",cex=0.5,cex.axis=min_cex,cex.lab=inter_cex)
+#     }
+#     ###make boxplot
+#     forplot3 <- data.frame(as.matrix(aggregate(median~network,function(x)cbind(mean(x),std.error(x)),data=forplot)),stringsAsFactors = F)
+#     names(forplot3) <- c("network","mean","se")
+#     
+#     
+#     boxplot(median ~ network, data = forplot, 
+#             outline = FALSE, notch=F,    ## avoid double-plotting outliers, if any
+#             main = "",yaxt="n",add=T,col=alpha("white",0),medlwd=line_max,boxlwd=line_min+0.5*(line_max-line_min),whisklwd=line_min,whisklty=1,staplelwd=line_min,boxwex=0.7,bty="l")
+#     
+#     par(xpd=T)
+#     
+#     ###add stat
+#     pval <- p_values_meta_analysis$two_sided_p
+#     one_sidedpval <- p_values_meta_analysis$one_sided_p
+#     statistic <- p_values_meta_analysis$meta_statistic
+#     
+#     print(paste(variable,": z=",statistic,"; one-sided p =",one_sidedpval,"; two-sided p =",pval))
+#     
+#     if (pval>0.05){p_cex <- inter_cex;adjust_line <- 0.3;fonty <- 1}else{p_cex <- max_cex*1.1;adjust_line <- 0; fonty <-  2}
+#     
+#     title(main=from_p_to_ptext(pval),cex.main=p_cex,font.main=fonty,line=stat_line+adjust_line,xpd=T)
+#     par(xpd=F)
+#     par(xaxt = "s")
+#     axis(side=1,at=c(1,2),labels=c(full_statuses_names["random"],""),tick=F,lty=0,cex.axis=inter_cex)
+#     axis(side=1,at=c(1,2),labels=c("",full_statuses_names["observed"]),tick=F,lty=0,cex.axis=inter_cex)
+#     
+#   }
+#   
+# }
 # 
-# 
-# 
+
+
+#THIS FUNCTION SHOULD BE DECOMMISSIONED
+# plot_age_dol <- function(data_path=data_path,experiments){
+#   
+#   plot_age_dol_list <- list()
+#   for (experiment in experiments){
+#     
+#     ###1. read data
+#     setwd(data_path)
+#     file_list <- list.files(pattern=pattern)
+#     print(file_list)
+#     data <- NULL
+#     for (file in file_list){
+#       data <- rbind(data,read.table(file,header=T,stringsAsFactors = F))  
+#     }
+#     
+#     #add info
+#     data$size     <- unlist(lapply( data$treatment, function(x)  unlist(strsplit(x,split="\\.") )[2]  ))
+#     data$size      <- factor(data$size    , levels=size_order   [which(size_order%in%data$size )])
+#     
+#     #analysis per size group
+#     #for (SIZE in unique(data$size)) {
+#     
+#     #####second plot interaction frequencies, observed vs. random  ##############
+#     InteractFreq    <- plot_observed_vs_random(experiments=experiment,variable_list=variable_list,data_input=data) #,size=SIZE
+#     
+#     #TaskAssort <- plot_observed_vs_random(experiments=experiment,variable_list=variable_list,pattern="network_properties",data_path="/processed_data/network_properties_edge_weights_duration/random_vs_observed") # ,size=SIZE
+#     
+#   }
+#   
+#   plot_age_dol_list <- list(InteractFreq=InteractFreq,TaskAssort=TaskAssort)
+#   
+#   return(plot_age_dol_list)
+# }
+# # normalised entropy
+# norm_entropy <- function(x) {
+#   # Remove missing values from x
+#   x <- x[!is.na(x)]
+#   if (length(x) == 0) {
+#     warning("Input vector contains no valid values.")
+#     return(NA)
+#   }
+#   norm_entropy_value <-entropy(x)/entropy(rep(1,length(x)))
+#   return(norm_entropy_value)
+# }
+
+
+
