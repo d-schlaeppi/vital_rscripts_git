@@ -1,8 +1,6 @@
 # rm(list = ls())
 rm(list = setdiff(ls(), "first_time_use_working_directory"))
-gc()
-Sys.sleep(3)
-mallinfo::malloc.trim(0L)
+gc(); mallinfo::malloc.trim(0L)
 
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
 ### VITAL MAIN ANALYSIS     ### ### ### ### ###
@@ -47,19 +45,18 @@ mallinfo::malloc.trim(0L)
 FRAME_RATE <- 6
 
 # Define which interactions to look at:                                                                                                  
-{
 RUN_CLASSIC_INTERACTIONS           <- TRUE
 RUN_GROOMING_INTERACTIONS          <- FALSE
 RUN_TROPHALLACTIC_INTERACTIONS     <- FALSE
-
 # Define what analysis step to run: 
 RUN_11_randomise_interactions_DS.R        <- FALSE
 RUN_12_simulate_transmission_DS.R         <- FALSE
 RUN_13_network_analysis_DS.R              <- FALSE
-RUN_14_summarise_interactions_DS.R        <- TRUE
-RUN_19_Facetnet_community_detection_DS.R  <- FALSE
-RUN_19_SUBSECTION_ONLY                    <- FALSE  # Community detection on observed data only for task allocation --> run only the first section of the script (subsetted) -- Usually this is set to false, unless you are opening this script for the first time and want to get task allocation via the facet net method as alternative to the space use method in base analysis
-}
+RUN_14_summarise_interactions_DS.R        <- FALSE
+RUN_19_Facetnet_community_detection_DS.R  <- TRUE
+RUN_19_FIRST_SUBSECTION_ONLY              <- TRUE  # Community detection on observed data only for task allocation --> run only the first section of the script (subsetted) -- Usually this is set to false, unless you are opening this script for the first time and want to get task allocation via the facet net method as alternative to the space use method in base analysis
+RUN_19_SECOND_SUBSECTION_ONLY             <- FALSE
+
 
 # setwd("/home/ael/Documents/vital_rscripts_git")
 if (!exists("first_time_use_working_directory") || first_time_use_working_directory == "") { # direct it to where you have config_user_and_hd.R (typically the script folder or github folder)
@@ -217,7 +214,6 @@ if (TRUE) {
   } else {
     print("skipping 19_Facetnet_community_detection_DS.R")
   }
-  
 } 
 
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 

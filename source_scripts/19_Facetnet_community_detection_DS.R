@@ -12,6 +12,7 @@
 # https://c4science.ch/source/facet_unil/
 # TO Richardson, T Kay, R Braunschweig, OA Journeau, M Rüegg, ... Ant behavioral maturation is mediated by a stochastic transition between two fundamental states. Current Biology 31, 1-8
 
+#### TODO's figure out if paralellization or another optimization can be done to increase the speed at which this runs... 
 
 #### Prerequisites ####
 # Set up directories and parameters
@@ -21,8 +22,8 @@ m                <- 2          ## how many communities do we want to instruct FA
 alpha            <- 0.5        ## used for modulating the `memory` - how much the community structure @ time t influences that at t+1 - only matters when we ask facetnet to pay attention to this...
 t_step           <- 0          ## not important
 N_ITERATIONS     <- 100        ## number of iterations to find best modularity: the modularity of the found solutions vary quite a bit --> repeat multiple times & select the highest-modularity solution 
-DISPLAY_RESULTS  <- TRUE       ## optional plotting of results
-UPDATE_DATA      <- FALSE      ## as far as I can see optional updating of a variety of tables... Maybe not needed... or can maybe be changed and added to an updated metadata table at some point. 
+DISPLAY_RESULTS  <- FALSE       ## optional plotting of results
+UPDATE_DATA      <- FALSE      ## updating of tables - e.g. adding modularity based on facet_net
 
 # set directories to match original version of script ### should already be defined as we are sourcing this from the main_analysis script anyways. 
 # DATADIR <- paste("/media",usr, hd, "vital/fc2",sep="/") 
@@ -40,8 +41,6 @@ input_path           <- paste(data_path,"/intermediary_analysis_steps/full_inter
 setwd(input_path)  
 input_folders        <- list.dirs(recursive=T,path="PreTreatment",full.names=F)
 input_folders        <- input_folders[which(input_folders!="")]
-input_folders        <- input_folders[which(input_folders!="random")]
-
 
 ## load the file containing the % time each ant spent outside
 TaskStats_File <- paste(data_path, "processed_data/individual_behaviour/pre_treatment/network_position_vs_time_outside.dat", sep="/")
@@ -51,8 +50,13 @@ TaskStats_all      <- read.table(TaskStats_File , header=T, stringsAsFactors = F
 WORKDIR      <- paste(data_path,"Soft_community_scores_duration",sep="/")
 to_keep <- c(ls(),"to_keep","network_files","network_file","output_folders","output_folder")
 
+
+if (RUN_19_SECOND_SUBSECTION_ONLY != TRUE){
+  #### ifelse() here insert something so that inpüt folder only includes observed when running first part only.
+  # input_folders        <- input_folders[which(input_folders!="random")]
 for (input_folder in input_folders){ # input_folder <- input_folders[1]
-  print(input_folder)
+  #print(input_folder)
+  cat(blue("\n input folder = ",input_folder, "\n"))
   setwd(input_path)
   network_files <- list.files(path=paste("PreTreatment/",input_folder,sep=""),full.names=T)
   output_folder <- file.path(WORKDIR, input_folder)
@@ -60,6 +64,13 @@ for (input_folder in input_folders){ # input_folder <- input_folders[1]
   
   ## file in which queen community is not the same as the one where ants spend least time outside  ###these two lines were adriano specific and can probably be deleted.
   # network_files <- network_files[!grepl("colony07SP_pathogen.small_PreTreatment",network_files)] 
+  
+  pb <- progress_bar$new(
+    format = "Progress: :current/:total [:bar] :percent ETA: :eta",
+    total = length(network_files),  # Use the length of network_files for total
+    clear = FALSE,
+    width = 80
+  )
   
   for (network_file in network_files){ # network_file <- network_files[1]
     
@@ -79,7 +90,7 @@ for (input_folder in input_folders){ # input_folder <- input_folders[1]
     #colony_size        <- info[which(info$colony==colony),"colony_size"]
     period             <- "Pre"
     
-    print(basename(root_name)) #"\r",
+    # print(basename(root_name)) #"\r",
     
     #MAKE A FOLDER PER COLONY
     FACETNET_REP_folder <- file.path(output_folder, paste(root_name,"_FACETNET_iters",sep="")); if (!file.exists(FACETNET_REP_folder)){dir.create(FACETNET_REP_folder)}
@@ -122,9 +133,10 @@ for (input_folder in input_folders){ # input_folder <- input_folders[1]
       ## create new subdirectory for community results with m
       FACETNET_REP_OUTPUT_DIR_M <- paste(FACETNET_REP_folder, paste(Cassette,",m=",m,",Iteration=",ITER,sep=""), sep="/"); if (!file.exists(FACETNET_REP_OUTPUT_DIR_M)){dir.create(FACETNET_REP_OUTPUT_DIR_M)}
       ## check if the outputs already exist
-      if ( file.exists( paste(FACETNET_REP_OUTPUT_DIR_M, "soft_comm_step_alpha0.5_nw0.csv", sep="/") ))
-      {cat(paste("Facetnet output exists for m=",m,"modules, up to iteration #",ITER),"\r")
-      }else{cat(paste("Facetnet output missing for m =",m, "modules, iteration #",ITER),"\r")
+      if ( file.exists( paste(FACETNET_REP_OUTPUT_DIR_M, "soft_comm_step_alpha0.5_nw0.csv", sep="/") ))  {
+        cat(paste("Facetnet output exists for m=",m,"modules, up to iteration #",ITER),"\r")
+      } else {
+        cat(paste("Facetnet output missing for m =",m, "modules, iteration #",ITER),"\r")
         
         FACETNET_INPUT_brackers <- paste0("'",FACETNET_INPUT,"'") #make sure the command is not broken
         FACETNET_REP_OUTPUT_DIR_M_brackers <- paste0("'",FACETNET_REP_OUTPUT_DIR_M,"'")
@@ -243,9 +255,12 @@ for (input_folder in input_folders){ # input_folder <- input_folders[1]
                     append = F, col.names = T, row.names = F, quote = F, sep = "\t")
       }
     }
+    pb$tick()
   }
   clean()
+ }
 }
+
 
 
 
@@ -257,16 +272,13 @@ for (input_folder in input_folders){ # input_folder <- input_folders[1]
 
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
 
-if (RUN_19_SUBSECTION_ONLY != TRUE) {
+if (RUN_19_FIRST_SUBSECTION_ONLY != TRUE) {
 
 #### DISPLAY RESULTS  ####
 
 if(DISPLAY_RESULTS){
-  library(dplyr)
-  library(ggplot2)
-  ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
-  ####            fetch best modularity values and save output               ####
-  ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+
+  ###  fetch best modularity values and save output  ###
   # # Define directory and patterns
   folder_pattern <- "FACETNET_iters"
   file_pattern <- "interactions_Modularities.txt"
@@ -274,7 +286,7 @@ if(DISPLAY_RESULTS){
   
   # Get list of folders matching the pattern
   randys <- list.dirs(WORKDIR, full.names = TRUE, recursive = FALSE)
-  for(randy in randys){
+  for(randy in randys){ # randy <- randys[1]
     folders <- list.dirs(randy, full.names = TRUE, recursive = FALSE)
     folders <- folders[grep(folder_pattern, folders)]
     
@@ -299,31 +311,21 @@ if(DISPLAY_RESULTS){
     
     data <- rbind(data, data_randy)
   }
-  
   #save best modularity output
-  write.table(data,
-              file=paste(data_path,
-                         paste0(basename(WORKDIR),"_modularity.txt"),
-                         sep="/"),
-              append = F, col.names = T, row.names = F, quote = F, sep = "\t")
+  write.table(data, file= paste0(WORKDIR,"_modularity.txt"), append = F, col.names = T, row.names = F, quote = F, sep = "\t")
   
-  ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### 
-  ##### ##### ##### #####         PLOT results of OBSERVED ONLY           ##### ##### ##### ##### ##### #####
-  ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### ##### 
+   
+  ### ### ###      PLOT results of OBSERVED ONLY     ### ### ### 
   # task_groups_A    <- read.table("/media/cf19810/Seagate Portable Drive/Lasius-Bristol_pathogen_experiment/main_experiment/original_data/task_groups.txt",header=T,stringsAsFactors = F)
   task_group_file <- paste(data_path, "original_data/task_groups.txt", sep = "/" )
   task_groups_A    <- read.table(task_group_file ,header=T,stringsAsFactors = F)
-  
-  # size_order      <- c("small","big") # Adriano specific? might need ordering of my treatment?
-  # task_groups_A$size     <- unlist(lapply( task_groups_A$treatment, function(x)  unlist(strsplit(x,split="\\.") )[2]  ))
-  # task_groups_A$size      <- factor(task_groups_A$size    , levels=size_order   [which(size_order%in%task_groups_A$size )])
   task_groups_A$treatment      <- as.factor(task_groups_A$treatment) 
   
   # Generate plots of Social Maturity
   ggplot(task_groups_A, aes(x = Forager_score, colour = treatment)) + 
     #geom_density(alpha = 0.6,size=1.5, adjust=1/1.2) + # 'adjust' changes the smoothing
-    geom_line(aes(color=treatment,group = colony), stat="density", size=1, alpha=0.2, adjust=1/1.2) +
-    geom_line(aes(color=treatment), stat="density", size=2, alpha=1, adjust=1/1.2) +
+    geom_line(aes(color=treatment,group = colony), stat="density", linewidth=1, alpha=0.2, adjust=1/1.2) +
+    geom_line(aes(color=treatment), stat="density", linewidth=2, alpha=1, adjust=1/1.2) +
     geom_vline(aes(xintercept = 0.5), linetype = "dashed",colour="grey20") + 
     geom_vline(aes(xintercept = 1/4), linetype = "dashed",colour="grey20") + 
     #facet_wrap(~ colony, scales = "free") +
@@ -331,10 +333,7 @@ if(DISPLAY_RESULTS){
     xlab("Social maturity (duration contacts)")
   
   
-  
-  
-  ### CHECK WHEN THE BEST MODULARITY VALUE IS ACHIEVED
-  
+  ### Check when best modularity value is achieved ###
   data_obs <- data[which(data$randy=="observed"),]
   
   # Identify and rank the top modularity values for each colony

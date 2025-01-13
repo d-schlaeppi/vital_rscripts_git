@@ -2526,7 +2526,7 @@ collective_analysis_rescal <- function(data_path=data_path,showPlot=T){
   # post_hoc_outcomes1 <- NULL
   barplot_delta_period_list <- list()
   
-  for (i in 1:length(variable_list)){
+  for (i in 1:length(variable_list)){ # i <- 1
     # for (i in c(1)){
     print(paste0("######## ",variable_list[i]," ########"))
     data <- data_ori
@@ -5539,6 +5539,7 @@ clean()
 #     #analysis per size group
 #     #for (SIZE in unique(data$size)) {
 #     
+{
 #     #####second plot interaction frequencies, observed vs. random  ##############
 #     InteractFreq    <- plot_observed_vs_random(experiments=experiment,variable_list=variable_list,data_input=data) #,size=SIZE
 #     
@@ -5561,6 +5562,6 @@ clean()
 #   norm_entropy_value <-entropy(x)/entropy(rep(1,length(x)))
 #   return(norm_entropy_value)
 # }
-
+}
 
 

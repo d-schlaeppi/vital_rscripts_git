@@ -11,15 +11,20 @@ rm(list = setdiff(ls(), "first_time_use_working_directory"))
 #' Todo's:
 #' - Adjust to the needs of vital 
 #' - try to write things so they run for the flugus experiment as well
-#' - Find out if night_start, light_start are right... 
+#' - Find out if night_start, light_start are right...
+#' - Check if there is a difference in modularity and modularity facet net!
 
 #' 
 
 #' Notes:
-#' Main things tfor me to analyse:   
+#' Main things for me to analyse:
+#' Regular network metrics for classic interaction network (difference between treatments pre? if not - difference between post treatment, else difference in delta pre to post?)
+#' 
 
 ### Index ###
 #' 1. prerequisites
+#' 2. Calculate missing variables
+#' 3. 
 
 #### 1. prerequisites ####
 if (!exists("first_time_use_working_directory") || first_time_use_working_directory == "") { # direct it to where you have config_user_and_hd.R (typically the script folder or github folder)
@@ -57,9 +62,9 @@ RUN_UNSCALED_NETS <- F
 # NOTES
 # plot_untransformed is always TRUE as the the variable fed to the plotting is transformed beforehand (see section: transform variable)
 
-###################################################################
-### Calculate missing variables ###################################
-###################################################################
+
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 2. Calculate missing variables ####
 
 # ### Grooming zone 
 # root_path <- paste(disk_path,"/main_experiment_grooming",sep="") # root_path <- paste(disk_path,"/main_experiment_grooming",sep="")
@@ -82,14 +87,11 @@ RUN_UNSCALED_NETS <- F
 
 
 
-
-###################################################################
-###I - Example collective analysis - without rescaling ############
-###################################################################
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 3. Example collective analysis - without rescaling ####
 
 if(RUN_UNSCALED_NETS){
-  
-  #### ALL INTERACTIONS ####
+  #### ALL INTERACTIONS
   ### network properties
   root_path <- paste(disk_path,"/main_experiment/processed_data",sep="") # root_path <- paste(disk_path,"/main_experiment_grooming/processed_data",sep="")
   data_path <- paste(root_path,"/network_properties_edge_weights_duration/pre_vs_post_treatment/all_workers",sep="")
@@ -97,23 +99,20 @@ if(RUN_UNSCALED_NETS){
   variable_list <- c("modularity_FacetNet","clustering","task_assortativity","efficiency","degree_mean","degree_maximum","density","diameter")
   names(variable_list) <- c("modularity_FacetNet","clustering","task assortativity","efficiency","mean degree","degree maximum","density","diameter")
   transf_variable_list <- c("log"      ,"none"      ,"none"         ,"log"      ,"log"       ,"log"          ,"none"   ,"log")   ######"none", "sqrt" "log","power2"
-  
   coll_no_rescal_net <- collective_analysis_no_rescal(data_path,showPlot=F)
-  
   # to print a plot
-  #coll_no_rescal$barplot_delta_collective_list$modularity
-  
+  # coll_no_rescal$barplot_delta_collective_list$modularity
   # Reshape the data
-  #stats_outcomes_reshaped <- reshape(stats_outcomes[,which(names(stats_outcomes)!="df")], idvar = "predictor", timevar = "variable", direction = "wide")
-  #colnames(reshaped_data)[-1] <- gsub("pval.", "", colnames(reshaped_data)[-1])
+  # stats_outcomes_reshaped <- reshape(stats_outcomes[,which(names(stats_outcomes)!="df")], idvar = "predictor", timevar = "variable", direction = "wide")
+  # colnames(reshaped_data)[-1] <- gsub("pval.", "", colnames(reshaped_data)[-1])
 }
 
-#######################################################################################################
-###II - collective analysis - with rescaling by pre-exposure mean for each size #######################
-#######################################################################################################
 
-#### ALL INTERACTIONS ####
 
+### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
+#### 4. Collective analysis - with rescaling by pre-exposure mean for each size ####
+
+### ALL INTERACTIONS 
 ### network properties
 root_path <- paste(disk_path,"/main_experiment/processed_data",sep="") # root_path <- paste(disk_path,"/main_experiment_grooming/processed_data",sep="")
 data_path <- paste(root_path,"/network_properties_edge_weights_duration/pre_vs_post_treatment/all_workers",sep="")
@@ -123,7 +122,7 @@ names(variable_list) <- c("modularity","task assortativity","efficiency","mean d
 transf_variable_list <- c("sqrt"             ,"Box_Cox"              ,"log"       ,"log"        ,"log" ) # ,"sqrt","log"   ,"power0.01"  ######"none", "sqrt" "log","power2"
 # TRANSFORMATION NOTE: task_assortativity is hard to normalise (no transformation has the best result) - used Box_Cox
 
-coll_rescal_net <- collective_analysis_rescal(data_path,showPlot=F)
+coll_rescal_net <- collective_analysis_rescal(data_path,showPlot=T)
 
 # Reshape the data
 #stats_outcomes_reshaped <- reshape(stats_outcomes[,which(names(stats_outcomes)!="df")], idvar = "predictor", timevar = "variable", direction = "wide")
