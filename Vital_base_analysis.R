@@ -51,7 +51,7 @@ SAVEDIR <- paste("/media/",usr,"/", hd,"/vital/fc2/vital_experiment/summary_data
 INTDIR <- paste("/media/",usr,"/", hd, "/vital/fc2/vital_experiment/main_experiment/intermediary_analysis_steps",sep="") # remember to use the same folder structure as as for Science 2018
 BEHDIR <- paste("/media/",usr,"/", hd, "/vital/fc2/vital_experiment/main_experiment/processed_data/individual_behaviour",sep="")
 # SCRIPTDIR <- paste("/home/",usr,"/Documents/vital_rscripts_git",sep="") # place where the needed r scripts are stored
-BEH_FUNCTIONS <-  paste(SCRIPTDIR, "/Trophallaxis_Classifier",sep="") 
+BEH_FUNCTIONS <-  paste(SCRIPTDIR, "/Trophallaxis_Classifier",sep="")   ### this might be wrong, it probably just contains the classic interaction detection and trajectorz extraction?
 
 # source and set additional data (meta), functions, parameters and additional scripts
 source(paste0(SCRIPTDIR,"/vital_meta_data.R")) # will add colony_metadata data frame to the environment so it can be accessed within this script (in my case containing bodylenght information)
@@ -138,9 +138,8 @@ if (RUN_LOOP){
       REP_TREAT <- paste(treatment, tracking_system, colony_id, sep="_")                                                
       
       #### 4. Define pre and post treatment time periods ####
-      for (PERIOD in c("pre","post")) {                                                                                
-        
-        # PERIOD <-"pre"                                                                                                  # temporary - TO DELETE ONCE WE GET TO THE END OF THE LOOP!!!!
+      for (PERIOD in c("pre","post")) {     # PERIOD <-"pre"                                                                              
+      
         Time_dictionary_PERIOD <- Time_dictionary[which(Time_dictionary$period==PERIOD),]
         colony            <- colony_id
         period_code       <- ifelse(PERIOD == "pre", "PreTreatment", ifelse(PERIOD == "post", "PostTreatment", NA))
@@ -354,6 +353,7 @@ if (RUN_LOOP){
 
 #### To dos #### 
 # move on to the next analysis scripts i.e. first the Tables_to_match_stroeymeyt script and then the vital_main_analysis script
+# If you are also looking at trophallaxis also run the vital_trophallaxis_adjustments.R script to get the full interactions lists of each colony into the same format
 
 
 ### 

@@ -7,12 +7,14 @@
 # Created by TO Richardson and Adriano Wanderlingh & adjusted by DS to the needs of Daniel Schläppi
 # Takes an interaction list as an input, builds a network to provide a continuous measure of workers' social maturity
 # and from social maturity creates the nurse and worker community. 
+# Recent update: Paralellization implemented so that multiple cores are used.
 
 # requires the following:
 # https://c4science.ch/source/facet_unil/
 # TO Richardson, T Kay, R Braunschweig, OA Journeau, M Rüegg, ... Ant behavioral maturation is mediated by a stochastic transition between two fundamental states. Current Biology 31, 1-8
 
-#### TODO's figure out if paralellization or another optimization can be done to increase the speed at which this runs... 
+
+### Second part still needs to be updated to my's needs
 
 #### Prerequisites ####
 # Set up directories and parameters
@@ -46,9 +48,50 @@ input_folders        <- input_folders[which(input_folders!="")]
 TaskStats_File <- paste(data_path, "processed_data/individual_behaviour/pre_treatment/network_position_vs_time_outside.dat", sep="/")
 TaskStats_all      <- read.table(TaskStats_File , header=T, stringsAsFactors = F)
 
-#where scores are saved
+# where scores are saved
 WORKDIR      <- paste(data_path,"Soft_community_scores_duration",sep="/")
-to_keep <- c(ls(),"to_keep","network_files","network_file","output_folders","output_folder")
+to_keep <- c(ls(),"to_keep","network_files","network_file","output_folders","output_folder", "num_cores", "process_iteration")
+
+
+# define function to run computation of community partition in parallel on multiple cores 
+num_cores <- detectCores() - 1  # number of cores to use
+process_iteration <- function(ITER) {
+  FACETNET_REP_OUTPUT_DIR_M <- paste(FACETNET_REP_folder, paste(Cassette, ",m=", m, ",Iteration=", ITER, sep=""), sep="/") # Create new subdirectory for community results with m
+  if (!file.exists(FACETNET_REP_OUTPUT_DIR_M)) {dir.create(FACETNET_REP_OUTPUT_DIR_M)}
+  
+  # Check if the outputs already exist and if not proceed with calculation
+  if (!file.exists(paste(FACETNET_REP_OUTPUT_DIR_M, "soft_comm_step_alpha0.5_nw0.csv", sep="/"))) {
+    FACETNET_INPUT_brackers <- paste0("'", FACETNET_INPUT, "'")
+    FACETNET_REP_OUTPUT_DIR_M_brackers <- paste0("'", FACETNET_REP_OUTPUT_DIR_M, "'")
+    command <- paste("python3", paste(FACETNET_DIR, "facetnet_step.py", sep = "/"),
+                     FACETNET_INPUT_brackers, alpha, m,
+                     FACETNET_REP_OUTPUT_DIR_M_brackers, t_step, sep=" ")
+    OutPut <- system(command, intern=TRUE) # run command and capture output
+    
+    # error handling
+    if ("TRUE" %in% grepl("rror", OutPut)) {
+      print("ERROR in OutPut")
+      print(OutPut)
+      return(NULL)  # move on to next... 
+    } else { # get modularity 
+      Item <- grep("modularity", OutPut)
+      Modularity <- as.numeric(gsub(" ", "", gsub("\\(", "", gsub("\\)", "", strsplit(OutPut[Item], "=")[[1]][2]))))
+    }
+    # Stack modularity for each m
+    Modules <- data.frame(colony, treatment, period, ITER, alpha, MODULARITY=Modularity)
+    # Check if the modularity for m communities has already been calculated and recorded
+    if (file.exists(Module_File)) {
+      Modules_precomputed <- read.table(Module_File, header=TRUE)
+      if (!ITER %in% Modules_precomputed$ITER) {write.table(Modules, file=Module_File, row.names=FALSE, col.names=FALSE, quote=FALSE, append=TRUE)}
+    } else {write.table(Modules, file=Module_File, row.names=FALSE, col.names=TRUE, quote=FALSE, append=FALSE)}
+  }
+}
+
+
+
+
+
+
 
 
 if (RUN_19_SECOND_SUBSECTION_ONLY != TRUE){
@@ -129,45 +172,47 @@ for (input_folder in input_folders){ # input_folder <- input_folders[1]
     #### PART 2: Repeatedly apply facetnet to generate a community partition                           ####
     ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### 
     
-    for (ITER in 1:N_ITERATIONS)  {  # ITER <- 1 # the modularity of the found solutions vary quite a bit... so repeat many times & select the highest-modularity solution 
-      ## create new subdirectory for community results with m
-      FACETNET_REP_OUTPUT_DIR_M <- paste(FACETNET_REP_folder, paste(Cassette,",m=",m,",Iteration=",ITER,sep=""), sep="/"); if (!file.exists(FACETNET_REP_OUTPUT_DIR_M)){dir.create(FACETNET_REP_OUTPUT_DIR_M)}
-      ## check if the outputs already exist
-      if ( file.exists( paste(FACETNET_REP_OUTPUT_DIR_M, "soft_comm_step_alpha0.5_nw0.csv", sep="/") ))  {
-        cat(paste("Facetnet output exists for m=",m,"modules, up to iteration #",ITER),"\r")
-      } else {
-        cat(paste("Facetnet output missing for m =",m, "modules, iteration #",ITER),"\r")
-        
-        FACETNET_INPUT_brackers <- paste0("'",FACETNET_INPUT,"'") #make sure the command is not broken
-        FACETNET_REP_OUTPUT_DIR_M_brackers <- paste0("'",FACETNET_REP_OUTPUT_DIR_M,"'")
-        
-        ## construct facetnet command 
-        command <- paste("python3", paste(FACETNET_DIR, "facetnet_step.py", sep = "/"),
-                         FACETNET_INPUT_brackers,
-                         alpha,
-                         m,
-                         FACETNET_REP_OUTPUT_DIR_M_brackers,
-                         t_step,
-                         sep = " ")
-        ## jump through hoops to extract the modularity which is just printed to the prompt
-        OutPut <- system(command, intern=TRUE) 
-        
-        ## if error, escape the loop & stop
-        if ("TRUE" %in% grepl("rror",OutPut)){print("ERROR in OutPut"); break; print(OutPut)
-        }else{
-          Item       <- grep("modularity",OutPut) ## 
-          Modularity <- as.numeric(gsub(" ", "", gsub("\\(","", gsub("\\)","", strsplit(OutPut[Item], "=")[[1]][2]))))  ## extract the modularity from the output
-        }
-        ## stack modularity for each m
-        Modules <- data.frame(colony, treatment,period, ITER, alpha, MODULARITY=Modularity)
-        ## check if the modularity for m communities has already been calculated and recorded
-        if (file.exists(Module_File)){ 
-          Modules_precomputed <- read.table(Module_File, header = T)
-          if (!ITER %in% Modules_precomputed$ITER) {write.table (Modules, file=Module_File, row.names=F, col.names=F, quote=F, append=T)  } ## only add a line to the file if m is not already there !m %in% Modules_precomputed$N_modules; DS: I changed this, only add line if this Iteration is not yet there because Modules_precomputed$N_modules is NULL not defined and m is just 2 defined at the start of the script. 
-        }else{
-          write.table (Modules, file=Module_File, row.names=F, col.names=T, quote=F, append=F)  }  ## if the file doesn't exist, create it
-      }
-    } ##ITER
+    mclapply(1:N_ITERATIONS, process_iteration, mc.cores=num_cores)
+    
+    # for (ITER in 1:N_ITERATIONS)  {  # ITER <- 1 # the modularity of the found solutions vary quite a bit... so repeat many times & select the highest-modularity solution 
+    #   ## create new subdirectory for community results with m
+    #   FACETNET_REP_OUTPUT_DIR_M <- paste(FACETNET_REP_folder, paste(Cassette,",m=",m,",Iteration=",ITER,sep=""), sep="/"); if (!file.exists(FACETNET_REP_OUTPUT_DIR_M)){dir.create(FACETNET_REP_OUTPUT_DIR_M)}
+    #   ## check if the outputs already exist
+    #   if ( file.exists( paste(FACETNET_REP_OUTPUT_DIR_M, "soft_comm_step_alpha0.5_nw0.csv", sep="/") ))  {
+    #     cat(paste("Facetnet output exists for m=",m,"modules, up to iteration #",ITER),"\r")
+    #   } else {
+    #     cat(paste("Facetnet output missing for m =",m, "modules, iteration #",ITER),"\r")
+    #     
+    #     FACETNET_INPUT_brackers <- paste0("'",FACETNET_INPUT,"'") #make sure the command is not broken
+    #     FACETNET_REP_OUTPUT_DIR_M_brackers <- paste0("'",FACETNET_REP_OUTPUT_DIR_M,"'")
+    #     
+    #     ## construct facetnet command 
+    #     command <- paste("python3", paste(FACETNET_DIR, "facetnet_step.py", sep = "/"),
+    #                      FACETNET_INPUT_brackers,
+    #                      alpha,
+    #                      m,
+    #                      FACETNET_REP_OUTPUT_DIR_M_brackers,
+    #                      t_step,
+    #                      sep = " ")
+    #     ## jump through hoops to extract the modularity which is just printed to the prompt
+    #     OutPut <- system(command, intern=TRUE) 
+    #     
+    #     ## if error, escape the loop & stop
+    #     if ("TRUE" %in% grepl("rror",OutPut)){print("ERROR in OutPut"); break; print(OutPut)
+    #     }else{
+    #       Item       <- grep("modularity",OutPut) ## 
+    #       Modularity <- as.numeric(gsub(" ", "", gsub("\\(","", gsub("\\)","", strsplit(OutPut[Item], "=")[[1]][2]))))  ## extract the modularity from the output
+    #     }
+    #     ## stack modularity for each m
+    #     Modules <- data.frame(colony, treatment,period, ITER, alpha, MODULARITY=Modularity)
+    #     ## check if the modularity for m communities has already been calculated and recorded
+    #     if (file.exists(Module_File)){ 
+    #       Modules_precomputed <- read.table(Module_File, header = T)
+    #       if (!ITER %in% Modules_precomputed$ITER) {write.table (Modules, file=Module_File, row.names=F, col.names=F, quote=F, append=T)  } ## only add a line to the file if m is not already there !m %in% Modules_precomputed$N_modules; DS: I changed this, only add line if this Iteration is not yet there because Modules_precomputed$N_modules is NULL not defined and m is just 2 defined at the start of the script. 
+    #     }else{
+    #       write.table (Modules, file=Module_File, row.names=F, col.names=T, quote=F, append=F)  }  ## if the file doesn't exist, create it
+    #   }
+    # } ##ITER
     
     ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
     #### PART 3: Find the top-modularity solution & assign biological labels to both communities       ####

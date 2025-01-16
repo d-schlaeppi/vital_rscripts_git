@@ -114,7 +114,7 @@ if (TRUE) {
 # create randomized interaction networks based on the observed interactions 
   if (RUN_11_randomise_interactions_DS.R){ # RUN_11_randomise_interactions_DS.R <- FALSE
     print("Running 11_randomise_interactions_DS.R")
-    for (interaction_type in names(data_paths)) { # interaction_type <- "CLASSIC_INTERACTIONS" 
+    for (interaction_type in names(data_paths)) { # interaction_type <- "CLASSIC_INTERACTIONS" ; interaction_type <- "TROPHALLACTIC_INTERACTIONS" 
       data_path <- data_paths[[interaction_type]]
       if (!is.null(data_path)) {
         print(paste("Processing file for", interaction_type, "\U0001F91D"))

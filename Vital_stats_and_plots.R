@@ -59,6 +59,33 @@ source(paste(SCRIPTDIR, "source_scripts/functions_and_parameters_DS.R",sep="/"))
 
 RUN_UNSCALED_NETS <- F
 
+
+
+
+
+#### Trophallaxis chains #### 
+
+# read trophy interaction file. 
+
+# identify interactions starting with treated individuals 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#### ####
+
+
+
 # NOTES
 # plot_untransformed is always TRUE as the the variable fed to the plotting is transformed beforehand (see section: transform variable)
 

@@ -3,9 +3,11 @@
 ### ### ### ### ### ### ### ### ### ### 
 
 #### Read me ####
-# Takes an interaction list as an input, and calculates:
-#                     - the total duration of interactions of each ant to each of four categories of individuals (queen, nurses, untreated foragers and treated foragers)
-#                     - the overall distribution of interactions according to task groups and ages
+#' Takes an interaction list as an input, and calculates:
+#'                    - the total duration of interactions of each ant to each of four categories of individuals (queen, nurses, untreated foragers and treated foragers)
+#'                    - the overall distribution of interactions according to task groups and ages
+#' WARNING: even though the script itself is not really computationally intensive it creates a massive file containing all interactions which is loaded towards the end
+#' To read it in, a lot of RAM is using. If you are working on a normal computer consider increasing SWAP memory to avoid a crash (I increased it to 64 GB) - swap is slower than ram but works
 
 # Created by Nathalie Stroeymeyt
 # Modified by Adriano Wanderlingh to work with FORT formicidae Tracking data. Mods tagged with the comment "AW". script wide mods cited here below.
@@ -22,6 +24,9 @@
 #' See if and how to implement the trophallactic interaction in this script instead of the grooming interactions which will probably be ignored because of the framerate...
 #' Check what to use for task groups... probably Facet Net!!!! update accordingly! 
 #' The Script would benefit from a check to see which files have already been processed and which files did not, to only run what is required...
+#'  
+#' Optional > improve the script so that in case a crash happens at the end when loading the file, not the whole part at the beginning needs to be repeated /SKIP
+
 
 ### Why only for PreTreatment at the beginning?
 
@@ -44,35 +49,80 @@ if(!file.exists(outputfolder_1)){dir.create(outputfolder_1,recursive=T)}
 
 output_file_1  <- paste(outputfolder_1, "processed_interaction_list.txt", sep = "/")
 output_file_2  <- paste(outputfolder_1, "interactions.dat"              , sep = "/")
+
+
+# if (file.exists(output_file_1)) {
+#   cat(red("\n !!! WARNING: !!! \n"))
+#   cat(yellow(basename(output_file_1)))
+#   cat(blue(" already exists and newly processed interactions will be appended."))
+#   flush.console()
+#   # user_response <- menu(c("Yes", "No"), title = "Do you want to delete the file (please type 1 or 2)?")
+#   # if (user_response == 1) {
+#   #   message("The file will be deleted before proceeding.")
+#   #   file.remove(output_file_1)
+#   # } else if (user_response == 2) {
+#   #   message("The file will not be deleted. Processed interactions will be appended.")
+#   # } else {
+#   #   message("Invalid response.")
+#   # }
+#   repeat{
+#   user_response <- readline(prompt = " Do you want to delete the file? (y/n): ")
+#   if(tolower(user_response) == "y") {message("the file will be deleted before proceeding")
+#                                      file.remove(output_file_1) ; break}
+#   else if (tolower(user_response) == "n") {message("The file will not be deleted. Processed interactions will be appended to the existing file (might cause duplication).") ; break}
+#   else {message("Invalid response. Please enter 'y' or 'n'.")}}
+# }
+
+flush.console()
 if (file.exists(output_file_1)) {
   cat(red("\n !!! WARNING: !!! \n"))
   cat(yellow(basename(output_file_1)))
-  cat(blue(" already exists and newly processed interactions will be appended."))
+  cat(blue(" already exists and newly processed interactions would be appended likely causing duplication."))  ### would need an additional check and further changes to the script so this could be optimized... currently things need to run in one go... 
   flush.console()
-  # user_response <- menu(c("Yes", "No"), title = "Do you want to delete the file (please type 1 or 2)?")
-  # if (user_response == 1) {
-  #   message("The file will be deleted before proceeding.")
-  #   file.remove(output_file_1)
-  # } else if (user_response == 2) {
-  #   message("The file will not be deleted. Processed interactions will be appended.")
-  # } else {
-  #   message("Invalid response.")
-  # }
-  repeat{
-  user_response <- readline(prompt = " Do you want to delete the file? (y/n): ")
-  if(tolower(user_response) == "y") {message("the file will be deleted before proceeding")
-                                     file.remove(output_file_1) ; break
-                                     }
-  else if (tolower(user_response) == "n") {message("The file will not be deleted. Processed interactions will be appended.") ; break}
-  else {message("Invalid response. Please enter 'y' or 'n'.")}}
+  
+  repeat {
+    user_response <- readline(prompt = " Do you want to delete the file? (y/n): ")
+    if (tolower(user_response) == "y") {
+      message("The file will be deleted before proceeding.")
+      file.remove(output_file_1)
+      break
+    } else if (tolower(user_response) == "n") {
+      message("The file will not be deleted. If interactions are processed they will be appended.")
+      # Present additional options
+      repeat {
+        cat("\nPlease select an option:\n")
+        cat("1: Go ahead and continue normally.\n")
+        cat("2: Skip processing individual interactions files and move directly to processing the full interactions file.\n")
+        option_response <- as.integer(readline(prompt = "Enter your choice (1 or 2): "))
+        if (option_response == 1) {
+          message("Continuing normally.")
+          SKIP_TO_PROCESSING_ALL_INTERACTIONS_FILE <- FALSE
+          break
+        } else if (option_response == 2) {
+          message("Skipping processing of individual interaction files. Moving to the full interactions file processing.")
+          SKIP_TO_PROCESSING_ALL_INTERACTIONS_FILE <- TRUE
+          break
+        } else {
+          message("Invalid choice. Please enter 1 or 2.")
+        }
+      }
+      break
+    } else {
+      message("Invalid response. Please enter 'y' or 'n'.")
+    }
+  }
 }
+
+
+
 
 summary_dol <- NULL
 to_keep <- c(ls(),"to_keep","input_folder","network_file","network_files","summary_interactions","summary_interactions_grooming","summary_pairs","all_interactions", "pb")  
 
 cat(green("\nSummarising interactions \n"))
 
-for (input_folder in input_folders){ # input_folder <- "random"
+if (SKIP_TO_PROCESSING_ALL_INTERACTIONS_FILE == FALSE) { # skip to next step if this has already been done.
+ for (input_folder in input_folders){ # input_folder <- "random"
   cat(blue("\n input folder = ",input_folder, "\n"))
   setwd(input_path)
   network_files <- list.files(path=paste("PreTreatment/",input_folder,sep=""),full.names=T) # get all PreTreatment files into the list
@@ -235,11 +285,18 @@ for (input_folder in input_folders){ # input_folder <- "random"
     behav <- behav[order(behav$colony,behav$tag,behav$time_hours),]
     write.table(behav,file=paste(data_path,"/processed_data/individual_behaviour/pre_vs_post_treatment/individual_behavioural_data.txt",sep=""), row.names=F, col.names=T,append=F,quote=F)
   }
-  
+ } 
+}
 
+
+if (TRUE) {
   cat(blue("\n Final Step: Processing the massive file containing all interactions combined... \n"))
+  cat(yellow("loading file:  \n"))
   ### Use all_interactions to obtain information about age-based DoL pre treatment
   all_interactions <- fread(output_file_1)
+  # the above file can be massive and might exceed the memory of your computer.. on linux  you can use swap space so that in case you run out of RAM it will
+  # use swap space from the disk to have additional memory... much slower, but it works. On linux you can manually set up how much swap space is available --> consider increasing it
+  
   all_interactions <- all_interactions[period == "pre"] # filter to only include pre-treatment
   ### sum interactions for each pair of ants using data.table's aggregation
   all_interactions <- all_interactions[, .(duration_min = sum(duration_min, na.rm = TRUE),
@@ -249,9 +306,6 @@ for (input_folder in input_folders){ # input_folder <- "random"
   
   ### Calculate intra_caste_over_inter_caste_WW_contact_duration
   all_interactions[, same_caste := status_Tag1 == status_Tag2]
-  # the above file can be massive and might exceed the memory of your computer.. on linux  you can use swap space so that in case you run out of RAM it will
-  # use swap space from the disk to have additional memory... much slower, but it works. On linux you can manually set up how much swap space is available --> consider increasing it
-  
   same_caste_interactions <- all_interactions[status_Tag1 != "queen" & status_Tag2 != "queen" & same_caste == TRUE,
                                               .(duration_min_within = sum(duration_min, na.rm = TRUE),
                                                 number_contacts_within = sum(N, na.rm = TRUE)),
@@ -263,9 +317,9 @@ for (input_folder in input_folders){ # input_folder <- "random"
   inter_intra_caste_interactions <- merge(same_caste_interactions, inter_caste_interactions, by = c("randy", "colony", "colony_size", "treatment", "period"), all = TRUE) # merge same caste and inter caste interactions
   inter_intra_caste_interactions[, intra_caste_over_inter_caste_WW_contact_duration := duration_min_within / duration_min_between] # calculate ratios
   inter_intra_caste_interactions[, intra_caste_over_inter_caste_WW_contact_number := number_contacts_within / number_contacts_between]
-  dol <- inter_intra_caste_interactions[, !c("duration_min_within", "duration_min_between", "number_contacts_within", "number_contacts_between")]
+  summary_dol <- inter_intra_caste_interactions[, !c("duration_min_within", "duration_min_between", "number_contacts_within", "number_contacts_between"), with = FALSE]
   
-  ### calculate queen contact with nurses vs. workers (for regular interactions only but not grooming or traphallaxis)
+  ### calculate queen contact with nurses vs. workers (for regular interactions only but not for grooming or trophallaxis)
   if (!grepl("grooming|trophallaxis",input_path)) {
     queen_interactions <- all_interactions[status_Tag1 == "queen" | status_Tag2 == "queen"] # Subset queen interactions
     queen_interactions[status_Tag1 == "queen", `:=`(partner = Tag2, partner_status = status_Tag2)] # Assign 'partner' and 'partner_status' columns
@@ -280,19 +334,23 @@ for (input_folder in input_folders){ # input_folder <- "random"
                                                      number_contacts_with_foragers = sum(N, na.rm = TRUE)), 
                                                    by = .(randy, colony, colony_size, period, treatment)]
     queen_interac <- merge(interaction_with_nurses, interaction_with_forager, by = c("randy", "colony", "colony_size", "period", "treatment"), all = TRUE)
-    # calculate ratios and merge with dol
+    # calculate ratios and merge with summary_dol
     queen_interac[, `:=`(
       QNurse_over_QForager_contact_duration = duration_min_with_nurses / duration_min_with_foragers,
       QNurse_over_QForager_contact_number = number_contacts_with_nurses / number_contacts_with_foragers)]
-    dol <- merge(dol, queen_interac[, .(randy, colony, period, QNurse_over_QForager_contact_duration, QNurse_over_QForager_contact_number)], 
+    summary_dol <- merge(summary_dol, queen_interac[, .(randy, colony, period, QNurse_over_QForager_contact_duration, QNurse_over_QForager_contact_number)], 
                  by = c("randy", "colony", "period"), all = TRUE)}
   
+  
   # DS: Here, a large chunk of code from AW's age experiment was cut out.
-  summary_dol <- rbind(summary_dol,dol)  
+  
+  # summary_dol <- rbind(summary_dol,dol)
+  if(!file.exists(output_file_2)){write.table(summary_dol,file=output_file_2,col.names=T,row.names=F,append=F,quote=F)} # consider changing this so that it overwrites any pre-existing file? or else, when testing the script preliminary versions need to be deleted
 }
 
-if(!file.exists(output_file_2)){write.table(summary_dol,file=output_file_2,col.names=T,row.names=F,append=F,quote=F)}
 to_keep <- to_keep_ori
+
+
 
 
 #### TO DO
