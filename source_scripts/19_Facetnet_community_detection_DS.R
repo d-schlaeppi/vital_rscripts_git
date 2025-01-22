@@ -14,6 +14,7 @@
 # TO Richardson, T Kay, R Braunschweig, OA Journeau, M Rüegg, ... Ant behavioral maturation is mediated by a stochastic transition between two fundamental states. Current Biology 31, 1-8
 
 
+
 ### Second part still needs to be updated to my's needs
 
 #### Prerequisites ####
@@ -54,7 +55,7 @@ to_keep <- c(ls(),"to_keep","network_files","network_file","output_folders","out
 
 
 # define function to run computation of community partition in parallel on multiple cores 
-num_cores <- detectCores() - 1  # number of cores to use
+num_cores <- detectCores() - 2  # number of cores to use
 process_iteration <- function(ITER) {
   FACETNET_REP_OUTPUT_DIR_M <- paste(FACETNET_REP_folder, paste(Cassette, ",m=", m, ",Iteration=", ITER, sep=""), sep="/") # Create new subdirectory for community results with m
   if (!file.exists(FACETNET_REP_OUTPUT_DIR_M)) {dir.create(FACETNET_REP_OUTPUT_DIR_M)}
@@ -97,11 +98,21 @@ process_iteration <- function(ITER) {
 if (RUN_19_SECOND_SUBSECTION_ONLY != TRUE){
   #### ifelse() here insert something so that inpüt folder only includes observed when running first part only.
   # input_folders        <- input_folders[which(input_folders!="random")]
-for (input_folder in input_folders){ # input_folder <- input_folders[1]
+for (input_folder in input_folders){ # input_folder <- input_folders[2]
   #print(input_folder)
   cat(blue("\n input folder = ",input_folder, "\n"))
   setwd(input_path)
   network_files <- list.files(path=paste("PreTreatment/",input_folder,sep=""),full.names=T)
+  
+  # add a section to filter out any files that have already been processed completely
+  completed_files <- list.files(path=paste(WORKDIR, input_folder,sep="/"),full.names=T)
+  completed_files_with_iteration_100 <- completed_files[sapply(completed_files, function(file) {   # Filter completed files by checking if a subfolder with "Iteration=100" exists
+    subfolders <- list.dirs(path = file, recursive = FALSE, full.names = TRUE)
+    any(grepl("Iteration=100", subfolders))})]
+  completed_files_base <- gsub("_FACETNET_iters$", "", basename(completed_files_with_iteration_100))
+  network_files_base <- basename(network_files); network_files_base <- gsub("_interactions.txt$", "", network_files_base)
+  network_files <- network_files[!network_files_base %in% completed_files_base]
+  
   output_folder <- file.path(WORKDIR, input_folder)
   if (!file.exists(output_folder)){dir.create(output_folder, recursive = TRUE)}
   
@@ -114,6 +125,8 @@ for (input_folder in input_folders){ # input_folder <- input_folders[1]
     clear = FALSE,
     width = 80
   )
+  
+  if (length(network_files) == 0) {cat("No files left to process --> All files have been processed before (or ERROR?)  \n")}
   
   for (network_file in network_files){ # network_file <- network_files[1]
     
@@ -174,45 +187,8 @@ for (input_folder in input_folders){ # input_folder <- input_folders[1]
     
     mclapply(1:N_ITERATIONS, process_iteration, mc.cores=num_cores)
     
-    # for (ITER in 1:N_ITERATIONS)  {  # ITER <- 1 # the modularity of the found solutions vary quite a bit... so repeat many times & select the highest-modularity solution 
-    #   ## create new subdirectory for community results with m
-    #   FACETNET_REP_OUTPUT_DIR_M <- paste(FACETNET_REP_folder, paste(Cassette,",m=",m,",Iteration=",ITER,sep=""), sep="/"); if (!file.exists(FACETNET_REP_OUTPUT_DIR_M)){dir.create(FACETNET_REP_OUTPUT_DIR_M)}
-    #   ## check if the outputs already exist
-    #   if ( file.exists( paste(FACETNET_REP_OUTPUT_DIR_M, "soft_comm_step_alpha0.5_nw0.csv", sep="/") ))  {
-    #     cat(paste("Facetnet output exists for m=",m,"modules, up to iteration #",ITER),"\r")
-    #   } else {
-    #     cat(paste("Facetnet output missing for m =",m, "modules, iteration #",ITER),"\r")
-    #     
-    #     FACETNET_INPUT_brackers <- paste0("'",FACETNET_INPUT,"'") #make sure the command is not broken
-    #     FACETNET_REP_OUTPUT_DIR_M_brackers <- paste0("'",FACETNET_REP_OUTPUT_DIR_M,"'")
-    #     
-    #     ## construct facetnet command 
-    #     command <- paste("python3", paste(FACETNET_DIR, "facetnet_step.py", sep = "/"),
-    #                      FACETNET_INPUT_brackers,
-    #                      alpha,
-    #                      m,
-    #                      FACETNET_REP_OUTPUT_DIR_M_brackers,
-    #                      t_step,
-    #                      sep = " ")
-    #     ## jump through hoops to extract the modularity which is just printed to the prompt
-    #     OutPut <- system(command, intern=TRUE) 
-    #     
-    #     ## if error, escape the loop & stop
-    #     if ("TRUE" %in% grepl("rror",OutPut)){print("ERROR in OutPut"); break; print(OutPut)
-    #     }else{
-    #       Item       <- grep("modularity",OutPut) ## 
-    #       Modularity <- as.numeric(gsub(" ", "", gsub("\\(","", gsub("\\)","", strsplit(OutPut[Item], "=")[[1]][2]))))  ## extract the modularity from the output
-    #     }
-    #     ## stack modularity for each m
-    #     Modules <- data.frame(colony, treatment,period, ITER, alpha, MODULARITY=Modularity)
-    #     ## check if the modularity for m communities has already been calculated and recorded
-    #     if (file.exists(Module_File)){ 
-    #       Modules_precomputed <- read.table(Module_File, header = T)
-    #       if (!ITER %in% Modules_precomputed$ITER) {write.table (Modules, file=Module_File, row.names=F, col.names=F, quote=F, append=T)  } ## only add a line to the file if m is not already there !m %in% Modules_precomputed$N_modules; DS: I changed this, only add line if this Iteration is not yet there because Modules_precomputed$N_modules is NULL not defined and m is just 2 defined at the start of the script. 
-    #     }else{
-    #       write.table (Modules, file=Module_File, row.names=F, col.names=T, quote=F, append=F)  }  ## if the file doesn't exist, create it
-    #   }
-    # } ##ITER
+    # here the old for (ITER in 1:N_ITERATIONS)  {} loop was removed. 
+   
     
     ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
     #### PART 3: Find the top-modularity solution & assign biological labels to both communities       ####

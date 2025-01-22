@@ -60,7 +60,8 @@ RUN_19_SECOND_SUBSECTION_ONLY             <- FALSE
 
 # setwd("/home/ael/Documents/vital_rscripts_git")
 if (!exists("first_time_use_working_directory") || first_time_use_working_directory == "") { # direct it to where you have config_user_and_hd.R (typically the script folder or github folder)
-  selected_dir <- tcltk::tk_choose.dir(default = "~/", caption = "Select Working Directory")
+  standard <- "/media/ael/gismo_hd2/vital/vital_rscripts_git" # if you are always working from the same directory just put its name here and it will save you some clicking.  
+  selected_dir <- if  (dir.exists(standard)) {standard} else {tcltk::tk_choose.dir(default = "~/", caption = "Select Working Directory")}
   if (is.null(selected_dir) || selected_dir == "") {
     cat("No directory selected. Exiting.\n")
     return()}

@@ -13,13 +13,14 @@
 
 #### Libraries ####
 pacman::p_load(
-  tcltk, igraph, dplyr, tidyr, ggplot2, lme4, car, glmmTMB, multcomp, multcompView, crayon, plotrix, emmeans, 
-  reshape2, circular, readr, data.table, measurements, viridis, plotwidgets , scales, parallel,
+  tcltk, igraph, ggraph, dplyr, tidyr, ggplot2, lme4, car, glmmTMB, multcomp, multcompView, crayon, plotrix, emmeans, 
+  reshape2, circular, readr, data.table, measurements, viridis, plotwidgets , scales, parallel, epicontacts,
   Rcpp,   # contains sourceCpp()
   survival, #contains coxph() function
   moments, # contains skewness function
   DHARMa, blmeco, FortMyrmidon, progress #model testing comqqnorm
   )
+
 # further libraries used by adriano but probably not required
 # adehabitatHR, adehabitatLT, changepoint, e1071, gtools, entropy
 

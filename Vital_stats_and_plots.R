@@ -28,7 +28,8 @@ rm(list = setdiff(ls(), "first_time_use_working_directory"))
 
 #### 1. prerequisites ####
 if (!exists("first_time_use_working_directory") || first_time_use_working_directory == "") { # direct it to where you have config_user_and_hd.R (typically the script folder or github folder)
-  selected_dir <- tcltk::tk_choose.dir(default = "~/", caption = "Select Working Directory")
+  standard <- "/media/ael/gismo_hd2/vital/vital_rscripts_git" # if you are always working from the same directory just put its name here and it will save you some clicking.  
+  selected_dir <- if  (dir.exists(standard)) {standard} else {tcltk::tk_choose.dir(default = "~/", caption = "Select Working Directory")}
   if (is.null(selected_dir) || selected_dir == "") {
     cat("No directory selected. Exiting.\n")
     return()}
@@ -65,7 +66,278 @@ RUN_UNSCALED_NETS <- F
 
 #### Trophallaxis chains #### 
 
-# read trophy interaction file. 
+# read trophy interaction files post treatment
+trophy_path  <-  paste0(DATADIR,"/vital_experiment/main_experiment_trophallaxis/intermediary_analysis_steps/full_interaction_lists/PostTreatment/observed") 
+trophy_files <-  list.files(trophy_path, full.names = TRUE)
+treated      <-  read.table(paste(DATADIR,"vital_experiment/main_experiment/original_data/treated_worker_list.txt",sep="/"),header=T,stringsAsFactors = F)
+source(paste0(SCRIPTDIR,"/vital_meta_data.R"))
+metadata_individuals <- read.table(paste(DATADIR, "/individual_metadata_vital.txt", sep = ""), header = T, stringsAsFactors = F, sep = ",")
+
+
+
+# for (trophy_file in trophy_files) { 
+  trophy_file <- trophy_files[1] # to be removed
+  trophy_data <- read.table(trophy_file, header=TRUE, sep="\t", stringsAsFactors=FALSE)
+  trophy_data <- trophy_data %>% arrange(Starttime)
+  col_id <- trophy_data$colony[1]
+  
+  ants <- metadata_individuals %>% filter(colony_id == col_id) %>%
+    dplyr::select(
+      !c(treatment, comment.y, flowjo_sampletype, ScanTime, freezer_container, 
+        freezer_container_position, PosID, flowjo_plate, flowjo_row_well, 
+        flowjo_column_strip, flowjo_name, N_treated, identifStart, identifEnd, 
+        comment.x, treatment_time, exp_stop_time, exp_start_time, sampling_time)) %>%
+    rename(tag = antID, treatment = treatment_simple) %>% as.data.frame()
+  
+  # Exclude Queen because we do not really have trophy data for her?
+ 
+  # get vector with id's of treated ants
+  treated <- treated %>% filter(colony == col_id)
+  treated_ants <- treated$tag
+  
+  trophy_data$start <- as.POSIXct(trophy_data$start, format = "%Y-%m-%d %H:%M:%S")
+  trophy_data$end <- as.POSIXct(trophy_data$end, format = "%Y-%m-%d %H:%M:%S")
+  
+  
+  
+  
+  # # Specify the key ant (e.g., ant with Tag1 = 50)
+  # key_ant <- 50 # treated ants
+  experimentor <- 666
+  
+  # Add a new column to the ants data frame for 'infector' and 'infection_time'
+  ants$infector <- ""
+  ants$infector[ants$tag %in% treated_ants] <- experimentor # put treated ants here
+  ants$infection_time <- NA
+
+  # Initialize an empty graph (undirected), add the experimentor as the first node
+  G <- make_empty_graph(directed = FALSE)
+  G <- add_vertices(G, 1, name = as.character(experimentor))
+  
+  
+  # Add an additional row with the "experimentor who acts the source of all infections by treating individuals
+  new_row <- data.frame(
+    tag = 666,
+    infector = "gismo",
+    AntTask1perc = "experimentor",
+    stringsAsFactors = FALSE  # Avoid factors, use strings as characters
+  )
+  # Ensure the new row has the same column names as ants
+  missing_cols <- setdiff(names(ants), names(new_row))  # Find columns in ants that are not in new_row
+  # Add NA for missing columns in new_row
+  new_row[missing_cols] <- NA
+  
+  # Append the new row to the ants data frame
+  ants <- rbind(ants, new_row)
+  
+  # tracking of ants that have already received food (starting with the key ant)
+  received_food <- treated_ants
+  
+  
+  # Build the graph iteratively (bidirectional interactions)
+  for (i in 1:nrow(trophy_data)) {
+    # Get the interacting ants (mutual sharing)
+    ant1 <- trophy_data$Tag1[i]
+    ant2 <- trophy_data$Tag2[i]
+    
+    # Only process interactions involving ants that have already received food
+    if (ant1 %in% received_food || ant2 %in% received_food) {
+      # Add both ants to the graph if not already present
+      if (!(ant1 %in% V(G)$name)) {  # Check if ant1 already exists in the graph
+        G <- add_vertices(G, 1, name = as.character(ant1))
+        received_food <- c(received_food, ant1)
+      }
+      if (!(ant2 %in% V(G)$name)) {  # Check if ant2 already exists in the graph
+        G <- add_vertices(G, 1, name = as.character(ant2))
+        received_food <- c(received_food, ant2)
+      }
+      
+      # Add an undirected edge between the two ants (food sharing)
+      G <- add_edges(G, c(as.character(ant1), as.character(ant2)))
+    }
+  }
+  
+  
+  # # Get the positions for plotting using a simple layout (for better flow) and prep for plotting
+  # layout_matrix <- layout_with_kk(G)
+  # V(G)$x <- layout_matrix[, 1]
+  # V(G)$y <- layout_matrix[, 2]
+  # V(G)$label <- V(G)$name
+  
+  # Edge data for plotting
+  edge_data <- igraph::as_data_frame(G, what = "edges")
+  
+  ### based on Toms code ###
+  edge_list <- edge_data
+  edge_list$counter <-1
+  
+  ###################### CONTINUE HERE (trying out toms stuff).
+  
+  ### below approeches did not work because I did not manage to get the data in the right order... it want to maintain the order of events? actually this might not be required for time-aggregated network... so try once more! 
+  # edge_list <- aggregate(counter ~ from + to, FUN=length, edge_list)
+  
+  # # Add a pair identifier to track undirected edges without changing order
+  # edge_list_clean <- edge_list %>%
+  #   rowwise() %>%
+  #   mutate(pair = paste(sort(as.numeric(c(from, to))), collapse = "-")) %>%
+  #   ungroup()
+  # 
+  # # Remove duplicates while maintaining the first occurrence's order and count occurrences
+  # edge_list_clean <- edge_list_clean %>%
+  #   group_by(pair) %>%
+  #   summarise(
+  #     from = first(from),
+  #     to = first(to),
+  #     weights = n(),
+  #     .groups = "drop") %>%  as.data.frame()
+  
+  GT <- graph_from_data_frame(edge_list_clean)
+  is_weighted(GT)
+  
+  
+  
+  
+  
+  ### back to where I was yesterday
+  
+  # edge_data[edge_data$from == 14 | edge_data$to == 14, ]
+
+  # Create a graph from the edge list
+  G <- graph_from_data_frame(edge_data, directed = FALSE)
+  plot(G)
+  # Plot the graph
+  plot(
+    G,
+    layout = layout_with_fr(G),      # Use the Kamada-Kawai layout for better flow
+    vertex.size = 8,                 # Set vertex size
+    vertex.label.cex = 0.8,          # Adjust label size
+    vertex.label.color = "black",    # Label color
+    vertex.color = "lightblue",      # Vertex color
+    edge.color = "gray",             # Edge color
+    edge.width = 1                   # Edge thickness
+  )
+  
+  
+  # new_row <- data.frame(
+  #   colony_id = "c00",
+  #   treatment = "treatment",
+  #   tag = 666,
+  #   infector = "gismo",
+  #   infection_time = NA
+  # )
+  # ants <- rbind(ants, new_row)
+  
+  
+  for (i in seq_len(nrow(ants))) { # i <- 14
+    
+    ant <- ants[i, ]
+   
+     # treated ants get an infection time just before the first interaction
+    if (ant$infector == 666) { 
+      ants$infection_time[i] <- min(trophy_data$start)-1 
+    } else {
+      
+      # untreated ants: find first the row in edge_data where this ant was involved and identify the infector
+      transmission_info <- edge_data[edge_data$to == ant$tag | edge_data$from == ant$tag, ]
+        if (nrow(transmission_info) > 0) {
+          if (transmission_info$to[1] == ant$tag) {
+            infector <- transmission_info$from[1]
+          } else {
+            infector <- transmission_info$to[1]
+          }
+      
+        # matching the interaction with the trophy dataset to extract transmission time
+        matching_interactions <- trophy_data[
+          (trophy_data$Tag1 == transmission_info$from[1] & trophy_data$Tag2 == transmission_info$to[1]) |
+            (trophy_data$Tag1 == transmission_info$to[1] & trophy_data$Tag2 == transmission_info$from[1]),]
+        earliest_interaction_time <- ifelse(nrow(matching_interactions) > 0, min(matching_interactions$start), NA)
+        
+        # update ants dataframe
+        ants$infector[i] <- infector
+        ants$infection_time[i] <- earliest_interaction_time
+      } else { 
+        # no infector found, set as NA
+        ants$infector[i] <- NA
+        ants$infection_time[i] <- NA
+      }
+    }
+  }
+
+  
+    
+  ## generate contacts
+  contacts <- ants %>%
+    transmute(
+      infector = infector,
+      case_id = tag,
+      location = sample(c("nest", "arena"), n(), TRUE),
+      duration = sample.int(10, n(), TRUE)
+    ) %>%
+    drop_na(infector) # Why has 14 no infector? 
+  
+  
+  # edge_data_epic <- edge_data %>% 
+  #   rename(case_id = to, infector = from) %>% as.data.frame()
+  linelist <- ants %>% 
+    rename(case_id = tag)
+  
+  epic <- make_epicontacts(
+    linelist = linelist,
+    contacts = contacts,
+    id = "case_id",
+    from = "infector",
+    to = "case_id",
+    directed = TRUE
+  )
+  
+  sub <- epic %>% thin("linelist") # keep only contacts linked to the chains
+  
+  net <- as.igraph(sub) 
+  net
+  # If AntTask1perc is numeric (e.g., percentages), use a color palette
+
+  
+  color_palette <- viridis(length(unique(sub[[1]]$AntTask1perc))) # Number of unique values of factor as colors
+  color_mapping <- setNames(color_palette, unique(sub[[1]]$AntTask1perc))
+  color_vector <- color_mapping[sub[[1]]$AntTask1perc]
+
+  
+  # Map values to the color palette
+  vertex_color <- color_palette[as.factor(sub[[1]]$AntTask1perc)]
+  plot(net,  vertex.size = 8, vertex.color = color_vector)
+  
+  get_degree(sub, type = "both")
+  
+
+  
+  
+  ### create graphs with individual chains from the treated ants... 
+  
+  
+  ### store information of chains in some form
+  
+  
+  ### analyse different chains for properties
+  
+  
+  
+
+  
+
+  
+ 
+  
+  
+  
+
+  
+  
+
+
+
+
+
+
 
 # identify interactions starting with treated individuals 
 
