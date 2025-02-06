@@ -19,7 +19,8 @@ gc(); mallinfo::malloc.trim(0L)
 
 # Todo:
 # Look at distribution of foragers and nurses to see which of the two task allocation methods is better? 
-# Percentage per colony, overlap between the two different definitions. 
+# Percentage per colony, overlap between the two different definitions.
+# Cleanup the facet net script so it assigns its results also to individual metadata and create a short version to run only on the observed data to get the task allocation early on in the pipeline
 
 # Notes: 
 # Due to difference in the framerate in comparison to adrianos experiments we so far did not generate the grooming interactions and anything regarding grooming is so far neglected down the line.
@@ -51,11 +52,12 @@ RUN_TROPHALLACTIC_INTERACTIONS     <- FALSE
 # Define what analysis step to run: 
 RUN_11_randomise_interactions_DS.R        <- FALSE
 RUN_12_simulate_transmission_DS.R         <- FALSE
-RUN_13_network_analysis_DS.R              <- FALSE
+RUN_13_network_analysis_DS.R              <- TRUE
 RUN_14_summarise_interactions_DS.R        <- FALSE
-RUN_19_Facetnet_community_detection_DS.R  <- TRUE
-RUN_19_FIRST_SUBSECTION_ONLY              <- TRUE  # Community detection on observed data only for task allocation --> run only the first section of the script (subsetted) -- Usually this is set to false, unless you are opening this script for the first time and want to get task allocation via the facet net method as alternative to the space use method in base analysis
+RUN_19_Facetnet_community_detection_DS.R  <- FALSE
+RUN_19_FIRST_SUBSECTION_ONLY              <- FALSE  # Community detection on observed data only for task allocation --> run only the first section of the script (subsetted) -- Usually this is set to false, unless you are opening this script for the first time and want to get task allocation via the facet net method as alternative to the space use method in base analysis
 RUN_19_SECOND_SUBSECTION_ONLY             <- FALSE
+
 
 
 # setwd("/home/ael/Documents/vital_rscripts_git")
@@ -149,7 +151,7 @@ if (TRUE) {
     }
     print(paste("Simulations", "ALL DONE", "\U0001F973", sep = " "))
   } else {
-    print("skipping 12_simulate_transmission_DS.R")
+    print("Skipping 12_simulate_transmission_DS.R")
   }
   
   
@@ -173,7 +175,7 @@ if (TRUE) {
     }
     print(paste("Network analysis", "ALL DONE", "\U0001F973", sep = " "))
   } else {
-    print("skipping 13_network_analysis_DS.R")
+    print("Skipping 13_network_analysis_DS.R")
   }
   
 
@@ -198,7 +200,7 @@ if (TRUE) {
     print(paste(Sys.time(),"Summary of interactions", "ALL DONE", "\U0001F973", sep = " ")); loop_end_time <- Sys.time()
     print(paste("Summary of interactions took ", as.numeric(difftime(loop_end_time, loop_start_time, units = "mins")), " minutes to complete"))
   } else {
-    print("skipping 14_summarise_interactions_DS.R")
+    print("Skipping 14_summarise_interactions_DS.R")
   }
 
 
@@ -213,7 +215,7 @@ if (TRUE) {
     print(paste(Sys.time(), ":  Facetnet community detection ALL DONE", "\U0001F973"))
     print(paste("FacetNet community detection took ", as.numeric(difftime(loop_end_time, loop_start_time, units = "mins")), " minutes to complete"))
   } else {
-    print("skipping 19_Facetnet_community_detection_DS.R")
+    print("Skipping 19_Facetnet_community_detection_DS.R")
   }
 } 
 

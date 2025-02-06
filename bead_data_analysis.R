@@ -6,7 +6,7 @@ rm(list = setdiff(ls(), "first_time_use_working_directory_bead_data"))
 
 #### 1. Read Me ####
 # First look at the flow cytometry bead data to get an idea on the food consumption and distribution in ant colonies
-# Note: Controls had one for their food source defined as the "virus corresponding food source" in a ~ paired fashion rather randomly... 
+# Note: Controls had one for their food source defined as the "virus corresponding food source" in a ~ paired fashion rather than randomly... ?
 
 # Preliminary bead data analysis INDEX
 
@@ -25,14 +25,19 @@ rm(list = setdiff(ls(), "first_time_use_working_directory_bead_data"))
 #' 3.6.2 Nestmates (non-treated workers)
 
 
-
+#_________________________________________________________________________________________________________________________________________________________________________________________
 #### 2. Prerequisites ####
-if (!exists("first_time_use_working_directory_bead_data") || first_time_use_working_directory_bead_data == "") {
-  library(tcltk)
-  setwd(tk_choose.dir(default = "~/", caption = "Select Working Directory")) # Direct it to where you have config_user_and_hd.R which should be in the script_directory
-  first_time_use_working_directory_bead_data <- getwd()
-  setwd(first_time_use_working_directory_bead_data)
-} else {setwd(first_time_use_working_directory_bead_data)}
+if (!exists("first_time_use_working_directory") || first_time_use_working_directory == "") { # direct it to where you have config_user_and_hd.R (typically the script folder or github folder)
+  standard <- "/media/ael/gismo_hd2/vital/vital_rscripts_git" # if you are always working from the same directory just put its name here and it will save you some clicking.  
+  selected_dir <- if  (dir.exists(standard)) {standard} else {tcltk::tk_choose.dir(default = "~/", caption = "Select Working Directory")}
+  if (is.null(selected_dir) || selected_dir == "") {
+    cat("No directory selected. Exiting.\n")
+    return()}
+  setwd(selected_dir)
+  first_time_use_working_directory <<- getwd()
+  cat(crayon::blue(getwd()))
+} else { setwd(first_time_use_working_directory)
+  cat(crayon::blue(getwd())) }
 
 
 source("config_user_and_hd.R") # contains getUserOptions() that defines usr and hd and the clean() function
@@ -52,6 +57,9 @@ overdispersion_test <- function(model) {
 }
 
 
+
+
+#_________________________________________________________________________________________________________________________________________________________________________________________
 #### 2.1 Creating the different dataframes used for the Analyses ####
 # read tables
 bead_data <- read.csv("vital_bead_data.csv", header = TRUE) # flowcytometry bead data for all workers that were analysed
@@ -60,6 +68,7 @@ individual_metadata <- read.csv("individual_metadata_vital_updated.csv", header=
 source(paste0(SCRIPTDIR,"/vital_meta_data.R")) # loads colony metadata to know background information such as treatments for each colony
 
 
+#_________________________________________________________________________________________________________________________________________________________________________________________
 #### Check colony metadata to see which colonies to analyse are affected by Fluorescent bead contamination ####
 # First iteration of food sources was good 
 # Second iteration of food sources: the bead color was switched for the two control foods
@@ -77,26 +86,23 @@ source(paste0(SCRIPTDIR,"/vital_meta_data.R")) # loads colony metadata to know b
 # we are left with 7 control colonies and 5 virus colonies that we want to analyse.
 
 colnames(colony_metadata)[which(names(colony_metadata) == "treatment")] <- "treatment_old"
-# make an excludion variable for colonies for which the beads were not analysed or for colonies that received second generation food where there was bead contamination in virus_yellow
+# make an exclusion variable for colonies for which the beads were not analysed or for colonies that received second generation food where there was bead contamination in virus_yellow
 colony_metadata$exclude_colony_for_beadanalyses <- ifelse(colony_metadata$block %in% 1:2,
                                                           ifelse(colony_metadata$fluorescence_measured == "no", "yes", "no"),
-                                                          ifelse(colony_metadata$fluorescence_measured == "no",
-                                                                 "yes",
-                                                                 ifelse(colony_metadata$fluorescence_measured == "yes" & colony_metadata$treatment_old == "vy",
-                                                                        "yes",
-                                                                        "no")))
+                                                          ifelse(colony_metadata$fluorescence_measured == "no","yes",
+                                                                 ifelse(colony_metadata$fluorescence_measured == "yes" & colony_metadata$treatment_old == "vy", "yes","no")))
 
 # create corrected treatment column
 switch_letters <- function(x) {
-  x <- gsub("b", "X", x)  # Replace 'b' with 'X' (temporary placeholder)
-  x <- gsub("y", "b", x)  # Replace 'y' with 'b'
-  x <- gsub("X", "y", x)  # Replace 'X' (originally 'b') with 'y'
-  return(x)
-}
+  x <- gsub("b", "X", x)  # replace 'b' with 'X' (temporary placeholder)
+  x <- gsub("y", "b", x)  # replace 'y' with 'b'
+  x <- gsub("X", "y", x)  # replace 'X' (originally 'b') with 'y'
+  return(x)}
+
 colony_metadata$treatment <- ifelse(colony_metadata$block %in% 1:2,
                                     colony_metadata$treatment_old,
                                     switch_letters(colony_metadata$treatment_old))
-# colony_metadata[, c("treatment_old", "treatment")]
+
 
 colnames(individual_metadata)[which(names(individual_metadata) == "bead_colour")] <- "bead_colour_old"
 individual_metadata$block <- ceiling(as.numeric(gsub("[^0-9]", "", individual_metadata$colony_id)) / 4) # transform c01 into a numeric value only, divide it by 4 and round up to next integer. 
@@ -108,7 +114,6 @@ individual_metadata$bead_colour <- ifelse(individual_metadata$block %in% 1:2,
 
 
 ### ### preparation of tables ### ###
-
 ### brood
 # creating a new variable containing colony id
 brood$colony_id <- NA 
@@ -140,10 +145,8 @@ combined_bead_data$blue_beads_cor <- ifelse(combined_bead_data$flowjo_sampletype
 # individual metadata already contains the corrected bead numbers as this was done in the script "add_beads_to_metadata-R"
 # However, it is still necessary to correct negative values to be 0 - could have been done in before obviously, but I forgot so let's just do it now!
 # function to replace negatives 
-replace_negatives <- function(x) {
-  x[x<0] <- 0
-  return(x)
-}
+replace_negatives <- function(x) { x[x<0] <- 0
+  return(x)}
 cols_to_adjust <- c("yellow_beads_cor", "blue_beads_cor")  
 individual_metadata[cols_to_adjust] <- lapply(individual_metadata[cols_to_adjust], replace_negatives)
 combined_bead_data[cols_to_adjust] <- lapply(combined_bead_data[cols_to_adjust], replace_negatives)
@@ -151,6 +154,7 @@ combined_bead_data[cols_to_adjust] <- lapply(combined_bead_data[cols_to_adjust],
 
 
 
+#_________________________________________________________________________________________________________________________________________________________________________________________
 #### 2.2 creating the virus bead variable ####
 # disentangling bead color form food source for individual metadata as well as for brood
 brood_data <- subset(combined_bead_data, combined_bead_data$flowjo_sampletype == "sample_brood")
@@ -161,29 +165,35 @@ merged_data_individuals <- merge(individual_metadata[, !names(individual_metadat
 merged_data_brood <- merge(brood_data[, !names(brood_data) %in% c("treatment", "treatment_simple")], 
                            colony_metadata, by = "colony_id")
 
-### Identifiy which colonies to analyse
+### Identify which colonies to analyse
 # based on whether fluorescence has been measured and whether it was not fed with the contaminated virus food source. 
 
-### Identify colonies for which worker bead data was not assessed: 
-# # As there were so many individuals it was not possible to analyse all colonies --> colonies were ranked based on manual feeding observations and the the top 7 colonies of the two treatments were selected for the bead analysis
-# # Hence the individuals data set is subsetted in the bead analysis
-# # all colonies were analysed for brood (pooled larva samples from each colony)
-# # identify colonies not analysed in flowcytometry (have bead count zero for both food sources)
-# filtered_data <- merged_data_individuals %>%
-#   group_by(colony_id, treatment_simple) %>%
-#   summarise(
-#     total_yellow_beads = sum(yellow_count_YB, na.rm = TRUE),
-#     total_blue_beads = sum(blue_count_NB, na.rm = TRUE),
-#     .groups = 'drop'  # Ungroup after summarising
-#   )  %>%
-#   filter(total_yellow_beads != 0 & total_blue_beads != 0)
-# colonies_to_analyse <- filtered_data$colony_id
-# colony_metadata$fluorescence_measured 
-
-# new short version as the above is now already included in colony metadata 
-# subset_colonies <- colony_metadata[colony_metadata$fluorescence_measured == "yes", ]
 subset_colonies <- colony_metadata[colony_metadata$exclude_colony_for_beadanalyses == "no", ] # verion which also excludes the onces with the contaminated virus food source (originally treatment virus yellow of blocks 3+)
 colonies_to_analyse <- subset_colonies$colony_id
+
+### create random assignment of control food sources to virus and pseudo virus:
+set.seed(4)
+treatment_c_random <- subset_colonies$treatment
+c_rows <- grep("^c", subset_colonies$treatment)
+new_treatments <- c(rep("cb", length(subset_colonies$treatment[subset_colonies$treatment == "cb"])), rep("cy", length(subset_colonies$treatment[subset_colonies$treatment == "cy"])))
+new_treatments <- sample(new_treatments)
+treatment_c_random[c_rows] <- new_treatments
+subset_colonies$treatment_c_random <- treatment_c_random
+table(subset_colonies$treatment_c_random)
+
+### over ride treatment if you want to use random assignment of the pseudo virus food in the controls.
+USE_RANDOM_CONTROL_FOOD_SOURCE_ASSIGNMENT <- TRUE
+if (USE_RANDOM_CONTROL_FOOD_SOURCE_ASSIGNMENT == TRUE) {
+  # funciton to update merged_data_individuals with the new treatment values
+  update_control_treatment <- function(df, subset_colonies) {
+    df %>% left_join(subset_colonies %>% 
+           dplyr::select(colony_id, treatment_c_random), by = "colony_id") %>%
+           mutate(treatment = ifelse(!is.na(treatment_c_random), treatment_c_random, treatment)) %>%
+           dplyr::select(-treatment_c_random)} 
+  # apply
+  merged_data_individuals <- update_control_treatment(merged_data_individuals, subset_colonies)
+  merged_data_brood <- update_control_treatment(merged_data_brood, subset_colonies) }
+
 
 
 
@@ -193,10 +203,6 @@ calculate_beads <- function(treatment, yellow_beads, blue_beads) {
     food_1v <- NA
     food_2c <- NA
   } else {
-    # if (treatment == "cc") {  # Control colonies ###CHANGE: make sure for half the colonies yellow are food_1v and for the other half blue are 1v
-    #   food_1v <- yellow_beads
-    #   food_2c <- blue_beads
-    # } else {  # Virus treatment colonies
     if (substr(treatment, 2, 2) == "b") {  # Virus food source contains blue beads
       food_1v <- blue_beads
       food_2c <- yellow_beads
@@ -204,7 +210,6 @@ calculate_beads <- function(treatment, yellow_beads, blue_beads) {
       food_1v <- yellow_beads
       food_2c <- blue_beads
     }
-    # }
   }
   return(list(food_1v = food_1v, food_2c = food_2c))
 }
@@ -226,15 +231,11 @@ process_df <- function(data){
   updated_df <- data   # Save the intermediate data frame with the new variables and beads_combined
   
   # Reshape the dataframe to have one column for bead_count and another for food_type
-  long_df <- data %>%
-    pivot_longer(cols = c(food_1v, food_2c),
+  long_df <- data %>% pivot_longer(cols = c(food_1v, food_2c),
                  names_to = "bead_source",
                  values_to = "bead_count")
   long_df$bead_color <- ifelse(
     (substr(long_df$treatment, 2, 2) == "y" & long_df$bead_source == "food_2c")|(substr(long_df$treatment, 2, 2) == "b" & long_df$bead_source == "food_1v"), "blue", "yellow")
-  # long_df$bead_color <- ifelse(long_df$treatment == "cc" & long_df$bead_source == "food_1v", "yellow", 
-  #                              ifelse(long_df$treatment == "cc" & long_df$bead_source == "food_2c", "blue", 
-  #                                     ifelse((substr(long_df$treatment, 2, 2) == "y" & long_df$bead_source == "food_2c")|(substr(long_df$treatment, 2, 2) == "b" & long_df$bead_source == "food_1v"), "blue", "yellow")))
   
   long_df$food_type <- ifelse( substr(long_df$treatment, 1,1) == "c", "control",
                               ifelse(substr(long_df$treatment, 1, 1) == "v" & long_df$bead_source == "food_1v", "virus", "control"))
@@ -249,11 +250,11 @@ for (df in dfs) { # df <- "individuals"
   assign(paste0("updated_df_", df), results$updated_df)
   assign(paste0("long_df_", df), results$long_df)
 }
-
-
-
 # after the above there are 4 dataframes available: updated_df_individuals, long_df_individuals, updated_df_brood, long_df_brood
-# we clear out some of the variables not used here just to make the dataframes a bit easier to work with 
+
+
+
+# we clear out some of the variables not used here just to make the dataframes a bit nicer to look at
 my_dataframes <- c("updated_df_individuals", "long_df_individuals", "updated_df_brood", "long_df_brood")
 not_used_here <-c("tagIDdecimal", "identifStart", "identifEnd", "treatment_time", "exp_stop_time", "exp_start_time",  
                   "sampling_time", "glass_beads", "meta_ID", "tag_reoriented", "N_treated",  
@@ -265,14 +266,21 @@ not_used_here <-c("tagIDdecimal", "identifStart", "identifEnd", "treatment_time"
 for (df_name in my_dataframes) {
   df <- get(df_name)
   df <- df[, setdiff(names(df), not_used_here)]
-  assign(df_name, df)
-}
+  assign(df_name, df)}
 
 
 # create new variable saying for is virus positive: Yes for the virus food source in the virus treatment and yes in one randomly selected  of the two food sources in the controls.
-updated_df_individuals$is_virus_positive <- ifelse( updated_df_individuals$food_1v > 0, "yes", "no") 
+updated_df_individuals$is_virus_positive <- ifelse(updated_df_individuals$food_1v > 0, "yes", "no") 
+updated_df_individuals$is_food_positive  <- ifelse(updated_df_individuals$beads_combined > 0, "yes", "no") 
 
 
+
+
+
+
+
+
+#_________________________________________________________________________________________________________________________________________________________________________________________
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
 #### 3. INITIAL BEAD ANALYSES #### 
 ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ### ###
@@ -289,7 +297,6 @@ updated_df_individuals %>%
             median_yellow = median(yellow_beads_cor, na.rm = TRUE),
             sd_yellow = sd(yellow_beads_cor, na.rm = TRUE))
 
-table(updated_df_individuals$exclude_colony_for_beadanalyses)
 
 wilcox.test(updated_df_individuals[updated_df_individuals$treatment_simple == "control", ]$yellow_beads_cor,updated_df_individuals[updated_df_individuals$treatment_simple == "control", ]$blue_beads_cor)
 boxplot(log10(updated_df_individuals[updated_df_individuals$treatment_simple == "control", ]$yellow_beads_cor+0.5), log10(updated_df_individuals[updated_df_individuals$treatment_simple == "control", ]$blue_beads_cor+0.5), 
@@ -303,9 +310,15 @@ text(1.5, 4.2, "p=0.55 (wilcox)", cex = 1)
 ### noteworthy --> the two beads are equal - NICE, there appears to be no systematic error or random preference for one of the bead colors.
 # --> still, will be including bead color as a random factor when modeling
 
-
-
-
+#### number of ants and proportion of each colony positive for food ####
+summary_prop <- updated_df_individuals %>% 
+  group_by(colony_id) %>% 
+  summarize(
+    nr_positive_for_food = sum(is_food_positive == "yes", na.rm = TRUE),
+    proportion_food_positive = nr_positive_for_food/first(colony_size)) %>% as.data.frame()
+path_int_results <- paste0(DATADIR, "/vital_experiment/main_experiment/intermediary_analysis_steps/")
+filename <- "col_summary_prop_food_positive.csv"
+write.csv(summary_prop, paste0(path_int_results,filename), row.names = FALSE)
 
 
 #### 3.2 Colony level food consumption ####
@@ -368,15 +381,18 @@ for (who in c("untreated_only","treated_only", "everyone")){ # who = "everyone" 
                           "Control_F2-Virus_F1" = c(0, -1, 1, 0),
                           "Control_F2-Virus_F2" = c(0, -1, 0, -1),
                           "Virus_F1-Virus_F2" = c(0, 0, -1, -1))
-    posthocs <- summary(glht(mod,linfct=contrast_mat),test=adjusted("BH"))
+    posthocs <- summary(glht(mod,linfct=contrast_mat),test=adjusted("fdr"))
     print(posthocs)
     emms <- emmeans(mod, ~ treatment_simple * food)
-    pairwise_results <- contrast(emms, method = "pairwise", adjust = "BH")
+    pairwise_results <- contrast(emms, method = "pairwise", adjust = "fdr")
     print(summary(pairwise_results))
-    cld_results <- cld(emms, Letters = letters, adjust = "BH")
+    cld_results <- cld(emms, Letters = letters, adjust = "fdr")
     print(cld_results)
   }
 }
+
+
+
 
 #' no difference detectable when looking at everyone or at treated only 
 #' But when looking the summed up food that was shared with nestmates it there seems it appears that more virus food reaches the nestmates!
@@ -384,12 +400,18 @@ for (who in c("untreated_only","treated_only", "everyone")){ # who = "everyone" 
 
 
 
+
+
+
+
+#_____________________________________________________________________________________________________________________________________________________________________________________
 #### 3.3 Feeding Duration (annotations) vs. nuber of Beads  ####
 
 # check if bead data reflects manual feeding observations
 # for treated individuals correlate bead count with individual feeding time.
-treated_ants <- updated_df_individuals %>% filter(IsTreated == TRUE)
-hist(treated_ants$feeding_duration)
+treated_ants <- updated_df_individuals %>% 
+  filter(IsTreated == TRUE & feeding_exclusion == 0) ### consider including those ants... Discuss with Nathalie!
+                                                     ### also check if I should include an additional filter --> is.alive? 
 
 # capping any feeding event longer than 5 minutes. 
 cap_threshold <- 6 * 60  # capping threshold in seconds
@@ -397,38 +419,107 @@ treated_ants$feeding_duration_capped <- ifelse(
   treated_ants$feeding_duration > cap_threshold,
   cap_threshold,
   treated_ants$feeding_duration)
-hist(treated_ants$feeding_duration_capped)
 
+# identifying what food sources ants were feeding on: virus treatment - virus or control , control treatment: pseudo-virus or control
+# had_access_to_food_X
+treated_ants <- treated_ants %>%
+  mutate(had_access_to_food_X = case_when(
+      treatment_simple == "virus" & food_source == "virus" ~ "food_1v",  # if virus and food_source is virus
+      treatment_simple == "virus" & food_source == "control" ~ "food_2c",  # if virus and food_source is control
+      treatment_simple == "control" & treatment == "cb" & bead_colour == "blue" ~ "food_1v",  # if control, cb, and blue beads
+      treatment_simple == "control" & treatment == "cb" & bead_colour == "yellow" ~ "food_2c",  # if control, cb, and yellow beads
+      treatment_simple == "control" & treatment == "cy" & bead_colour == "blue" ~ "food_2c",  # if control, cy, and blue beads
+      treatment_simple == "control" & treatment == "cy" & bead_colour == "yellow" ~ "food_1v",  # if control, cy, and yellow beads
+      TRUE ~ NA_character_  ))# Assign NA if no conditions are met (optional, but good practice)
+    
+
+# treated_ants %>%
+#   filter(treatment_simple == "control") %>%    # Filter rows where treatment_simple is "control"
+#   sample_n(20) %>%                             # Sample 20 random rows
+#   dplyr::select(colony_id, bead_colour, treatment, had_access_to_food_X)
+
+# fix retagged ants by merging double lines into one and deleting the second one: extract duplicate rows, adjust them, add them back to original data.
+duplicate_rows     <- treated_ants %>% group_by(colony_id, antID) %>% filter(n() > 1) %>% ungroup()
+non_duplicate_rows <- treated_ants %>%  group_by(colony_id, antID) %>% filter(n() == 1) %>% ungroup()
+cleaned_duplicate_rows <- duplicate_rows %>% arrange(colony_id, antID) %>%
+  mutate(across(everything(), ~ coalesce(.[1], .[2]))) %>%  # fill NAs from the second row to the first
+  distinct(colony_id, antID, .keep_all = TRUE) %>% ungroup() # keep only one row per unique combination
+treated_ants <- bind_rows(cleaned_duplicate_rows, non_duplicate_rows) %>% as.data.frame()
+
+# create a summary table for colony feeding amounts (based on color and food type) as well as feeding durations 
 feeding_summary_colonies <- treated_ants %>% 
   group_by(colony_id) %>% 
-  summarize(colony_total_feeding_duration        = sum(feeding_duration, na.rm = TRUE),
-            colony_total_feeding_duration_capped = sum(feeding_duration_capped, na.rm = TRUE)) %>% as.data.frame()
-
+  summarize(duration         = sum(feeding_duration, na.rm = TRUE),
+            duration_capped  = sum(feeding_duration_capped, na.rm = TRUE),
+            duration_food_1v_cap = sum(feeding_duration_capped[had_access_to_food_X == "food_1v"], na.rm = TRUE), 
+            duration_food_2c_cap = sum(feeding_duration_capped[had_access_to_food_X == "food_2c"], na.rm = TRUE)) %>% 
+  left_join(updated_df_individuals %>% 
+      group_by(colony_id) %>% 
+      summarize(amount_food_1v = sum(food_1v, na.rm = TRUE), 
+                amount_food_2c = sum(food_2c, na.rm = TRUE),
+                total_amount_of_food = amount_food_1v + amount_food_2c), by = "colony_id") %>% as.data.frame()
+            
 # merge with feeding colony bead data
 feeding_data_merged <- merge(feeding_summary_colonies, colony_sum, by = "colony_id")
-variables <- c("colony_total_feeding_duration", "colony_total_feeding_duration_capped")
+plots <- list()
+variables <- c("duration", "duration_capped")
 for (var in variables) { # var <-  "colony_total_feeding_duration"
   correlation <- cor(feeding_data_merged[[var]], feeding_data_merged$total_beads_combined, use = "complete.obs")
-  print(paste("Correlation coefficient:", correlation))
-  p <- ggplot(feeding_data_merged, aes_string(x = var, y = "total_beads_combined")) +
+  #print(paste("Correlation coefficient:", correlation))
+  p <- ggplot(feeding_data_merged, aes(x = !!sym(var), y = total_beads_combined)) +
     geom_point() +
     geom_smooth(method = "lm", col = "blue") +
     ggtitle(paste("Scatter Plot and Regression Line (Correlation: ", round(correlation, 2), ")", sep = "")) +
-    xlab("Colony Total Feeding Duration") +
+    xlab(paste0("Total feeding ", var)) +
     ylab("Total Beads Combined") +
     theme_minimal()
-  print(p)
-}
+  plots[[length(plots) + 1]] <- p}
 
-ggplot(feeding_data_merged, aes(x = colony_total_feeding_duration, y = total_beads_combined)) +
-  geom_point() +
-  geom_smooth(method = "lm", col = "blue") +
-  ggtitle(paste("Scatter Plot and Regression Line (Correlation: ", round(correlation, 2), ")", sep = "")) +
-  xlab("Colony Total Feeding Duration") +
-  ylab("Total Beads Combined") +
-  theme_minimal()
+food_type <-  c("food_1v", "food_2c")
+for (var in food_type) {
+  correlation <- cor(feeding_data_merged[[paste0("duration_", var, "_cap")]], feeding_data_merged[[paste0("amount_", var)]], use = "complete.obs")
+  print(paste("Correlation coefficient for", var, ":", correlation))
+  p <- ggplot(feeding_data_merged, aes(x = !!sym(paste0("duration_", var, "_cap")), y = !!sym(paste0("amount_", var)))) +
+    geom_point() +
+    geom_smooth(method = "lm", col = "blue") +
+    ggtitle(paste("Scatter Plot and Regression Line (Correlation: ", round(correlation, 2), ")", sep = "")) +
+    xlab(paste("Feeding duration on", var)) +
+    ylab("Amount of food") +
+    theme_minimal()
+  plots[[length(plots) + 1]] <- p}
+grid.arrange(grobs = plots, ncol = 2)
 
-# feeding duration maybe not the best predictor but look at individual level first: 
+
+plots_2 <- list()  
+treaty <- c("control", "virus")
+for (treat in treaty) { # treat <-  "control"
+  feeding_data_merged_sub <- feeding_data_merged %>% filter(treatment_simple == treat)
+  for (var in food_type) {
+    correlation <- cor(feeding_data_merged_sub[[paste0("duration_", var, "_cap")]], feeding_data_merged_sub[[paste0("amount_", var)]], use = "complete.obs")
+    print(paste("Correlation coefficient for", var, ":", correlation))
+    p <- ggplot(feeding_data_merged_sub, aes(x = !!sym(paste0("duration_", var, "_cap")), y = !!sym(paste0("amount_", var)))) +
+      geom_point() +
+      geom_smooth(method = "lm", col = "blue") +
+      ggtitle(paste("Treatment:", treat, "; Food:", var, "-- cor uptake vs duration (Cor:", round(correlation, 2), ")", sep = " ")) +
+      xlab(paste("Feeding duration on", var)) +
+      ylab("Amount of food") +
+      theme_minimal()
+    plots_2[[length(plots_2) + 1]] <- p}}
+grid.arrange(grobs = plots_2, ncol = 2)
+
+
+
+
+
+
+
+
+
+
+
+
+
+# feeding duraton maybe not the beist predictor but look at individual level first: 
 
 # Looking at individual level feeders only and food source they fed on only:
 cor_df <- NULL
@@ -675,13 +766,11 @@ wilcox.test(nestmates_long$bead_count[nestmates_long$treatment_simple == "virus"
             nestmates_long$bead_count[nestmates_long$treatment_simple == "virus" & nestmates_long$bead_source == "food_1v"])
 
 
+#_____________________________________________________________________________________________________________________________________________________________________________________
+#### Write data on individals to metadata so it can be accessed in other scrip†s ####
 
+# access to food in treated individuals
+# amount of food per food source (control virus and pseudo virus)
 
-#### IMPORTANT TO DOS ####
-#' 1 -  Check random assignment of control food source and pairing with treatment colonies?!
-#' 2 -  Finally do Network analyses to see if there are any differences among the treatments!!!
-#' 3 -  Check out the tandem running paper
-#' 4 -  See what analyses to run to see the spread of the bead food sources based on temporal networks - information flow.
-#' ``
 
 

@@ -9,12 +9,15 @@ rm(list = setdiff(ls(), "first_time_use_working_directory"))
 # Run all the previous scripts from the main analysis (Vital_main_analysis.R) to have data processed and ready for this code.
 
 #' Todo's:
-#' - Adjust to the needs of vital 
+#' - Adjust to the needs of vital
+#' - Update individual metadata so it includes facet net community scores and task allocation! Then use it in the below script. 
 #' - try to write things so they run for the flugus experiment as well
 #' - Find out if night_start, light_start are right...
 #' - Check if there is a difference in modularity and modularity facet net!
+#' - Make time aggregated trophy interaction networks undirected with no arrows!
+#' - There are some todo to process individuals that have only interacted with a single and treated ant. 
 
-#' 
+
 
 #' Notes:
 #' Main things for me to analyse:
@@ -69,72 +72,112 @@ RUN_UNSCALED_NETS <- F
 # read trophy interaction files post treatment
 trophy_path  <-  paste0(DATADIR,"/vital_experiment/main_experiment_trophallaxis/intermediary_analysis_steps/full_interaction_lists/PostTreatment/observed") 
 trophy_files <-  list.files(trophy_path, full.names = TRUE)
-treated      <-  read.table(paste(DATADIR,"vital_experiment/main_experiment/original_data/treated_worker_list.txt",sep="/"),header=T,stringsAsFactors = F)
+treated_ori      <-  read.table(paste(DATADIR,"vital_experiment/main_experiment/original_data/treated_worker_list.txt",sep="/"),header=T,stringsAsFactors = F)
 source(paste0(SCRIPTDIR,"/vital_meta_data.R"))
 metadata_individuals <- read.table(paste(DATADIR, "/individual_metadata_vital.txt", sep = ""), header = T, stringsAsFactors = F, sep = ",")
 
+foodchain_results_colony <- NULL
+foodchain_results_individuals <- NULL
+individuals_interacting_only_with_one_treated_ant <- NULL 
+
+#### consider removing ants that were treated but did not survive or received feeding excluder?
 
 
-# for (trophy_file in trophy_files) { 
-  trophy_file <- trophy_files[1] # to be removed
+for (trophy_file in trophy_files) { # trophy_file <- trophy_files[1] 
+  
+  # load trophallactic interactions 
   trophy_data <- read.table(trophy_file, header=TRUE, sep="\t", stringsAsFactors=FALSE)
-  trophy_data <- trophy_data %>% arrange(Starttime)
-  col_id <- trophy_data$colony[1]
-  
-  ants <- metadata_individuals %>% filter(colony_id == col_id) %>%
-    dplyr::select(
-      !c(treatment, comment.y, flowjo_sampletype, ScanTime, freezer_container, 
-        freezer_container_position, PosID, flowjo_plate, flowjo_row_well, 
-        flowjo_column_strip, flowjo_name, N_treated, identifStart, identifEnd, 
-        comment.x, treatment_time, exp_stop_time, exp_start_time, sampling_time)) %>%
-    rename(tag = antID, treatment = treatment_simple) %>% as.data.frame()
-  
-  # Exclude Queen because we do not really have trophy data for her?
- 
-  # get vector with id's of treated ants
-  treated <- treated %>% filter(colony == col_id)
-  treated_ants <- treated$tag
-  
+  trophy_data <- trophy_data %>% arrange(Starttime) %>% filter(!(Tag1 == 1 | Tag2 == 1)) # sort and remove queen
   trophy_data$start <- as.POSIXct(trophy_data$start, format = "%Y-%m-%d %H:%M:%S")
   trophy_data$end <- as.POSIXct(trophy_data$end, format = "%Y-%m-%d %H:%M:%S")
   
   
+  # get info of colony and ants 
+  col_id <- trophy_data$colony[1]
+  ants <- metadata_individuals %>%
+    filter(colony_id == col_id, IsQueen != TRUE) %>%  # keep only this colony and remove queen (keep all ants that have IsQueen = FALSE)
+    dplyr::select(
+      !c(treatment, comment.y, flowjo_sampletype, ScanTime, freezer_container, 
+         freezer_container_position, PosID, flowjo_plate, flowjo_row_well, 
+         flowjo_column_strip, flowjo_name, N_treated, identifStart, identifEnd, 
+         comment.x, treatment_time, exp_stop_time, exp_start_time, sampling_time)) %>%
+    rename(tag = antID, treatment = treatment_simple) %>%
+    mutate(AntTask1perc = ifelse(is.na(AntTask1perc), "nurse", AntTask1perc)) %>%  # Replace NA with "nurse"
+    distinct(colony_id, tag, .keep_all = TRUE) %>% as.data.frame()
+  # remove duplicate ants that are occur twice in meta data because of reoriented tags
+  
+  col_size <- ants$colony_size[1]
+  treatment <- ants$treatment[1]
+  
+  # Exclude Queen because we do not really have trophy data for her?
+ 
+  # get vector with id's of treated ants
+  treated <- treated_ori %>% filter(colony == col_id)
+  treated_ants <- treated$tag
   
   
-  # # Specify the key ant (e.g., ant with Tag1 = 50)
-  # key_ant <- 50 # treated ants
-  experimentor <- 666
   
-  # Add a new column to the ants data frame for 'infector' and 'infection_time'
-  ants$infector <- ""
-  ants$infector[ants$tag %in% treated_ants] <- experimentor # put treated ants here
-  ants$infection_time <- NA
+  
+  
+  ### Identify ants with only one interaction and that with a treated ant
+  # Create a vector to track interactions for each ant (each ant's interactions with others)
+  interaction_count <- table(c(trophy_data$Tag1, trophy_data$Tag2))
+  # keeping track of ants that interacted only with treated ants
+  interacting_with_treated <- list()
+  for (i in seq_len(nrow(trophy_data))) { # i = 543
+    ant1 <- trophy_data$Tag1[i]
+    ant2 <- trophy_data$Tag2[i]
+    
+    # Check if one of the ants is treated
+    if (ant1 %in% treated_ants || ant2 %in% treated_ants) {
+      # Identify the non-treated ant
+      non_treated_ant <- ifelse(ant1 %in% treated_ants, ant2, ant1)
+      
+      # Check if the non-treated ant has only interacted once
+      if (interaction_count[as.character(non_treated_ant)] == 1) {
+        # Add the pair (non-treated ant with treated ant) to the list
+        interacting_with_treated <- append(interacting_with_treated, non_treated_ant)
+      }
+    }
+  }
+  
+  # If any ants interacted only with one treated ant, add them to the dataframe
+  if (length(interacting_with_treated) > 0) {
+    for (tag_identifier in interacting_with_treated) { # tag_identifier <- interacting_with_treated[1]
+      ant_identifier <- tag_identifier[[1]]
+      individuals_interacting_only_with_one_treated_ant <- rbind(individuals_interacting_only_with_one_treated_ant, 
+                                                                 data.frame(col_id = col_id, tag = ant_identifier, stringsAsFactors = F))
+    }
+  }
+  
+  
+  
 
+  ### Get data into correct shape to get edges
+  
+  ## a previous version of the script was run with setting the experimentor as center of the network who starts by infecting the treated individuals.
+  # experimentor <- 666
+  
+  # initiate new variables 'infector' and 'infection_time' to be filled up later
+  ants$infector <- ""
+  #ants$infector[ants$tag %in% treated_ants] <- experimentor # treated ants were infected by the experimentor... but they should probably get an NA? 
+  ants$infection_time <- NA
+  
+  # Add an additional row to ants: the "experimentor" who acts the source of all infections by treating individuals
+  # new_row <- data.frame(tag = 666,
+  #                       infector = "gismo",
+  #                       AntTask1perc = "experimentor", stringsAsFactors = FALSE)
+  # missing_cols <- setdiff(names(ants), names(new_row)); new_row[missing_cols] <- NA # add NA for missing columns in new_row
+  # ants <- rbind(ants, new_row)
+  
   # Initialize an empty graph (undirected), add the experimentor as the first node
   G <- make_empty_graph(directed = FALSE)
-  G <- add_vertices(G, 1, name = as.character(experimentor))
-  
-  
-  # Add an additional row with the "experimentor who acts the source of all infections by treating individuals
-  new_row <- data.frame(
-    tag = 666,
-    infector = "gismo",
-    AntTask1perc = "experimentor",
-    stringsAsFactors = FALSE  # Avoid factors, use strings as characters
-  )
-  # Ensure the new row has the same column names as ants
-  missing_cols <- setdiff(names(ants), names(new_row))  # Find columns in ants that are not in new_row
-  # Add NA for missing columns in new_row
-  new_row[missing_cols] <- NA
-  
-  # Append the new row to the ants data frame
-  ants <- rbind(ants, new_row)
+  # G <- add_vertices(G, 1, name = as.character(experimentor))
   
   # tracking of ants that have already received food (starting with the key ant)
   received_food <- treated_ants
   
-  
-  # Build the graph iteratively (bidirectional interactions)
+  # Build the graph iteratively (bidirectional interactions) - interaction by interaction we "inform/infect" ants based on the initially treated ones.
   for (i in 1:nrow(trophy_data)) {
     # Get the interacting ants (mutual sharing)
     ant1 <- trophy_data$Tag1[i]
@@ -157,13 +200,6 @@ metadata_individuals <- read.table(paste(DATADIR, "/individual_metadata_vital.tx
     }
   }
   
-  
-  # # Get the positions for plotting using a simple layout (for better flow) and prep for plotting
-  # layout_matrix <- layout_with_kk(G)
-  # V(G)$x <- layout_matrix[, 1]
-  # V(G)$y <- layout_matrix[, 2]
-  # V(G)$label <- V(G)$name
-  
   # Edge data for plotting
   edge_data <- igraph::as_data_frame(G, what = "edges")
   
@@ -171,70 +207,119 @@ metadata_individuals <- read.table(paste(DATADIR, "/individual_metadata_vital.tx
   edge_list <- edge_data
   edge_list$counter <-1
   
-  ###################### CONTINUE HERE (trying out toms stuff).
+  ### ### ### Code with inputs from tom - get back here for adding weights to networks. 
   
   ### below approeches did not work because I did not manage to get the data in the right order... it want to maintain the order of events? actually this might not be required for time-aggregated network... so try once more! 
   # edge_list <- aggregate(counter ~ from + to, FUN=length, edge_list)
-  
-  # # Add a pair identifier to track undirected edges without changing order
-  # edge_list_clean <- edge_list %>%
-  #   rowwise() %>%
-  #   mutate(pair = paste(sort(as.numeric(c(from, to))), collapse = "-")) %>%
-  #   ungroup()
-  # 
-  # # Remove duplicates while maintaining the first occurrence's order and count occurrences
-  # edge_list_clean <- edge_list_clean %>%
-  #   group_by(pair) %>%
-  #   summarise(
-  #     from = first(from),
-  #     to = first(to),
-  #     weights = n(),
-  #     .groups = "drop") %>%  as.data.frame()
+  # Add a pair identifier to track undirected edges without changing order
+  edge_list_clean <- edge_list %>%
+    rowwise() %>%
+    mutate(pair = paste(sort(as.numeric(c(from, to))), collapse = "-")) %>%
+    ungroup()
+
+  # Remove duplicates while maintaining the first occurrence's order and count occurrences
+  edge_list_clean <- edge_list_clean %>%
+    group_by(pair) %>%
+    summarise(
+      from = first(from),
+      to = first(to),
+      weights = n(),
+      .groups = "drop") %>%  
+    dplyr::select(-pair) %>% as.data.frame()
   
   GT <- graph_from_data_frame(edge_list_clean)
-  is_weighted(GT)
+  E(GT)$weight <- edge_list_clean$weights
+  # is_weighted(GT)
   
   
   
+  # check if any of this makes sense as trophy is technically not directed... but we can do it based on first informed...?!
+  # #assigning degree in and out
+  # V(G)$degree_out    <- igraph::degree(G, mode=c("out"), loops=F)
+  # V(G)$degree_in    <- igraph::degree(G, mode=c("in"), loops=F)
+  # ## and calculate an index of 'donorship'
+  # V(G)$donorship   <-  V(G)$degree_out  -  V(G)$degree_in ## or,  out/(out+in)
   
+  ### Plot ala tom
+  lay <- layout_with_fr(GT,weights= E(GT)$weight)   ## force-directed layout  accounting for edge weights
+  ## set Edge-colours
+  # E(G)$Colour  <-  viridis(101) [ 1 + round(100* E(G)$weight) ] ## might need to normalise your weights to 0-1
+  max_weight <- max(E(GT)$weight)
+  E(GT)$color <- viridis(100)[round(100 * (E(GT)$weight / max_weight)) + 1]
   
-  ### back to where I was yesterday
+  ## set vertex colours
+  # V(GT)$Colour      <- "white"
+  V(GT)$FrameColour <- "grey60"
   
-  # edge_data[edge_data$from == 14 | edge_data$to == 14, ]
+  # color mapping based on task and is_treated
+  color_palette <- viridis(2, begin = 0.4, end = 0.6)
+  color_mapping <- setNames(color_palette, c("forager","nurse"))
+  ants[ants$tag == 148, ]
+# get who was treated and what task they were assigned
+  V(GT)$task <- sapply(V(GT)$name, function(x) {
+    task_value <- ants$AntTask1perc[ants$tag == x] # eventually update with facet net task!
+    return(task_value)})
+  V(GT)$IsTreated <- sapply(V(GT)$name, function(x) {
+    treated_value <- ants$IsTreated[ants$tag == x]
+    return(treated_value)})
+  
+  node_colors <- color_mapping[V(GT)$task] # based on task
+  node_colors[V(GT)$name %in% treated_ants] <- "red" # overwrite treated ants
+  
+  plot(GT, 
+       layout = lay,
+       edge.arrow.size = 0.25,
+       edge.color = E(G)$Colour, 
+       edge.width = E(GT)$weight * 2,
+       # edge.width = 2,
+       edge.arrow.width = 1.5,
+       edge.arrow.size = 1,
+       vertex.size = 6,
+       # vertex.size = 7 + (12 * (V(G)$degree_out / max(V(G)$degree_out))),
+       vertex.frame.color = V(G)$FrameColour, ## could alternatively use the donorship to assign red/blue to each node to indicate whether it is a net donor/receiver...!?
+       # vertex.color = V(GT)$Colour,
+       vertex.color = node_colors,
+       #vertex.label = NA,
+       vertex.label.cex = 0.35,
+       main = "")
+  legend("topright",                          # Position of the legend
+         legend = c("Forager", "Nurse", "Treated"),       # The labels for the tasks
+         fill = c(color_palette, "red"),                 # Colors corresponding to each task
+         border = "black",                     # Border color for the legend boxes
+         #title = "Ant Task",                   # Title of the legend
+         cex = 0.8,                            # Text size
+         bty = "n")                            # No box around the legend
 
-  # Create a graph from the edge list
-  G <- graph_from_data_frame(edge_data, directed = FALSE)
-  plot(G)
-  # Plot the graph
-  plot(
-    G,
-    layout = layout_with_fr(G),      # Use the Kamada-Kawai layout for better flow
-    vertex.size = 8,                 # Set vertex size
-    vertex.label.cex = 0.8,          # Adjust label size
-    vertex.label.color = "black",    # Label color
-    vertex.color = "lightblue",      # Vertex color
-    edge.color = "gray",             # Edge color
-    edge.width = 1                   # Edge thickness
-  )
-  
-  
-  # new_row <- data.frame(
-  #   colony_id = "c00",
-  #   treatment = "treatment",
-  #   tag = 666,
-  #   infector = "gismo",
-  #   infection_time = NA
+  # # Create a graph from the edge list
+  # G <- graph_from_data_frame(edge_data, directed = FALSE)
+  # plot(G)
+  # # Plot the graph
+  # plot(
+  #   G,
+  #   layout = layout_with_fr(G),      # Use the Kamada-Kawai layout for better flow
+  #   vertex.size = 8,                 # Set vertex size
+  #   vertex.label.cex = 0.8,          # Adjust label size
+  #   vertex.label.color = "black",    # Label color
+  #   vertex.color = "lightblue",      # Vertex color
+  #   edge.color = "gray",             # Edge color
+  #   edge.width = 1                   # Edge thickness
   # )
-  # ants <- rbind(ants, new_row)
   
+  
+  
+  #### infected / non-infected transmission sequential #### 
   
   for (i in seq_len(nrow(ants))) { # i <- 14
-    
     ant <- ants[i, ]
    
+    #  # treated ants get an infection time just before the first interaction
+    # if (ant$infector == 666) { 
+    #   ants$infection_time[i] <- min(trophy_data$start)-1 
+    # } else {
      # treated ants get an infection time just before the first interaction
-    if (ant$infector == 666) { 
-      ants$infection_time[i] <- min(trophy_data$start)-1 
+    if (ant$IsTreated == TRUE) {
+      ants$infection_time[i] <- min(trophy_data$start)-1
+      ants$infector[i] <- NA
     } else {
       
       # untreated ants: find first the row in edge_data where this ant was involved and identify the infector
@@ -255,6 +340,7 @@ metadata_individuals <- read.table(paste(DATADIR, "/individual_metadata_vital.tx
         # update ants dataframe
         ants$infector[i] <- infector
         ants$infection_time[i] <- earliest_interaction_time
+        
       } else { 
         # no infector found, set as NA
         ants$infector[i] <- NA
@@ -262,94 +348,266 @@ metadata_individuals <- read.table(paste(DATADIR, "/individual_metadata_vital.tx
       }
     }
   }
+  
 
   
-    
-  ## generate contacts
+  ### generate contacts
   contacts <- ants %>%
     transmute(
       infector = infector,
       case_id = tag,
-      location = sample(c("nest", "arena"), n(), TRUE),
-      duration = sample.int(10, n(), TRUE)
-    ) %>%
-    drop_na(infector) # Why has 14 no infector? 
+      # location = sample(c("nest", "arena"), n(), TRUE),
+      infection_time = infection_time) %>%
+    drop_na(infector) # Does this drop the treated ants that have no infector? 
   
-  
-  # edge_data_epic <- edge_data %>% 
-  #   rename(case_id = to, infector = from) %>% as.data.frame()
   linelist <- ants %>% 
     rename(case_id = tag)
   
-  epic <- make_epicontacts(
+  epic <- suppressWarnings(make_epicontacts(
     linelist = linelist,
     contacts = contacts,
     id = "case_id",
     from = "infector",
     to = "case_id",
     directed = TRUE
-  )
+  ))
   
   sub <- epic %>% thin("linelist") # keep only contacts linked to the chains
-  
   net <- as.igraph(sub) 
-  net
-  # If AntTask1perc is numeric (e.g., percentages), use a color palette
-
   
-  color_palette <- viridis(length(unique(sub[[1]]$AntTask1perc))) # Number of unique values of factor as colors
+  # plot
+  color_palette <- viridis(length(unique(sub[[1]]$AntTask1perc)),begin = 0.4, end = 0.6) 
   color_mapping <- setNames(color_palette, unique(sub[[1]]$AntTask1perc))
   color_vector <- color_mapping[sub[[1]]$AntTask1perc]
-
-  
-  # Map values to the color palette
+  color_vector[sub[[1]]$id %in% treated_ants] <- "red"
   vertex_color <- color_palette[as.factor(sub[[1]]$AntTask1perc)]
-  plot(net,  vertex.size = 8, vertex.color = color_vector)
+  plot(net,  
+       vertex.size = 5, 
+       vertex.label.cex = 0.35,
+       vertex.color = color_vector)
+  legend("topright",                          # Position of the legend
+         legend = c("Forager", "Nurse", "Treated"),       # The labels for the tasks
+         fill = c(color_palette, "red"),                 # Colors corresponding to each task
+         border = "black",                     # Border color for the legend boxes
+         #title = "Ant Task",                   # Title of the legend
+         cex = 0.8,                            # Text size
+         bty = "n")                            # No box around the legend
   
   get_degree(sub, type = "both")
   
+  food_reach <- vcount(net)
+  prop_col_reached <- vcount(net)/col_size
+  
+  foodchain_results_colony <-  rbind(foodchain_results_colony, data.frame(col_id,
+                                                      treatment,
+                                                      food_reach,
+                                                      prop_col_reached, stringsAsFactors = F ))
+  
+  
+  
+  
+  ### ### ### ### _________________________________________________________________________________________________________________________________________________
+  #### Individual chains: All ants that receive food from treated individuals run per treated individual. ####
+  ### Should I include/exclude other treated ants from the chains?
+  
+  RUN_INDIVIDUAL_CHAINS <- TRUE # just a little extra loop so that individual chains can be skipped during testing. TRUE most of the time - false if you want to skip
+  
+  ants_ori <- ants #[!ants$tag == 666, ]
+  if (RUN_INDIVIDUAL_CHAINS) {
+  for (t_ant in treated_ants) { # t_ant <- treated_ants[1]
+    cat("\r", green(col_id, " ant: "), t_ant, "    ")
+    ants_single_chains <- ants_ori
+    ants_single_chains$infector <- ""
+    ants_single_chains$infection_time <- NA
+    
+    # Initialize an empty graph (undirected), add the experimentor as the first node
+    GS <- make_empty_graph(directed = FALSE)
+    GS <- add_vertices(GS, 1, name = as.character(t_ant))
+    
+    # tracking of ants that have already received food (starting with the key ant)
+    received_food <- t_ant
+    
+    # Build the graph iteratively (bidirectional interactions) - interaction by interaction we "inform/infect" ants based on the initially treated ones.
+    for (i in 1:nrow(trophy_data)) {
+      # Get the interacting ants (mutual sharing)
+      ant1 <- trophy_data$Tag1[i]
+      ant2 <- trophy_data$Tag2[i]
+      
+      # Only process interactions involving ants that have already received food
+      if (ant1 %in% received_food || ant2 %in% received_food) {
+        # Add both ants to the graph if not already present
+        if (!(ant1 %in% V(GS)$name)) {  # Check if ant1 already exists in the graph
+          GS <- add_vertices(GS, 1, name = as.character(ant1))
+          received_food <- c(received_food, ant1)
+        }
+        if (!(ant2 %in% V(GS)$name)) {  # Check if ant2 already exists in the graph
+          GS <- add_vertices(GS, 1, name = as.character(ant2))
+          received_food <- c(received_food, ant2)
+        }
+        
+        # Add an undirected edge between the two ants (food sharing)
+        GS <- add_edges(GS, c(as.character(ant1), as.character(ant2)))
+      }
+    }
+    
+    # get edge data for single chain
+    edge_data_single_chain <- igraph::as_data_frame(GS, what = "edges")
+    
+    
+    if (nrow(edge_data_single_chain) == 0) {
+      # if for some reason a treated ant is not interacting with other ants, manually assign default values (degree = 0, etc.)
+      node_degree <- 0
+      food_reach_single <- 1
+      prop_col_reached_single <- 1 / col_size  # assuming it's a proportion of the colony size
+    } else {
+    ### based on the edge_data identify initial infectors and create transmission chains
+    for (i in seq_len(nrow(ants_single_chains))) { # i <- 1
+      ant <- ants_single_chains[i, ]
+      # treated ants get an infection time just before the first interaction
+      if (ant$tag == t_ant) { 
+        ants_single_chains$infection_time[i] <- min(trophy_data$start)-1
+        ants_single_chains$infector[i] <- NA # put this to gismo 
+      } else {
+        
+        # untreated ants: find first the row in edge_data where this ant was involved and identify the infector
+        transmission_info <- edge_data_single_chain[edge_data_single_chain$to == ant$tag | edge_data_single_chain$from == ant$tag, ]
+        if (nrow(transmission_info) > 0) {
+          if (transmission_info$to[1] == ant$tag) {
+            infector <- transmission_info$from[1]
+          } else {
+            infector <- transmission_info$to[1]
+          }
+          
+          # matching the interaction with the trophy dataset to extract transmission time
+          matching_interactions <- trophy_data[
+            (trophy_data$Tag1 == transmission_info$from[1] & trophy_data$Tag2 == transmission_info$to[1]) |
+              (trophy_data$Tag1 == transmission_info$to[1] & trophy_data$Tag2 == transmission_info$from[1]),]
+          earliest_interaction_time <- ifelse(nrow(matching_interactions) > 0, min(matching_interactions$start), NA)
+          
+          # update ants dataframe
+          ants_single_chains$infector[i] <- infector
+          ants_single_chains$infection_time[i] <- earliest_interaction_time
+        } else { 
+          # no infector found, set as NA
+          ants_single_chains$infector[i] <- NA
+          ants_single_chains$infection_time[i] <- NA
+        }
+      }
+    }
+    
+    ## generate contacts
+    contacts_single <- ants_single_chains %>%
+      transmute(
+        infector = infector,
+        case_id = tag
+      ) %>%
+      drop_na(infector) 
+    
+    linelist_single <- ants_single_chains %>% rename(case_id = tag)
+    
+    epic_single <- suppressWarnings(make_epicontacts(
+      linelist = linelist_single,
+      contacts = contacts_single,
+      id = "case_id",
+      from = "infector",
+      to = "case_id",
+      directed = TRUE))
+    
+    sub_single <- epic_single %>% thin("linelist") # keep only contacts linked to the chains
+    net_single <- as.igraph(sub_single) 
+    
+    
+    color_palette <- viridis(length(unique(sub_single[[1]]$AntTask1perc)),begin = 0.4, end = 0.6) 
+    color_mapping <- setNames(color_palette, unique(sub_single[[1]]$AntTask1perc))
+    color_vector <- color_mapping[sub_single[[1]]$AntTask1perc]
+    color_vector[sub_single[[1]]$id == t_ant] <- "red"
 
-  
-  
-  ### create graphs with individual chains from the treated ants... 
-  
-  
-  ### store information of chains in some form
-  
-  
-  ### analyse different chains for properties
-  
-  
-  
+    # Map values to the color palette
+    plot(net_single, main = paste0(col_id, " ant: ", t_ant) , 
+         vertex.size = 6, 
+         vertex.color = color_vector, 
+         # vertex.label = NA, 
+         vertex.label.cex = 0.35)
+    
+    food_reach_single <- vcount(net_single)
+    prop_col_reached_single <- vcount(net_single)/col_size
+    degree <- get_degree(sub_single, type = "both")
+    node_degree <- unname(degree[as.character(t_ant)])
+    }
+    tag <- t_ant
+    
+    foodchain_results_individuals <-  rbind(foodchain_results_individuals, data.frame(col_id,
+                                                        treatment,
+                                                        tag,
+                                                        node_degree,
+                                                        food_reach_single,
+                                                        prop_col_reached_single, stringsAsFactors = F ))
+    
+  }
+ }
+}
 
-  
 
-  
+
+### store information of chains in some form for subsequent analyses
+### analyse different chains for properties ? 
+
+path_int_results <- paste0(DATADIR, "/vital_experiment/main_experiment/intermediary_analysis_steps/")
+write.csv(foodchain_results_individuals, paste0(path_int_results,"foodchain_results_individuals.csv"), row.names = FALSE)
+
+boxplot(foodchain_results_colony$prop_col_reached ~ foodchain_results_colony$treatment)
+foodchain_results_colony %>% group_by(treatment) %>% summarize(mean = mean(prop_col_reached)) %>% as.data.frame() 
  
+boxplot(foodchain_results_individuals$prop_col_reached ~ foodchain_results_individuals$treatment)
+foodchain_results_individuals %>% group_by(treatment) %>% summarize(mean = mean(prop_col_reached)) %>% as.data.frame()
+
+# while it looks basically the same for both treatments there seems to be a higher variance in the virus treatment. This could be just chance or it could be that in the virus treatment the
+
+
+# is the proportion of ants present in trophy-chains the similar to the proportion of ants positive for food? 
+col_summary_prop_food_positive_file <- paste0(DATADIR, "/vital_experiment/main_experiment/intermediary_analysis_steps/col_summary_prop_food_positive.csv")
+col_summary_prop_food_positive <- read.csv(col_summary_prop_food_positive_file)
+
+
+foodchain_results_colony <- foodchain_results_colony %>% 
+  left_join(col_summary_prop_food_positive, by = c("col_id" = "colony_id")) %>%  
+  filter(!is.na(proportion_food_positive)) %>%
+  mutate(diff_prop = prop_col_reached - proportion_food_positive) %>% as.data.frame()
+
+variables <- c("prop_col_reached", "proportion_food_positive", "diff_prop")
+for (var in variables) { # var <- variables[1]
+  p <- ggplot(foodchain_results_colony, aes(x = treatment, y = !!sym(var))) + 
+    geom_boxplot() + 
+    labs(title = paste("Boxplot of", var, "by Treatment"),
+         x = "Treatment",
+         y = var) + 
+    theme_minimal() +
+    coord_cartesian(ylim = c(0, 1))
+  print(p)
+  
+  # stats
+  model <- lm(as.formula(paste(var, "~ treatment")), data = foodchain_results_colony)
+  summary(model)
+  test_norm(model)
+  p_value <- summary(model)$coefficients[2, 4]  # Extract the p-value for 'treatment_simple'
+  print(paste("P-value for the treatment effect on", var, ":", round(p_value, 4))) }
+
+
+# identify ants that had only a single interaction with a treated ant 
+individuals_interacting_only_with_one_treated_ant
+
+### to do's 
+#'add bead data and food data from bead data analysis to individual metadata so it can always be accessed!
+#'get bead / food values for those individuals... 
+#'and maybe update code so one can see of the beads in the ant match with what its interaction partner had.
+#'see if it is possible to get a reasonable mean or something that can be used for simulations.
+
+
+### in script 13 there is a section on contacts with treated - this could be updated or redone so that is split between treated of food source 1 and food source 2 ca. line 121 + 
+
   
   
   
-
-  
-  
-
-
-
-
-
-
-
-# identify interactions starting with treated individuals 
-
-
-
-
-
-
-
-
-
-
 
 
 

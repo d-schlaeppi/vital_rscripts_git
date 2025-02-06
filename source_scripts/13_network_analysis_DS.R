@@ -15,6 +15,11 @@
 ### Check what results are produced and where to see them. 
 ### and might need additions for trophallactic interactions?
 
+#### TODO's 
+#' Change to facet net task group allocation
+#' Update colony metadata so that food types can be added and we can get distance to treated but split by food type (control, virus or pseudo virus)
+#' 
+
 
 
 ### ### ### ### ### ### ### ### ### ### ### ###
@@ -26,18 +31,24 @@ options(digits = 16) ; options(digits.secs = 6) ; options("scipen" = 10) #set op
 edge_weights <- c("number", "duration") # DS: script now loops over both types, to undo change here back to one of the two, remove loop start plus the end bracket and change edge_weight back to edge_weights
 
 
-### remove output file
-if (file.exists(paste(data_path,"/processed_data/individual_behaviour/post_treatment/interactions_with_treated.txt",sep=""))){ # DS: step only needed if run multiple times - check if there are other output files that need to be deleted in this instance... ?
-  file.remove(paste(data_path,"/processed_data/individual_behaviour/post_treatment/interactions_with_treated.txt",sep=""))
-}
+### output file: if it already exists remove or relable previous version - step only needed if the script is run multiple times - maybe check if there are other output files that need to be deleted in this instance... ?
+output_path <-  paste(data_path,"/processed_data/individual_behaviour/post_treatment/",sep="")
+output_filename_old <- paste(output_path,"interactions_with_treated.txt",sep="")
+if (file.exists(output_filename_old)){ 
+  system_date <- Sys.Date()
+  new_file_name <- paste(output_path, "interactions_with_treated_old_", Sys.Date(), ".txt", sep="")
+  # file.remove(paste(data_path,"/processed_data/individual_behaviour/post_treatment/interactions_with_treated.txt",sep=""))
+  file.rename(output_filename_old, new_file_name)}
+
 
 #### get input file list
-if (!grepl("survival",data_path)){ #DS never has survival
+if (!grepl("survival",data_path)){ 
   input_path           <- paste(data_path,"/intermediary_analysis_steps/binned_interaction_lists",sep="")
   setwd(input_path)  
   input_folders        <- list.dirs(recursive=T,path="PreTreatment",full.names=F)
-  input_folders        <- input_folders[which(input_folders!="")]
-} # else{
+  # input_folders        <- input_folders[which(input_folders!="")]
+  input_folders <- "observed" # delete again and activate line above 
+} # else{                 # DS never has survival . 
 #   input_path           <- paste(data_path,"/intermediary_analysis_steps/full_interaction_lists",sep="")
 #   setwd(input_path)  
 #   input_folders        <- list.dirs(recursive=T,path="PostTreatment",full.names=F)
@@ -47,75 +58,47 @@ if (!grepl("survival",data_path)){ #DS never has survival
 queen_community_summary <- NULL
 to_keep <- c(ls(),"to_keep","input_folder","network_files","options","option","summary_collective","summary_individual","outputfolder","network_file","queenid", "edge_weights", "edge_weight")
 for (input_folder in input_folders){ # input_folder <- input_folders[1]
-  # print(input_folder)
-
-  cat(yellow(paste0(input_folder, "                                            ")), "\r")
-  
+  cat(yellow(paste0(input_folder, "                                            ")), "\n")
   setwd(input_path)
   network_files <- list.files(path=paste("PreTreatment/",input_folder,sep=""),full.names=T)
+  
   if (input_folder=="observed"){
     network_files <- c(network_files,list.files(path=paste("PostTreatment/",input_folder,sep=""),full.names=T))
     if(grepl("main",data_path)){
       options <- c("all_workers","untreated_only")
-    }else{
-      options <- c("all_workers")
-    }
-  }else{
-    options <- c("all_workers")
-  }
-  for (option in options){ # option <- options[1] 
-    print(option)
-    for (edge_weight in edge_weights) { #edge_weight <- "number" # #DS: for loop to loop over edge weights inserted
+    }else{options <- c("all_workers")}
+  }else{options <- c("all_workers")}
+  
+  for (option in options){ # option <- options[1]
+    cat(paste0(option, "                                            "), "\n")
+    for (edge_weight in edge_weights) { # edge_weight <- edge_weights[1] # #DS: for loop to loop over edge weights inserted
     outputfolder <- paste(data_path,"/processed_data/network_properties_edge_weights_",edge_weight,sep="")
     
     summary_collective <- NULL
     summary_individual <- NULL
-    for (network_file in network_files){ # network_file <- network_files[11]
+    for (network_file in network_files){ # network_file <- network_files[28]
       cat("\r",network_file)
+      
       ### get file metadata
       root_name          <- gsub("_interactions.txt","",unlist(strsplit(network_file,split="/"))[grepl("interactions",unlist(strsplit(network_file,split="/")))]) # LS: replace grepl("colony", ...) with grepl("interactions")
       components         <- unlist(strsplit(root_name,split="_"))
       colony             <- unlist(strsplit(root_name,split="_"))[1]
       treatment          <- unlist(strsplit(root_name,split="_"))[2] 
       colony_size        <- info[which(info$colony==colony),"colony_size"]
-      if (!all(!grepl("PreTreatment",components))){period <- "pre"}else{period <- "post"} 
+      if (!all(!grepl("PreTreatment",components))) {period <- "pre"} else {period <- "post"} 
       
-      # # LS: add period_detail so it can be added in extra column later
-      # if (period=="pre"){
-      #  if (components[4] %in% c("TH-24", "TH-21", "TH-18")){
-      #    period_detail <- "pre1"
-      #  }else{
-      #    period_detail <- "pre2"
-      #    }
-      # }else{
-      #   period_detail <- "post"
-      # }
-      
-      # # LS: add period_circadian
-      # if (period_detail=="pre1"|period_detail=="post"){
-      #   period_circadian <- treatment_circadian
-      # }else{
-      #   period_circadian <- ifelse(treatment_circadian=="day","night","day")
-      # }
-      
-      if(!grepl("survival",data_path)){ # DS never set to survival 
+      # here a section specific to Lindas design was deleted
+
+      # if(!grepl("survival",data_path)){ # DS never set to survival 
         time_hours         <- as.numeric(gsub("TH","",components[which(grepl("TH",components))]))
         time_of_day        <- as.numeric(gsub("TD","",components[which(grepl("TD",components))]))
-      } #else{ # LS: would have to change but probably never needed bc I don't have survival experiment. Different depending on Day or Night, pre1 or pre2 | probably same for DS
-      #   if (period=="post"){
-      #     time_hours   <- 0
-      #     time_of_day <- 12 
-      #   }else{
-      #     time_hours   <- -27 #AW: shifted time window by 3h
-      #     time_of_day <- 9 #AW: shifted time window by 3h
-      #   }
-      # }
-      # 
-      
+      # } 
+      # here some more of lindas code was not needed
+    
       ### get appropriate task_group list, treated list and tag
-      colony_treated     <- treated[which(treated$colony==colony),"tag"] #AW
+      colony_treated     <- treated[which(treated$colony==colony),"tag"] #AW  # DS might need double checking to see if this is the best source for treated ants. 
       colony_task_group  <- task_groups[which(task_groups$colony==colony),]
-      queenid            <- as.character(colony_task_group[which(colony_task_group$task_group_prop=="queen"),"tag"]) # call specific queen as a character to work with igraph | could also just be set to 1 if the queen has always been tagged with tag 0x000
+      queenid            <- as.character(colony_task_group[which(colony_task_group$task_group_FACETNET_0.5=="queen"),"tag"]) # call specific queen as a character to work with igraph | could also just be set to 1 if the queen has always been tagged with tag 0x000
 
       ### read interactions & remove dead ants from interactions list
       interactions       <- read.table(network_file,header=T,stringsAsFactors = F)
@@ -128,13 +111,12 @@ for (input_folder in input_folders){ # input_folder <- input_folders[1]
       if (option=="untreated_only"){
         colony_task_group <- colony_task_group[which(!colony_task_group$tag%in%colony_treated),]
         tag               <- tag[which(!tag$tag%in%colony_treated),]
-        interactions      <- interactions[which(!((interactions$Tag1%in%colony_treated)|(interactions$Tag2%in%colony_treated))),]
-      }
+        interactions      <- interactions[which(!((interactions$Tag1%in%colony_treated)|(interactions$Tag2%in%colony_treated))),]}
       
       actors             <- data.frame(name=as.character(tag$tag))
       
       ### add a column containing interaction duration in min
-      interactions["duration_min"] <- (interactions$Stoptime - interactions$Starttime + (1/FRAME_RATE)) /60 # duration in minutes (one frame = 0.125 second) #AW
+      interactions["duration_min"] <- (interactions$Stoptime - interactions$Starttime + (1/FRAME_RATE)) /60 # duration in minutes (one frame = 0.125 second)
       interactions$N               <- 1 # each interaction is given a count of 1
       
       ### add a column containing the status of tag 1 and the status of tag2
@@ -188,7 +170,7 @@ for (input_folder in input_folders){ # input_folder <- input_folders[1]
         if (period=="post"){
           outputfoldy <- paste(data_path,"/processed_data/individual_behaviour/post_treatment",sep="")
           if(!file.exists(outputfoldy)){dir.create(outputfoldy,recursive=T)}
-          int_with_treated <- data.frame(colony_size=colony_size,treatment=treatment,period=period, time_of_day=time_of_day,# LS: add period_detail & period_circadian here to keep the same columns for pre and post - DS deleted again
+          int_with_treated <- data.frame(colony_id = colony, colony_size=colony_size,treatment=treatment,period=period, time_of_day=time_of_day,
                                          interactions_with_treated,stringsAsFactors = F)
           if (!file.exists(paste(data_path,"/processed_data/individual_behaviour/post_treatment/interactions_with_treated.txt",sep=""))){
             write.table(int_with_treated,file=paste(outputfoldy,"/interactions_with_treated.txt",sep=""),col.names=T,row.names=F,quote=F,append=F)
@@ -218,7 +200,7 @@ for (input_folder in input_folders){ # input_folder <- input_folders[1]
         unconnected <- actors[degree(net)==0,]
         net <- net - as.character(unconnected)
         ### get actor list from net
-        actors <- get.vertex.attribute(net,"name")
+        actors <- vertex_attr(net,"name")
         
       #### Part 1: individual network properties ####
         ### prepare table
@@ -235,13 +217,14 @@ for (input_folder in input_folders){ # input_folder <- input_folders[1]
                                  time_of_day=time_of_day,
                                  degree=NA,
                                  aggregated_distance_to_queen=NA,
-                                 mean_aggregated_distance_to_treated=NA,
+                                 mean_aggregated_distance_to_treated=NA, # change so it becomes distance to blue and yellow ants
+                                 community_id = NA,
                                  same_community_as_queen=NA)
         ## degree
          individual[match(names(degrees_all),individual$tag),"degree"] <- degrees_all
         
-        ## skip queen in grooming interactions
-        if (!grepl("grooming",input_path)) {
+        ## skip queen in grooming & trophallactic interactions interactions
+        if (!grepl("grooming|trophallaxis", input_path)) {
           communities             <- cluster_louvain(net, weights = E(net)$weight)
           community_membership    <- communities$membership
           ## same community as queen
@@ -257,7 +240,10 @@ for (input_folder in input_folders){ # input_folder <- input_folders[1]
         
         #### Mean path length to treated; aggregated_network
         if(option!="untreated_only"){
+          
+          ### ADD LINES TO DUPLICATE DISTANCE TO TREATED BUT SO THAT IT BECOMES DISTANCE TO TREATED THAT WERE FED ON SPECIFIC FOOD TYPE 
           path_length_to_treated                             <- as.data.frame(as.matrix(shortest.paths(net,v=actors,to=as.character(colony_treated)[as.character(colony_treated)%in%V(net)$name],weights=1/E(net)$weight)))
+          ### here modify
           path_length_to_treated["mean_distance_to_treated"] <- NA
           path_length_to_treated$mean_distance_to_treated    <- as.numeric(rowMeans(path_length_to_treated,na.rm=T))
           individual[match(rownames(path_length_to_treated),individual$tag),"mean_aggregated_distance_to_treated"] <- path_length_to_treated[,"mean_distance_to_treated"]
@@ -268,7 +254,7 @@ for (input_folder in input_folders){ # input_folder <- input_folders[1]
         
         #### Part 2: collective network properties ####
         
-        #### remove outliers (e.g. ants that have only 1 or 2 connections)
+        ## remove outliers (e.g. ants that have only 1 or 2 connections)
         # outlier_p <- 0
         # outlier_removed <- c()
         # while(outlier_p<0.05){
@@ -284,23 +270,25 @@ for (input_folder in input_folders){ # input_folder <- input_folders[1]
         ### update actor list
         actors <- get.vertex.attribute(net,"name")
         
-        ## Assortativity  - Age
+        ## Assortativity - Age
         ## if age experiment, get colony ages
-        if (grepl("age",data_path)){
-          colony_ages <- ages [which(ages$colony==colony),]
-          ####set queen age to NA as this would bias the result (the queen is the oldest individual and interacts mostly with the young nurses)
-          colony_ages[which(colony_ages$tag==queenid),"age"] <- NA
-          ####order the age according to the order of the network's vertices
-          ordered_ages        <- colony_ages[match(V(net)$name,as.character(colony_ages$tag)),"age"]
-          #### calculate age assortativity
-          age_assortativity <- assortativity(net-V(net)$name[is.na(ordered_ages)],types1=ordered_ages[!is.na(ordered_ages)],directed=F)
-        }else{
+        # if (grepl("age",data_path)){
+        #   colony_ages <- ages [which(ages$colony==colony),]
+        #   ####set queen age to NA as this would bias the result (the queen is the oldest individual and interacts mostly with the young nurses)
+        #   colony_ages[which(colony_ages$tag==queenid),"age"] <- NA
+        #   ####order the age according to the order of the network's vertices
+        #   ordered_ages        <- colony_ages[match(V(net)$name,as.character(colony_ages$tag)),"age"]
+        #   #### calculate age assortativity
+        #   age_assortativity <- assortativity(net-V(net)$name[is.na(ordered_ages)],types1=ordered_ages[!is.na(ordered_ages)],directed=F)
+        # }else{
           age_assortativity <- NA
-        }
+        # }
+        
         ## Assortativity - Task
-        ordered_task_groups <- colony_task_group[match(actors,as.character(colony_task_group$tag)),"task_group_prop"]     #### done with the classic proportion task group allocation
+        ordered_task_groups <- colony_task_group[match(actors,as.character(colony_task_group$tag)),"task_group_FACETNET_0.5"]     #### done with the classic proportion task group allocation
+        ordered_task_groups[is.na(ordered_task_groups)] <- "nurse"
         ordered_task_groups <- as.numeric(as.factor(ordered_task_groups))
-        task_assortativity  <- assortativity_nominal(net,types=ordered_task_groups,directed=F)
+        task_assortativity  <- assortativity_nominal(net,types=ordered_task_groups,directed=F)  ### 
         ## Clustering
         clustering <- mean(transitivity(net,type="barrat",weights=E(net)$weight,isolates = c("NaN")),na.rm=T)
         ## Degree mean and max
@@ -318,7 +306,12 @@ for (input_folder in input_folders){ # input_folder <- input_folders[1]
         efficiency <- (1/((vcount(net)*(vcount(net)-1))))*(sum(efficiency,na.rm=TRUE))
         ## Modularity
         communities             <- cluster_louvain(net, weights = E(net)$weight)
-        community_membership    <- communities$membership
+        community_membership    <- as.numeric(communities$membership)
+        names(community_membership) <- V(net)$name
+        individual <- individual %>% mutate(community_id = community_membership[as.character(tag)])
+        #
+        nr_communities <- length(unique(community_membership))
+        
         modularity              <- modularity(net,community_membership,weights=E(net)$weight)
         
         ### Add to data
@@ -338,6 +331,7 @@ for (input_folder in input_folders){ # input_folder <- input_folders[1]
                                                                   diameter=diameter,
                                                                   efficiency=efficiency,
                                                                   modularity=modularity,
+                                                                  nr_communities=nr_communities, 
                                                                   nb_unconnected=length(unconnected),
                                                                   nb_outliers_removed=length(outlier_removed),
                                                                   stringsAsFactors = F))
@@ -388,47 +382,48 @@ for (input_folder in input_folders){ # input_folder <- input_folders[1]
         write.table(summary_individual[which(summary_individual$period=="pre"),],file=paste(outputfolder3,"/node_properties_",input_folder,".txt",sep=""),col.names = T,row.names=F,append=F,quote=F) #
         
       }
-     } #DS one bracket added here for edge weight. ``
     }
+    
     ### Get characteristics of queen community vs. other communities (worker age, prop. of foragers)
     if (!grepl("survival",data_path)&option=="all_workers"){ 
       print(" End of writing >> Get characteristics of queen community vs. other communities")
       summary_individual_pre <- read.table(paste(outputfolder,"/random_vs_observed/node_properties_",input_folder,".txt",sep=""),header = T,stringsAsFactors = F) 
       summary_individual_pre <- summary_individual_pre[which(summary_individual_pre$period=="pre"),] 
       
-      ### if necessary: add age
-      if (grepl("age",data_path)){
-        summary_individual_pre <- merge(summary_individual_pre[,which(names(summary_individual_pre)!="age")],ages,all.x=T,all.y=F)
-      }else{
+      # ### if necessary: add age
+      # if (grepl("age",data_path)){
+      #   summary_individual_pre <- merge(summary_individual_pre[,which(names(summary_individual_pre)!="age")],ages,all.x=T,all.y=F)
+      # }else{
         summary_individual_pre$age <- NA
-      }
+      # }
+      
       ### add task_group
       summary_individual_pre <- merge(summary_individual_pre,task_groups,all.x=T,all.y=F)
       ### remove queen
       summary_individual_pre <- summary_individual_pre[which(summary_individual_pre$tag!=queenid),]
       
-      ###1. calculate mean proportion of foragers depending on with vs without queen
+      ### 1. calculate mean proportion of foragers depending on with vs without queen
       summary_individual_pre["forager"] <- 0
-      summary_individual_pre[which(summary_individual_pre$task_group=="forager"),"forager"] <- 1
-      ## skip queen in grooming interactions
-      if (!grepl("grooming",input_path)) { #AW
-      prop_foragers <- aggregate(na.rm=T,na.action="na.pass",forager~colony+randy+colony_size+treatment+period+time_hours+same_community_as_queen,FUN=mean,data=summary_individual_pre) # LS: period_detail & period_circadian - DS deleted again
-      prop_foragers <- aggregate(na.rm=T,na.action="na.pass",forager~colony+randy+colony_size+treatment+period+same_community_as_queen,FUN=mean,data=prop_foragers) # LS: period_detail & period_circadian - DS deleted again
+      summary_individual_pre[which(summary_individual_pre$task_group_FACETNET_0.5=="forager"),"forager"] <- 1
+      ## skip queen in grooming an trophallactic interactions
+      if (!grepl("grooming|trophallaxis",input_path)) { 
+      prop_foragers <- aggregate(na.rm=T,na.action="na.pass",forager~colony+randy+colony_size+treatment+period+time_hours+same_community_as_queen,FUN=mean,data=summary_individual_pre) 
+      prop_foragers <- aggregate(na.rm=T,na.action="na.pass",forager~colony+randy+colony_size+treatment+period+same_community_as_queen,FUN=mean,data=prop_foragers) 
       names(prop_foragers)[names(prop_foragers)=="same_community_as_queen"] <- "in_queen_comm";names(prop_foragers)[names(prop_foragers)=="forager"] <- "proportion_of_foragers"
       }else{
-        prop_foragers <- aggregate(na.rm=T,na.action="na.pass",forager~colony+randy+colony_size+treatment+period+time_hours,FUN=mean,data=summary_individual_pre) # LS: period_detail & period_circadian - DS deleted again
+        prop_foragers <- aggregate(na.rm=T,na.action="na.pass",forager~colony+randy+colony_size+treatment+period+time_hours,FUN=mean,data=summary_individual_pre) 
         prop_foragers$in_queen_comm <- NA
         names(prop_foragers)[names(prop_foragers)=="forager"] <- "proportion_of_foragers"
       }
       ### 2. calculate mean age of workers depending on with vs without queen
-      if (grepl("age",data_path)){
-        mean_age <- aggregate(na.rm=T,na.action="na.pass",age~colony+randy+colony_size+treatment+period+time_hours+same_community_as_queen,FUN=mean,data=summary_individual_pre) # LS: period_detail & period_circadian - DS deleted again
-        mean_age <- aggregate(na.rm=T,na.action="na.pass",age~colony+randy+colony_size+treatment+period+same_community_as_queen,FUN=mean,data=mean_age) # LS: period_detail & period_circadian - DS deleted again
-        names(mean_age)[names(mean_age)=="same_community_as_queen"] <- "in_queen_comm"
-        prop_foragers <- merge(prop_foragers,mean_age,all.x=T)
-      }else{
+      # if (grepl("age",data_path)){
+      #   mean_age <- aggregate(na.rm=T,na.action="na.pass",age~colony+randy+colony_size+treatment+period+time_hours+same_community_as_queen,FUN=mean,data=summary_individual_pre) 
+      #   mean_age <- aggregate(na.rm=T,na.action="na.pass",age~colony+randy+colony_size+treatment+period+same_community_as_queen,FUN=mean,data=mean_age) 
+      #   names(mean_age)[names(mean_age)=="same_community_as_queen"] <- "in_queen_comm"
+      #   prop_foragers <- merge(prop_foragers,mean_age,all.x=T)
+      # }else{
         prop_foragers$age <- NA
-      }
+      # }
       
       
       prop_foragers[which(prop_foragers$in_queen_comm=="FALSE"),"in_queen_comm"] <- "not_with_queen"
@@ -437,7 +432,8 @@ for (input_folder in input_folders){ # input_folder <- input_folders[1]
         prop_foragers["randy"] <- "random"
       }
       queen_community_summary <- rbind(queen_community_summary,prop_foragers)
-    }
+     }
+    } # DS one bracket added here for edge weight (before the script was run twice, now it is loops over both options: duration and number. )
   } 
 }
 

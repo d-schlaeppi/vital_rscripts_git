@@ -14,7 +14,7 @@
 #### Libraries ####
 pacman::p_load(
   tcltk, igraph, ggraph, dplyr, tidyr, ggplot2, lme4, car, glmmTMB, multcomp, multcompView, crayon, plotrix, emmeans, 
-  reshape2, circular, readr, data.table, measurements, viridis, plotwidgets , scales, parallel, epicontacts,
+  reshape2, circular, readr, data.table, measurements, viridis, plotwidgets , scales, parallel, epicontacts, gridExtra,
   Rcpp,   # contains sourceCpp()
   survival, #contains coxph() function
   moments, # contains skewness function
@@ -177,30 +177,31 @@ read.tag <- function(tag_list, colony){
 
 
 # test normal distribution of residuals in linear models:
-test_norm <- function(mod_or_resids) { # function adjusted from Nathalie's test_norm # resids
-  cat(blue("Testing normality of residuals for lm or lmer \n(assumptions likely different other types of models)\n"))
+test_norm <- function(mod_or_resids) { # function adjusted from Nathalie's test_norm # mod_or_resids <- model
+  cat(blue("\nTesting normality of residuals for lm or lmer \n(assumptions likely different other types of models)\n"))
   
   # Check if the input is a model object or residuals
   if (inherits(mod_or_resids, "lm") || inherits(mod_or_resids, "lmerMod")) {
     resids <- residuals(mod_or_resids)  # Extract residuals from the model
-    cat("Model provided: Extracting residuals from the model.\n")
+    #cat("Model provided: Extracting residuals from the model.\n")
   } else if (is.numeric(mod_or_resids) || is.vector(mod_or_resids)) {
     resids <- mod_or_resids  # Directly use the provided residuals
-    cat("Residuals directly provided.\n")
+    #cat("Residuals directly provided.\n")
   } else {
     stop("Invalid input: Provide either a model object (lm/lmer) or a numeric vector of residuals.")
   }
   
-  resids <- residuals(object = mod)
+  resids <- residuals(object = mod_or_resids)
+  
   if (length(resids) <= 300) {
     print("Fewer than 300 data points so performing Shapiro-Wilk's test")
     shapiro_result <- shapiro.test(resids)
     print(shapiro_result)
     p_value <- shapiro_result$p.value
     if(p_value >= 0.05) {
-      cat(green("Data is normally distributed\n --> Model is fine... go ahead \U1F44D"))
+      cat(green("Data is normally distributed\n --> Model is fine... go ahead \U1F44D \n"))
     } else {
-      cat(red("Warning: p value below 0.05\n-->  Data significantly deviate from a normal distribution. \nAdjust or change model!"))
+      cat(red("Warning: p value below 0.05\n-->  Data significantly deviate from a normal distribution. \nAdjust or change model! \n"))
     }
   } else {
     print("More than 300 data points so using the skewness and kurtosis approach")
@@ -211,9 +212,9 @@ test_norm <- function(mod_or_resids) { # function adjusted from Nathalie's test_
     kurt <- kurtosis(resids)
     print(paste0("Kurtosis = ", kurt))
     if(skew >= -3 & skew <= 3 & kurt < 4){
-      cat(green("Model is fine... go ahead \U1F44D"))
+      cat(green("Model is fine... go ahead \U1F44D \n"))
     } else {
-      cat(red("Warning: Adjust or change model!"))
+      cat(red("Warning: Adjust or change model! \n"))
     }
   }
 }
