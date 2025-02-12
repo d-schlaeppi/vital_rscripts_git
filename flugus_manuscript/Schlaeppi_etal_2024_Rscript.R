@@ -48,38 +48,25 @@ rm(list = setdiff(ls(), "first_time_use_working_directory"))
 #### 1.  prerequisites ####
 
 # load required libraries and functions:
-{
-library(dplyr) #contains pipe operator
-library(ggplot2)
-library(broom) #contains tidy()
-library(viridis)
-library(lme4)
-library(car) # Anova()
-library(multcomp) # contains cld
-library(multcompView)
-library(emmeans) # contains emmeans()
-library(coxme)
-library(survival)
-library(survminer) # used in the analysis of the survival curves incl ggsurvplot
-library(scales)
-library(clipr)
-library(gridExtra)
-}
-
-
+pacman::p_load(dplyr, ggplot2, broom, viridis, lme4, car, multcomp, multcompView,
+               emmeans, coxme, survival, survminer, scales, clipr, gridExtra, grid)
 
 # Set working directory
-if (!exists("first_time_use_working_directory") || first_time_use_working_directory == "") {
-  library(tcltk)
-  setwd(tk_choose.dir(default = "~/", caption = "Select Working Directory")) # Direct it to where you have config_user_and_hd.R which should be in the script_directory
-  first_time_use_working_directory <- getwd()
-  setwd(first_time_use_working_directory)
-} else {setwd(first_time_use_working_directory)}
+if (!exists("first_time_use_working_directory") || first_time_use_working_directory == "") { # direct it to where you have config_user_and_hd.R (typically the script folder or github folder)
+  standard <- "/Users/gismo/Documents/GitHub/vital_rscripts_git" # if you are always working from the same directory just put its name here and it will save you some clicking.  
+  selected_dir <- if  (dir.exists(standard)) {standard} else {tcltk::tk_choose.dir(default = "~/", caption = "Select Working Directory")}
+  if (is.null(selected_dir) || selected_dir == "") {
+    cat("No directory selected. Exiting.\n")
+    return()}
+  setwd(selected_dir)
+  first_time_use_working_directory <<- getwd()
+  cat(crayon::blue(getwd()))
+} else { setwd(first_time_use_working_directory)
+  cat(crayon::blue(getwd())) }
 
 
-setwd(first_time_use_working_directory)
-source("config_user_and_hd.R") # contains getUserOptions() that defines usr and hd and some functions
-directory <- NULL; directory <- paste(SCRIPTDIR, "flugus_manuscript", sep = "/")
+# source("config_user_and_hd.R") # contains getUserOptions() that defines usr and hd and some functions
+directory <- paste(first_time_use_working_directory, "flugus_manuscript", sep = "/")
 setwd(directory)
 
 # source("/Users/gismo/Documents/GitHub/vital_rscripts_git/copy_paste_contrast_matrix.R")
@@ -109,38 +96,86 @@ letters <- cld(posthocs_Tukey)
 
 #### 2.2 Survival plot ####
 # Survival plot for the FPF susceptibility test (exported as 800*600)
-surv_plot <- survfit(Surv(time = survival, event = censor) ~ 1 + concentration, data = exp1_data)
-legend <- c('0     - a', '0.5  - ab','1     - ab','5     - a','10   - ab','50   - ab','100  - b','500  - c')
-line_types <- c("solid", "dashed", "dotted", "dotdash", "longdash", "twodash", "solid", "twodash")
 
-surv_plot <- ggsurvplot(surv_plot, data = exp1_data,
-                        censor = FALSE,
-                        legend.title = 'Concentration [ppm]',
-                        legend.labs = legend, 
-                        legend = c(0.15, 0.25),
-                        xlab = 'Time (days)',
-                        ylab = 'Proportion Surviving',
-                        break.time.by = 2,
-                        xlim = c(0, 21),
-                        ggtheme = theme_bw(),
-                        palette = viridis(8, begin = 0, end = 0.9, option = 5),
-                        conf.int = TRUE,
-                        conf.int.alpha = 0.1,
-                        linetype = line_types
-)
+y_coordinates <- exp1_data %>% 
+  group_by(concentration) %>%
+  summarize(prop_surviving = sum(censor==0) / n()) %>% as.data.frame()
+plot_data <- exp1_data %>% mutate(survival = ifelse(survival == 20 & censor == 0, 20.5, survival))
 
-surv_plot$plot <- surv_plot$plot + theme(panel.grid = element_blank()) +  
-  theme(
-    axis.title = element_text(size = 16),
-    axis.text = element_text(size = 14),
-    legend.title = element_text(size = 16),
-    legend.text = element_text(size = 14),
-    axis.ticks = element_line(linewidth = 1),
-    strip.text = element_text(size = 14), 
-    legend.key.width = unit(2.5, "line")
-  )
 
-surv_plot
+legend       <- c('    0', ' 0.5','    1','    5','  10','  50','100','500')
+significance <- c('    0   -  a', ' 0.5   -  ab','    1   -  ab','    5   -  a','  10   -  ab','  50   -  ab','100*  -  b','500*  -  c')
+
+dash             <- rep("-", 8)
+significance_2   <- c('a','ab','ab','a','ab','ab','b','c')
+treatment_labels <- c('0','0.5','1','5','10','50','100*','500*')
+line_types       <- c("solid", "dashed", "dotted", "dotdash", "longdash", "twodash", "solid", "twodash")
+
+{surv_plot <- survfit(Surv(time = survival, event = censor) ~ 1 + concentration, data = plot_data)
+  surv_plot <- ggsurvplot(surv_plot, data = exp1_data,
+                          censor = FALSE,
+                          legend.title = 'Concentration [ppm]',
+                          legend.labs = legend, 
+                          legend = c(0.15, 0.25),
+                          xlab = 'Time (days)',
+                          ylab = 'Proportion Surviving',
+                          # break.time.by = 2,
+                          xlim = c(0, 24),
+                          ylim = c(0, 1),
+                          ggtheme = theme_bw(),
+                          palette = viridis(8, begin = 0, end = 0.9, option = 5),
+                          conf.int = TRUE,
+                          conf.int.alpha = 0.1,
+                          linetype = line_types, 
+                          size = 0.8,
+                          alpha = 0.8)
+  surv_plot$plot <- surv_plot$plot + 
+    theme(panel.grid = element_blank()) +  
+    theme(
+      axis.title = element_text(size = 12),
+      axis.text = element_text(size = 10),
+      legend.title = element_text(size = 12),
+      legend.text = element_text(size = 10),
+      axis.ticks = element_line(linewidth = 0.8),
+      strip.text = element_text(size = 10), 
+      legend.key.width = unit(2, "line"),
+      legend.position = "none") + 
+    scale_x_continuous(breaks = seq(0, 20, by = 2)) + 
+    scale_y_continuous(
+      breaks = seq(0.25, 1, by = 0.15),
+      limits = c(0.16, 1)) +
+    
+    geom_text(data = y_coordinates, 
+              aes(x = 23, y = prop_surviving, label = dash), 
+              size = 3.5, hjust = 0, vjust = 0.5, inherit.aes = FALSE) +
+    geom_text(data = y_coordinates, 
+              aes(x = 23.5 , y = prop_surviving, label = significance_2), 
+              size = 3.5, hjust = 0, vjust = 0.5, inherit.aes = FALSE) +
+    geom_text(data = y_coordinates[1:6, ],
+              aes(x = 21.5, y = prop_surviving, label = treatment_labels[1:6]),
+              size = 3.5, hjust = 0, vjust = 0.5, inherit.aes = FALSE) +
+    geom_text(data = y_coordinates[7:8, ],
+              aes(x = 21.5, y = prop_surviving, label = treatment_labels[7:8]),
+              size = 3.5, hjust = 0, vjust = 0.5, inherit.aes = FALSE,
+              fontface = "bold") +
+    
+    
+    # geom_text(data = y_coordinates[1:6, ], 
+    #           aes(x = 21.5, y = prop_surviving, label = significance[1:6]), 
+    #           size = 3.5, hjust = 0, vjust = 0.5, inherit.aes = FALSE) +
+    # geom_text(data = y_coordinates[7:8, ], 
+    #           aes(x = 21.5, y = prop_surviving, label = significance[7:8]), 
+    #           size = 3.5, hjust = 0, vjust = 0.5, inherit.aes = FALSE, 
+    #           fontface = "bold") +
+    annotate("text", x = 20.75, y = 0.97, label = "c [ppm]", size = 3.5, hjust = 0, fontface = "bold")
+  surv_plot
+}
+
+#700*620
+
+
+
+
 
 
 
@@ -177,15 +212,15 @@ posthocs <- summary(glht(interaction_model,linfct=contrast_matrix),test=adjusted
 # for plot
 # delta mortality chance by fungus depending on flupy concentration
 
-HR_control <- exp(posthocs$test$coefficients["DeltaControl"])#increase in mortality rate caused by the fungus in the no-FPF group
+HR_control <- exp(posthocs$test$coefficients["DeltaControl"]) #increase in mortality rate caused by the fungus in the no-FPF group
 HR_control_lo <- exp(posthocs$test$coefficients["DeltaControl"] - posthocs$test$sigma["DeltaControl"])
 HR_control_hi <- exp(posthocs$test$coefficients["DeltaControl"] + posthocs$test$sigma["DeltaControl"])
 
-HR_5 <- exp(posthocs$test$coefficients["Delta5"])#increase in mortality rate caused by the fungus in the FPF 5 group
+HR_5 <- exp(posthocs$test$coefficients["Delta5"]) #increase in mortality rate caused by the fungus in the FPF 5 group
 HR_5_lo <- exp(posthocs$test$coefficients["Delta5"] - posthocs$test$sigma["Delta5"])
 HR_5_hi <- exp(posthocs$test$coefficients["Delta5"] + posthocs$test$sigma["Delta5"])
 
-HR_50 <- exp(posthocs$test$coefficients["Delta50"])#increase in mortality rate caused by the fungus in the FPF 50 group
+HR_50 <- exp(posthocs$test$coefficients["Delta50"]) #increase in mortality rate caused by the fungus in the FPF 50 group
 HR_50_lo <- exp(posthocs$test$coefficients["Delta50"] - posthocs$test$sigma["Delta50"])
 HR_50_hi <- exp(posthocs$test$coefficients["Delta50"] + posthocs$test$sigma["Delta50"])
 
@@ -196,30 +231,38 @@ hr_data <- data.frame(
   HR_hi = c(HR_control_hi, HR_5_hi, HR_50_hi))
 
 
+
+
+
 #### 3.2 Plot ####
 # # Survival plot for the FPF Fungus interaction test (exported as 800*600)
 surviplot <- survfit(Surv (time = survival, event = censor) ~ 1 + concentration + fungus, data=flugus_data)
-aggregate(censor ~ fungus + concentration, FUN=mean,data=flugus_data)
+# aggregate(censor ~ fungus + concentration, FUN=mean,data=flugus_data)
 chosen_colors <- viridis(2, option = 5, begin = 0, end = 0.8)
-show_col(chosen_colors, labels = TRUE, borders = NULL)
+# show_col(chosen_colors, labels = TRUE, borders = NULL)
 color_vector <- rep(chosen_colors, times = 3)
 y_offset <- 0.05 
 line_types <- rep(c("dotdash", "longdash", "solid"), each = 2)
 
+y_coordinates <- flugus_data %>% group_by(concentration, fungus) %>%
+  summarize(prop_surviving = sum(censor==0) / n(),
+            mean_censor = mean(censor))  %>% 
+  arrange(desc(prop_surviving)) %>% as.data.frame()
+labeling <- c(" 5","50"," 0"," 0"," 5","50")
+
 surv_plot <- ggsurvplot(surviplot, data = flugus_data,
                         pval = FALSE,
                         linetype = line_types,
-                        lwd = 1,
+                        lwd = 0.8,
                         xlab = 'Time (days)', ylab = 'Proportion Surviving',
                         palette = color_vector,
                         ggtheme = theme_bw(),
-                        xlim = c(0, 14), break.time.by = 2,
+                        xlim = c(0, 16),
                         censor = FALSE,
                         conf.int = TRUE,
                         conf.int.alpha = 0.2,
                         legend = c(0.4, 0.25),
-                        legend.title = "Treatments"
-)
+                        legend.title = "Treatments")
 
 surv_plot$plot <- surv_plot$plot + 
   scale_y_continuous(limits = c(0.2, 1), breaks = seq(0.2, 1, by = 0.2)) +
@@ -229,6 +272,8 @@ surv_plot$plot <- surv_plot$plot +
         axis.text = element_text(size = 14),
         axis.ticks = element_line(linewidth = 1),
         strip.text = element_text(size = 14)) +
+  geom_segment(aes(x = 14.8, y = 0.78, xend = 14.8, yend = 0.65))+
+  geom_segment(aes(x = 14.8, y = 0.52, xend = 14.8, yend = 0.325)) +
   geom_segment(aes(x = 0.4, y = 0.33-y_offset, xend = 1, yend = 0.33-y_offset), color = chosen_colors[1], linetype = line_types[1]) +
   geom_segment(aes(x = 0.4, y = 0.30-y_offset, xend = 1, yend = 0.30-y_offset), color = chosen_colors[1], linetype = line_types[3]) +
   geom_segment(aes(x = 0.4, y = 0.271-y_offset, xend = 1, yend = 0.271-y_offset), color = chosen_colors[1], linetype = line_types[5]) +
@@ -240,17 +285,30 @@ surv_plot$plot <- surv_plot$plot +
   annotate("text", x = 2.5, y=0.33-y_offset, label="0 ppm", color = "black", size = 4, fontface = "plain", hjust = 0) +
   annotate("text", x = 2.5, y=0.30-y_offset, label="5 ppm", color = "black", size = 4, fontface = "plain", hjust = 0) +
   annotate("text", x = 2.5, y=0.27-y_offset, label="50 ppm", color = "black", size = 4, fontface = "plain", hjust = 0) +
+  annotate("text", x=15.5, y=0.71, label="n.s       ", color = "black", size = 3, fontface = "bold") +
+  annotate("text", x=15.5, y=0.42, label=" p = 0.01", color = "black", size = 3, fontface = "bold") +
   geom_rect(aes(xmin = 0.2, xmax = 3.8, ymin = 0.2, ymax = 0.38 - y_offset), 
-            fill = NA, color = "black", lwd = 0.05)
+            fill = NA, color = "black", lwd = 0.05) +
+    scale_x_continuous(breaks = seq(0, 14, by = 2)) +
+  geom_text(data = y_coordinates, 
+            aes(x = 14.2, y = prop_surviving, label = labeling), 
+            size = 3, hjust = 0, vjust = 0.5, inherit.aes = FALSE)
 
 print(surv_plot)
+
 surv_ggplot <- surv_plot$plot
+
+
+
+
+
+
 
 # Hazard plot for M. brunneum in dependence of pesticide concentration 
 hazard_plot <- ggplot(hr_data, aes(x = Treatment, y = HR)) +
   geom_bar(stat = "identity", fill = "skyblue", color = "black", width = 0.8) + 
   geom_errorbar(aes(ymin = HR_lo, ymax = HR_hi), width = 0.1, lwd = 1.2) + # Error bars for confidence intervals
-  labs(y = "Hazard Ratio (HR)",
+  labs(y = "Fungus Hazard Ratio (HR)",
        x = "Flupyradifurone concentration") +
   theme_bw() +
   theme(plot.margin = margin(20, 10, 10, 10),
@@ -265,7 +323,7 @@ hazard_plot <- ggplot(hr_data, aes(x = Treatment, y = HR)) +
   coord_cartesian(ylim=c(1,5.5))  # Setting y-axis limit to start from 1
 print(hazard_plot)
 
-# print the two plots together | Exported as 1000*500 clip
+# print the two plots together | Exported as 1200*500 clip
 layout_mat <- rbind(c(1,1,2), c(1,1,2))
 label_a <- textGrob("a", x = unit(0, "npc") + unit(5, "mm"), y = unit(1, "npc") - unit(5, "mm"), just = c("left", "top"), gp = gpar(fontsize = 20, fontface = "bold"))
 label_b <- textGrob("b", x = unit(0, "npc") + unit(5, "mm"), y = unit(1, "npc") - unit(5, "mm"), just = c("left", "top"), gp = gpar(fontsize = 20, fontface = "bold"))
@@ -275,6 +333,9 @@ grid.arrange(
   arrangeGrob(hazard_plot, top = label_b),
   layout_matrix = layout_mat
 )
+
+
+
 
 
 #### 4. Supplementary material ####
