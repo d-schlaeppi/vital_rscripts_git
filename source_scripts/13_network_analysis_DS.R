@@ -11,14 +11,14 @@
 # Modified by Nathalie Stroeymeyt to include number of events in addition to duration
 # with adaptations by Linda Sartoris and then adjusted to the needs of Daniel Schläppi's data
 
-### HMMM... It seems to work... but what is produced and what to do with it?
-### Check what results are produced and where to see them. 
-### and might need additions for trophallactic interactions?
 
 #### TODO's 
 #' Change to facet net task group allocation
 #' Update colony metadata so that food types can be added and we can get distance to treated but split by food type (control, virus or pseudo virus)
 #' 
+#' 
+#' RECENT UPDATES: 
+#' change communtiy detection so it is fixed at three communities...
 
 
 
@@ -40,6 +40,10 @@ if (file.exists(output_filename_old)){
   # file.remove(paste(data_path,"/processed_data/individual_behaviour/post_treatment/interactions_with_treated.txt",sep=""))
   file.rename(output_filename_old, new_file_name)}
 
+### UPDATE SO WE GET FACET NET MODULARITY! 
+# facet_net_modularity <- paste(data_path, "")
+ 
+if (file.exists()) # if facet net table exists read it... 
 
 #### get input file list
 if (!grepl("survival",data_path)){ 
@@ -70,13 +74,13 @@ for (input_folder in input_folders){ # input_folder <- input_folders[1]
   }else{options <- c("all_workers")}
   
   for (option in options){ # option <- options[1]
-    cat(paste0(option, "                                            "), "\n")
+    cat(blue(paste0(option, "                                            "), "\n"))
     for (edge_weight in edge_weights) { # edge_weight <- edge_weights[1] # #DS: for loop to loop over edge weights inserted
     outputfolder <- paste(data_path,"/processed_data/network_properties_edge_weights_",edge_weight,sep="")
     
     summary_collective <- NULL
     summary_individual <- NULL
-    for (network_file in network_files){ # network_file <- network_files[28]
+    for (network_file in network_files){ # network_file <- network_files[28]    network_file <- network_files[1]
       cat("\r",network_file)
       
       ### get file metadata
@@ -182,7 +186,7 @@ for (input_folder in input_folders){ # input_folder <- input_folders[1]
       
       ### build NETWORK
       if (!grepl("survival",data_path)){
-        net <- graph.data.frame(interactions[c("Tag1","Tag2")],directed=F,vertices=actors)
+        net <- graph_from_data_frame(interactions[c("Tag1","Tag2")],directed=F,vertices=actors)
         ### add edge weights
         if (edge_weight=="number"){
           E(net)$weight <- interactions[,"N"]
@@ -217,7 +221,9 @@ for (input_folder in input_folders){ # input_folder <- input_folders[1]
                                  time_of_day=time_of_day,
                                  degree=NA,
                                  aggregated_distance_to_queen=NA,
-                                 mean_aggregated_distance_to_treated=NA, # change so it becomes distance to blue and yellow ants
+                                 mean_aggregated_distance_to_treated=NA, 
+                                 mean_aggregated_distance_to_f1v_treated=NA, # adjust/add a section below to get distance to treated ants with access to specific food source (virus/pseudovirus)
+                                 mean_aggregated_distance_to_f2c_treated=NA, # treated ants with control food
                                  community_id = NA,
                                  same_community_as_queen=NA)
         ## degree
@@ -225,15 +231,18 @@ for (input_folder in input_folders){ # input_folder <- input_folders[1]
         
         ## skip queen in grooming & trophallactic interactions interactions
         if (!grepl("grooming|trophallaxis", input_path)) {
-          communities             <- cluster_louvain(net, weights = E(net)$weight)
-          community_membership    <- communities$membership
+          # communities             <- cluster_louvain(net, weights = E(net)$weight) # updated with the below lines so one can fix the number of communities to two. 
+          best_partition <- net %>% cluster_fast_greedy(weights = E(net)$weight) %>% cut_at(no = 2) # no = x defines the number of communities. 
+          # community_membership    <- communities$membership
+          community_membership <- best_partition
+          
           ## same community as queen
           queen_comm <- community_membership[which(V(net)$name==queenid)]
           community_membership <- community_membership==queen_comm
           individual[match(V(net)$name,individual$tag),"same_community_as_queen"] <- community_membership
           ## path length to queen
           if (queenid%in%actors){
-            path_length_to_queen <- t(shortest.paths(net,v=actors,to=queenid,weights=1/E(net)$weight))
+            path_length_to_queen <- t(distances(net,v=actors,to=queenid,weights=1/E(net)$weight))
             individual[match(colnames(path_length_to_queen),individual$tag),"aggregated_distance_to_queen"] <- as.numeric(path_length_to_queen )
           }
         }
@@ -248,6 +257,7 @@ for (input_folder in input_folders){ # input_folder <- input_folders[1]
           path_length_to_treated$mean_distance_to_treated    <- as.numeric(rowMeans(path_length_to_treated,na.rm=T))
           individual[match(rownames(path_length_to_treated),individual$tag),"mean_aggregated_distance_to_treated"] <- path_length_to_treated[,"mean_distance_to_treated"]
         }
+         
         ### Add data to main data table
         summary_individual <- rbind(summary_individual,individual)
         
@@ -285,7 +295,7 @@ for (input_folder in input_folders){ # input_folder <- input_folders[1]
         # }
         
         ## Assortativity - Task
-        ordered_task_groups <- colony_task_group[match(actors,as.character(colony_task_group$tag)),"task_group_FACETNET_0.5"]     #### done with the classic proportion task group allocation
+        ordered_task_groups <- colony_task_group[match(actors,as.character(colony_task_group$tag)),"task_group_FACETNET_0.5"]     #### done with the facet net task group allocation
         ordered_task_groups[is.na(ordered_task_groups)] <- "nurse"
         ordered_task_groups <- as.numeric(as.factor(ordered_task_groups))
         task_assortativity  <- assortativity_nominal(net,types=ordered_task_groups,directed=F)  ### 
@@ -305,14 +315,19 @@ for (input_folder in input_folders){ # input_folder <- input_folders[1]
         efficiency                  <- 1/net_dist ##transform each distance into an efficiency
         efficiency <- (1/((vcount(net)*(vcount(net)-1))))*(sum(efficiency,na.rm=TRUE))
         ## Modularity
-        communities             <- cluster_louvain(net, weights = E(net)$weight)
-        community_membership    <- as.numeric(communities$membership)
+        best_partition             <-  net %>% cluster_fast_greedy(weights = E(net)$weight) %>% cut_at(no = 2)
+        community_membership    <- as.numeric(best_partition)
         names(community_membership) <- V(net)$name
         individual <- individual %>% mutate(community_id = community_membership[as.character(tag)])
         #
         nr_communities <- length(unique(community_membership))
-        
         modularity              <- modularity(net,community_membership,weights=E(net)$weight)
+        modularity              <- modularity(net,best_partition,weights=E(net)$weight)
+        nr_community_members      <- paste("[",paste(table(best_partition),collapse=", "),"]",sep="")
+        
+        modularity_facetnet <- NA
+        ####CONTINUE HERE!!!
+        # modularity_facetnet <- UPDATE SO WE CAN GET MODULARITY CALCULATED VIA FACET NET... 
         
         ### Add to data
         summary_collective <- rbind(summary_collective,data.frame(randy=input_folder,
@@ -331,7 +346,9 @@ for (input_folder in input_folders){ # input_folder <- input_folders[1]
                                                                   diameter=diameter,
                                                                   efficiency=efficiency,
                                                                   modularity=modularity,
-                                                                  nr_communities=nr_communities, 
+                                                                  modularity_facetnet=modularity_facetnet,
+                                                                  nr_communities=nr_communities,
+                                                                  nr_community_members=nr_community_members,
                                                                   nb_unconnected=length(unconnected),
                                                                   nb_outliers_removed=length(outlier_removed),
                                                                   stringsAsFactors = F))
@@ -342,7 +359,7 @@ for (input_folder in input_folders){ # input_folder <- input_folders[1]
     }
     
     #print progress AW
-    print(" End of network_files processing >> writing")
+    cat("\n End of network_files processing >> writing")
     
     #### write #####
     if (!grepl("survival",data_path)){

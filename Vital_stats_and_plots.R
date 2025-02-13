@@ -605,9 +605,42 @@ individuals_interacting_only_with_one_treated_ant
 
 ### in script 13 there is a section on contacts with treated - this could be updated or redone so that is split between treated of food source 1 and food source 2 ca. line 121 + 
 
+network_properties_classic_post <- read.table("/media/ael/gismo_hd2/vital/fc2/vital_experiment/main_experiment/processed_data/network_properties_edge_weights_duration/post_treatment/network_properties_observed.txt", 
+                                 header = TRUE,  sep = " ", stringsAsFactors = FALSE)
+
   
+head(network_properties_classic_post)
+network_properties_classic_post %>%
+  group_by(treatment) %>% 
+  summarise(col_size = mean(colony_size), 
+            task_assortativity = mean(task_assortativity), 
+            clustering = mean(clustering),
+            degree_mean = mean(degree_mean),
+            degree_max = mean(degree_maximum),
+            density = mean(density),
+            diameter = mean(diameter),
+            efficiency = mean(efficiency),
+            modularity = mean(modularity),
+            nr_communities = mean(nr_communities),
+            nb_unconnected = mean(nb_unconnected)) %>% as.data.frame()
   
-  
+variables <- c("task_assortativity", "clustering", "degree_mean", "degree_maximum", 
+               "density", "diameter", "efficiency", "modularity", "nr_communities")
+for (var in variables) { # var <- variables[1]
+  p <- ggplot(network_properties_classic_post, aes(x = treatment, y = .data[[var]])) +
+    geom_boxplot(aes(fill = treatment), alpha = 0.6) +  # Create boxplot with treatments
+    geom_jitter(width = 0.2, aes(color = treatment), alpha = 0.7) +  # Show raw data points (jittered)
+    labs(title = paste("Boxplot of", var, "by treatment"),
+         x = "Treatment", y = var) +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Rotate x-axis labels for better readability
+  mod <- lmer(as.formula(paste(var, "~ treatment + (1|colony_size)")), data = network_properties_classic_post)
+  anova_results <- Anova(mod)
+  p_value <- anova_results["treatment", "Pr(>Chisq)"]
+  test_norm(mod)
+  p <- p + ggtitle(paste("Boxplot of", var, "by treatment\n(p-value: ", round(p_value, 3), ")", sep = " "))
+  print(p)
+  print(paste(var, ": p-value =", p_value, sep = " ")) }
 
 
 

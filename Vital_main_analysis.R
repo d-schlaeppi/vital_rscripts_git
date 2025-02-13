@@ -52,11 +52,11 @@ RUN_TROPHALLACTIC_INTERACTIONS     <- FALSE
 # Define what analysis step to run: 
 RUN_11_randomise_interactions_DS.R        <- FALSE
 RUN_12_simulate_transmission_DS.R         <- FALSE
-RUN_13_network_analysis_DS.R              <- TRUE
+RUN_13_network_analysis_DS.R              <- FALSE
 RUN_14_summarise_interactions_DS.R        <- FALSE
-RUN_19_Facetnet_community_detection_DS.R  <- FALSE
+RUN_19_Facetnet_community_detection_DS.R  <- TRUE
 RUN_19_FIRST_SUBSECTION_ONLY              <- FALSE  # Community detection on observed data only for task allocation --> run only the first section of the script (subsetted) -- Usually this is set to false, unless you are opening this script for the first time and want to get task allocation via the facet net method as alternative to the space use method in base analysis
-RUN_19_SECOND_SUBSECTION_ONLY             <- FALSE
+RUN_19_SECOND_SUBSECTION_ONLY             <- TRUE
 
 
 

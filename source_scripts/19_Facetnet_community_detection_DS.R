@@ -21,12 +21,13 @@
 # Set up directories and parameters
 
 # FACENET community partition parameters
-m                <- 2          ## how many communities do we want to instruct FACETNET to search for...? Nurses and Foragers so 2?
-alpha            <- 0.5        ## used for modulating the `memory` - how much the community structure @ time t influences that at t+1 - only matters when we ask facetnet to pay attention to this...
-t_step           <- 0          ## not important
-N_ITERATIONS     <- 100        ## number of iterations to find best modularity: the modularity of the found solutions vary quite a bit --> repeat multiple times & select the highest-modularity solution 
-DISPLAY_RESULTS  <- FALSE       ## optional plotting of results
-UPDATE_DATA      <- FALSE      ## updating of tables - e.g. adding modularity based on facet_net
+m                   <- 2          ## how many communities do we want to instruct FACETNET to search for...? Nurses and Foragers so 2?
+alpha               <- 0.5        ## used for modulating the `memory` - how much the community structure @ time t influences that at t+1 - only matters when we ask facetnet to pay attention to this...
+t_step              <- 0          ## not important
+N_ITERATIONS        <- 50        ## number of iterations to find best modularity: the modularity of the found solutions vary quite a bit --> repeat multiple times & select the highest-modularity solution 
+UPDATE_DATA         <- FALSE      ## updating of tables - e.g. adding modularity based on facet_net, might need some fixing as well...
+DISPLAY_RESULTS_I   <- FALSE       ## optional plotting of results in loop #
+DISPLAY_RESULTS_II  <- TRUE       ## optional plotting of results after loop # might need some fixing... 
 
 # set directories to match original version of script ### should already be defined as we are sourcing this from the main_analysis script anyways. 
 # DATADIR <- paste("/media",usr, hd, "vital/fc2",sep="/") 
@@ -249,7 +250,7 @@ for (input_folder in input_folders){ # input_folder <- input_folders[2]
         Combined$task_group_FACETNET_0.5 [which(Combined$tag == queenid)] <- "queen"
         #}
         
-        if(DISPLAY_RESULTS){
+        if(DISPLAY_RESULTS_I){
           ## tally the agreement between the original and new (facetnet) task labels
           Agreement <- table(Combined$task_group_prop, Combined$task_group_FACETNET_0.5)
           rownames(Agreement) <- paste("orig", rownames(Agreement),sep="_")
@@ -297,7 +298,7 @@ if (RUN_19_FIRST_SUBSECTION_ONLY != TRUE) {
 
 #### DISPLAY RESULTS  ####
 
-if(DISPLAY_RESULTS){
+if(DISPLAY_RESULTS_II){
 
   ###  fetch best modularity values and save output  ###
   # # Define directory and patterns
@@ -403,18 +404,13 @@ if(DISPLAY_RESULTS){
 
 
 
-
-
 # maybe the following needs to be run with once the randomised or simulated things are ones are run as well? so we have observed or simulated in addition to observed? 
-
-
-#### Merge cluster output ####
-# Set the path to the directory
-
-# path <- paste0(data_path,"/Soft_community_scores_duration") 
+# #### Merge cluster output ####
+# # Set the path to the directory
+# path <- paste0(data_path,"/Soft_community_scores_duration")
 # 
 # # List all the text files in the directory
-# files <- list.files(path, pattern = "\\.txt$", full.names = TRUE)   ### somehow I do not have any textfiles here? 
+# files <- list.files(path, pattern = "\\.txt$", full.names = TRUE, recursive = TRUE)
 # 
 # # Read and combine all the files
 # combined_data <- do.call(rbind, lapply(files, read.table, header=TRUE, stringsAsFactors=FALSE))
@@ -425,8 +421,6 @@ if(DISPLAY_RESULTS){
 # # Save the combined data to a new file
 # output_path <- "/media/cf19810/Seagate Portable Drive/Lasius-Bristol_pathogen_experiment/main_experiment/Soft_community_scores_duration_1ITER_0.5alpha_full.txt"
 # write.table(combined_data, file=output_path, row.names=FALSE, sep="\t", quote=FALSE)
-
-
 
 
 ### Continue adjusting here once the randomisations have been run?!
