@@ -205,7 +205,20 @@ contrast_matrix <- rbind(
 "DeltaControl"=c(0,0,1,0,0),
 "Delta50 minus Delta5"=c(0,0,0,-1,1),
 "Delta50 minus DeltaControl"=c(0,0,0,0,1),
-"Delta5 minus DeltaControl"=c(0,0,0,1,0))
+"Delta5 minus DeltaControl"=c(0,0,0,1,0),
+"sham-50 minus sham-0"=c(0, 1, 0, 0, 0),
+"sham-50 minussham-5"=c( -1, 1, 0, 0, 0),
+"sham5 minus sham0"= c(1, 0, 0, 0,0)
+)
+
+# contrast_matrix <- rbind(
+#   "Delta50"=c(0,0,1,0,1),
+#   "Delta5"=c(0,0,1,1,0),
+#   "DeltaControl"=c(0,0,1,0,0),
+#   "Delta50 minus Delta5"=c(0,0,0,-1,1),
+#   "Delta50 minus DeltaControl"=c(0,0,0,0,1),
+#   "Delta5 minus DeltaControl"=c(0,0,0,1,0))
+
 
 posthocs <- summary(glht(interaction_model,linfct=contrast_matrix),test=adjusted("BH"))
 
@@ -233,9 +246,8 @@ hr_data <- data.frame(
 
 
 
-
 #### 3.2 Plot ####
-# # Survival plot for the FPF Fungus interaction test (exported as 800*600)
+## Survival plot for the FPF Fungus interaction test (exported as 800*600)
 surviplot <- survfit(Surv (time = survival, event = censor) ~ 1 + concentration + fungus, data=flugus_data)
 # aggregate(censor ~ fungus + concentration, FUN=mean,data=flugus_data)
 chosen_colors <- viridis(2, option = 5, begin = 0, end = 0.8)
@@ -257,7 +269,7 @@ surv_plot <- ggsurvplot(surviplot, data = flugus_data,
                         xlab = 'Time (days)', ylab = 'Proportion Surviving',
                         palette = color_vector,
                         ggtheme = theme_bw(),
-                        xlim = c(0, 16),
+                        xlim = c(0, 14.5),
                         censor = FALSE,
                         conf.int = TRUE,
                         conf.int.alpha = 0.2,
@@ -272,27 +284,29 @@ surv_plot$plot <- surv_plot$plot +
         axis.text = element_text(size = 14),
         axis.ticks = element_line(linewidth = 1),
         strip.text = element_text(size = 14)) +
-  geom_segment(aes(x = 14.8, y = 0.78, xend = 14.8, yend = 0.65))+
-  geom_segment(aes(x = 14.8, y = 0.52, xend = 14.8, yend = 0.325)) +
+  # geom_segment(aes(x = 14.8, y = 0.78, xend = 14.8, yend = 0.65))+
+  # geom_segment(aes(x = 14.8, y = 0.52, xend = 14.8, yend = 0.325)) +
   geom_segment(aes(x = 0.4, y = 0.33-y_offset, xend = 1, yend = 0.33-y_offset), color = chosen_colors[1], linetype = line_types[1]) +
   geom_segment(aes(x = 0.4, y = 0.30-y_offset, xend = 1, yend = 0.30-y_offset), color = chosen_colors[1], linetype = line_types[3]) +
   geom_segment(aes(x = 0.4, y = 0.271-y_offset, xend = 1, yend = 0.271-y_offset), color = chosen_colors[1], linetype = line_types[5]) +
   geom_segment(aes(x = 1.5, y = 0.33-y_offset, xend = 2.1, yend = 0.33-y_offset), color = chosen_colors[2], linetype = line_types[1]) +
   geom_segment(aes(x = 1.5, y = 0.30-y_offset, xend = 2.1, yend = 0.30-y_offset), color = chosen_colors[2], linetype = line_types[3]) +
   geom_segment(aes(x = 1.5, y = 0.271-y_offset, xend = 2.1, yend = 0.271-y_offset), color = chosen_colors[2], linetype = line_types[5]) +
-  annotate("text", x = 0.3, y=0.36-y_offset, label="sham", color = "black", size = 4, fontface = "plain", hjust = 0) +
-  annotate("text", x = 1.3, y=0.36-y_offset, label="fungus", color = "black", size = 4, fontface = "plain", hjust = 0) +
-  annotate("text", x = 2.5, y=0.33-y_offset, label="0 ppm", color = "black", size = 4, fontface = "plain", hjust = 0) +
-  annotate("text", x = 2.5, y=0.30-y_offset, label="5 ppm", color = "black", size = 4, fontface = "plain", hjust = 0) +
-  annotate("text", x = 2.5, y=0.27-y_offset, label="50 ppm", color = "black", size = 4, fontface = "plain", hjust = 0) +
-  annotate("text", x=15.5, y=0.71, label="n.s       ", color = "black", size = 3, fontface = "bold") +
-  annotate("text", x=15.5, y=0.42, label=" p = 0.01", color = "black", size = 3, fontface = "bold") +
-  geom_rect(aes(xmin = 0.2, xmax = 3.8, ymin = 0.2, ymax = 0.38 - y_offset), 
+  annotate("text", x = 0.3, y = 0.36-y_offset, label = "sham"   , color = "black", size = 3, fontface = "bold", hjust = 0) +
+  annotate("text", x = 1.3, y = 0.36-y_offset, label = "fungus" , color = "black", size = 3, fontface = "bold", hjust = 0) +
+  annotate("text", x = 2.3, y = 0.36-y_offset, label = "c [ppm]", color = "black", size = 3, fontface = "bold", hjust = 0) +
+  annotate("text", x = 2.5, y = 0.33-y_offset, label = "0 ppm"  , color = "black", size = 3, fontface = "plain", hjust = 0) +
+  annotate("text", x = 2.5, y = 0.30-y_offset, label = "5 ppm"  , color = "black", size = 3, fontface = "plain", hjust = 0) +
+  annotate("text", x = 2.5, y = 0.27-y_offset, label = "50 ppm" , color = "black", size = 3, fontface = "plain", hjust = 0) +
+  # annotate("text", x=15.5, y=0.71, label="n.s       ", color = "black", size = 3, fontface = "bold") +
+  # annotate("text", x=15.5, y=0.42, label=" p = 0.01", color = "black", size = 3, fontface = "bold") +
+  geom_rect(aes(xmin = 0.2, xmax = 3.6, ymin = 0.2, ymax = 0.38 - y_offset), 
             fill = NA, color = "black", lwd = 0.05) +
     scale_x_continuous(breaks = seq(0, 14, by = 2)) +
   geom_text(data = y_coordinates, 
             aes(x = 14.2, y = prop_surviving, label = labeling), 
-            size = 3, hjust = 0, vjust = 0.5, inherit.aes = FALSE)
+            size = 3, hjust = 0, vjust = 0.5, inherit.aes = FALSE) +
+  annotate("text", x = 13.9, y = 0.97, label = "c [ppm]", size = 3, hjust = 0, fontface = "bold")
 
 print(surv_plot)
 
@@ -337,7 +351,7 @@ grid.arrange(
 
 
 
-
+#_____________________________________________________________________________________________________________________________________________
 #### 4. Supplementary material ####
 #### 4.1 Prepare food uptake data ####
 
