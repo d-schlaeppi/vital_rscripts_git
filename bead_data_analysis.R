@@ -172,14 +172,15 @@ subset_colonies <- colony_metadata[colony_metadata$exclude_colony_for_beadanalys
 colonies_to_analyse <- subset_colonies$colony_id
 
 ### create random assignment of control food sources to virus and pseudo virus:
-set.seed(4)
+set.seed(1)
 treatment_c_random <- subset_colonies$treatment
 c_rows <- grep("^c", subset_colonies$treatment)
 new_treatments <- c(rep("cb", length(subset_colonies$treatment[subset_colonies$treatment == "cb"])), rep("cy", length(subset_colonies$treatment[subset_colonies$treatment == "cy"])))
 new_treatments <- sample(new_treatments)
 treatment_c_random[c_rows] <- new_treatments
 subset_colonies$treatment_c_random <- treatment_c_random
-table(subset_colonies$treatment_c_random)
+# table(subset_colonies$treatment_c_random)
+# table(subset_colonies$treatment)
 
 ### over ride treatment if you want to use random assignment of the pseudo virus food in the controls.
 USE_RANDOM_CONTROL_FOOD_SOURCE_ASSIGNMENT <- TRUE
@@ -189,7 +190,8 @@ if (USE_RANDOM_CONTROL_FOOD_SOURCE_ASSIGNMENT == TRUE) {
     df %>% left_join(subset_colonies %>% 
            dplyr::select(colony_id, treatment_c_random), by = "colony_id") %>%
            mutate(treatment = ifelse(!is.na(treatment_c_random), treatment_c_random, treatment)) %>%
-           dplyr::select(-treatment_c_random)} 
+           dplyr::select(-treatment_c_random)
+      } 
   # apply
   merged_data_individuals <- update_control_treatment(merged_data_individuals, subset_colonies)
   merged_data_brood <- update_control_treatment(merged_data_brood, subset_colonies) }
@@ -394,9 +396,9 @@ for (who in c("untreated_only","treated_only", "everyone")){ # who = "everyone" 
 
 
 
-#' no difference detectable when looking at everyone or at treated only 
-#' But when looking the summed up food that was shared with nestmates it there seems it appears that more virus food reaches the nestmates!
-#' See if such a pattern can also be detected at individual level.
+#' no difference detectable when looking at everyone or at treated only?
+#' But when looking the summed up food that was shared with nestmates it there seems it appears that maybe more virus food reaches the nestmates!
+#' See if such a pattern can be detected at individual level.
 
 
 
@@ -506,14 +508,6 @@ for (treat in treaty) { # treat <-  "control"
       theme_minimal()
     plots_2[[length(plots_2) + 1]] <- p}}
 grid.arrange(grobs = plots_2, ncol = 2)
-
-
-
-
-
-
-
-
 
 
 
@@ -767,10 +761,10 @@ wilcox.test(nestmates_long$bead_count[nestmates_long$treatment_simple == "virus"
 
 
 #_____________________________________________________________________________________________________________________________________________________________________________________
-#### Write data on individals to metadata so it can be accessed in other scrip†s ####
+#### Update metadata tables to get acces to this info in other scripts ####
 
 # access to food in treated individuals
-# amount of food per food source (control virus and pseudo virus)
+# amount of food per food source (control virus and pseudo virus) to individual metadata
 
 
 
