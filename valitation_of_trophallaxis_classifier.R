@@ -55,20 +55,29 @@ trophy_data_to_check_manually <- trophy_data_to_check_manually %>% arrange(colon
 trophy_data_to_check_manually$fort_time <- unlist(trophy_data_to_check_manually$fort_time)
 write.table(trophy_data_to_check_manually, file=paste(DATADIR, "vital_experiment/main_experiment_trophallaxis/intermediary_analysis_steps/trophy_data_to_check_manually.txt",sep="/"),append=F,quote=F,row.names=F,col.names=T)
 
+
+#_________________________________________________________________________________________________________________________________________________________________________________________________________________________
 #### Manual Annotation ####
 # done manually and saved in SCRIPTDIR
 
 
+
+
+
+#_________________________________________________________________________________________________________________________________________________________________________________________________________________________
 #### Evaluation ####
 validation_file <- paste(SCRIPTDIR, "trophy_validation_data.csv", sep = "/")
 valium <- read.csv(validation_file)
+
+valium <- valium %>% dplyr::select(-comment) %>% drop_na() %>% as.data.frame()
+
 
 tresholds <- seq(0, 10, by = 0.2)
 results <- data.frame(treshold = numeric(0), 
                       prop_true_positives_over_t = numeric(0), 
                       prop_false_positives_over_t = numeric(0))
 # Loop over the thresholds and calculate the metrics
-for (treshold in tresholds) {
+for (treshold in tresholds) { # treshold <- tresholds[1]
   nr_interactions_below_t <- sum(valium$duration < treshold)
   nr_interactions_above_t <- sum(valium$duration >= treshold)
   
@@ -132,7 +141,6 @@ ggplot(valium, aes(x = duration, fill = interaction_trophy)) +
   labs(x = "Duration (seconds)", y = "Frequency", fill = "Interaction Type") +
   ggtitle("Histogram of Duration with Interaction Types") +
   theme_minimal()
-
 
 
 

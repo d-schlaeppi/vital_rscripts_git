@@ -91,6 +91,7 @@ code_path   <- paste(SCRIPTDIR, "source_scripts", sep="/")  # paste("/home/",usr
 data_paths  <- choose_data_path()
 info        <- read.table(paste("/media", usr, hd, "vital/fc2/vital_experiment/main_experiment/original_data/info.txt",sep="/"), header=T,stringsAsFactors = F) 
 treated     <- read.table(paste("/media", usr, hd, "vital/fc2/vital_experiment/main_experiment/original_data/treated_worker_list.txt",sep="/"),header=T,stringsAsFactors = F)
+treated     <- treated %>% filter(final_inclusion == TRUE) %>% as.data.frame() # treated ants have been updated based on Daniels needs and contain all treated ants, inclduding the ones to exclude in final analysis (e.g. dead ones) --- has been changed later on... so other scripts referring to treated ants might need to be updated as well if issues arise with this new version
 task_groups <- read.table(paste("/media", usr, hd, "vital/fc2/vital_experiment/main_experiment/original_data/task_groups.txt",sep="/"),header=T,stringsAsFactors = F) # might need to be checked if this how the task groups are defined at the moment... % or facet net?  
 tag_list    <- paste("/media", usr, hd, "vital/fc2/vital_experiment/main_experiment/original_data/tag_files/",sep="/")
 seed_path   <- paste("/media", usr, hd, "vital/fc2/vital_experiment/main_experiment/original_data/seeds/",sep="/")
