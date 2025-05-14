@@ -170,7 +170,11 @@ merged_data_brood <- merge(brood_data[, !names(brood_data) %in% c("treatment", "
 ### Identify which colonies to analyse
 # based on whether fluorescence has been measured and whether it was not fed with the contaminated virus food source. 
 
+<<<<<<< HEAD
 subset_colonies <- colony_metadata[colony_metadata$exclude_colony_for_beadanalyses == "no", ]
+=======
+subset_colonies <- colony_metadata[colony_metadata$exclude_colony_for_beadanalyses == "no", ] # version which also excludes the ones with the contaminated virus food source (originally treatment virus yellow of blocks 3+)
+>>>>>>> ecd1281e363ddf96e652a17d4ad1c170c205787f
 colonies_to_analyse <- subset_colonies$colony_id
 
 ### create random assignment of control food sources to virus and pseudo virus:
