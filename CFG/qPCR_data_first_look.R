@@ -1,5 +1,5 @@
 rm(list = setdiff(ls(), "first_time_use_working_directory"))
-
+rm(list = ls())
 # CFG first look into qPCR data
 
 # load required libraries and functions:
@@ -7,7 +7,8 @@ pacman::p_load(dplyr, ggplot2, readr, lme4, lmerTest)
 
 # Set working directory
 if (!exists("first_time_use_working_directory") || first_time_use_working_directory == "") { # direct it to where you have config_user_and_hd.R (typically the script folder or github folder)
-  standard <- "/Users/gismo/Documents/GitHub/vital_rscripts_git/CFG" # if you are always working from the same directory just put its name here and it will save you some clicking.  
+  #standard <- "/Users/gismo/Documents/GitHub/vital_rscripts_git/CFG" # if you are always working from the same directory just put its name here and it will save you some clicking.  
+  standard <- "/media/ael/gismo_hd2/vital/vital_rscripts_git/CFG" # if you are always working from the same directory just put its name here and it will save you some clicking.  
   selected_dir <- if  (dir.exists(standard)) {standard} else {tcltk::tk_choose.dir(default = "~/", caption = "Select Working Directory")}
   if (is.null(selected_dir) || selected_dir == "") {
     cat("No directory selected. Exiting.\n")
@@ -31,7 +32,7 @@ names(cfg_frozen_ants)
 
 cfg_merged <- cfg_frozen_ants %>%
   left_join(cfg_qpcr_all, by = c("ID" = "sample_id")) %>% 
-  select(-Comment, -`...9`) %>% as.data.frame()
+  dplyr::select(-Comment, -`...9`) %>% as.data.frame()
 
 analysed <- cfg_merged %>%
   group_by(Colony) %>%
@@ -49,37 +50,47 @@ cfg_subset <- cfg_merged %>%
   rename(colony_id = Colony) %>% as.data.frame()
 
 cfg_colony_metadata_sub <- cfg_colony_metadata %>% 
-  select(colony_id, treatment)%>% as.data.frame()
+  dplyr::select(colony_id, treatment)%>% as.data.frame()
 
 cfg <- cfg_subset %>%
   left_join(cfg_colony_metadata_sub, by = "colony_id") %>%
   rename(spore_concentration = `spore_concentration[ng/ul]`)%>% as.data.frame()
 
 # Plots
-ggplot(cfg, aes(x = treatment, y = spore_concentration)) +
+p1 <- ggplot(cfg, aes(x = treatment, y = spore_concentration)) +
   stat_summary(fun = mean, geom = "bar", fill = "steelblue", color = "black", width = 0.6) +
   stat_summary(fun.data = mean_se, geom = "errorbar", width = 0.2) +
   ylab("Spore concentration [ng/µl]") +
   xlab("Treatment") +
-  theme_minimal()
+  ggtitle("Mean ± SE") +
+  theme_bw() + 
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
 
-ggplot(cfg, aes(x = treatment, y = log10(spore_concentration))) +
+p2 <- ggplot(cfg, aes(x = treatment, y = log10(spore_concentration))) +
   geom_boxplot(outlier.shape = NA, fill = "lightgray", color = "black") +
-  geom_jitter(width = 0.15, size = 1.5, alpha = 0.6) +
+  geom_jitter(width = 0.15, size = 1.5, alpha = 0.1) +
   ylab("Spore concentration [ng/µl]") +
   xlab("Treatment") +
-  theme_minimal()
+  ggtitle("Boxplot (log-transformed)") +
+  theme_minimal() + 
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
 
-ggplot(cfg, aes(x = treatment, y = log10(spore_concentration))) +
+p3 <- ggplot(cfg, aes(x = treatment, y = log10(spore_concentration))) +
   geom_violin(trim = FALSE, fill = "lightblue", color = "black", alpha = 0.7) +
-  geom_jitter(width = 0.15, size = 1.5, alpha = 0.6) +
+  geom_jitter(width = 0.15, size = 1.5, alpha = 0.1) +
   ylab("Spore concentration [ng/µl]") +
   xlab("Treatment") +
-  theme_minimal()
+  ggtitle("Violin Plot (log-transformed)") +
+  theme_minimal() + 
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank())
 
-# first rought model: 
+(p1 | p2 | p3) + 
+  plot_annotation(title = "Spore Concentration by Treatment (Multiple Visualizations)")
 
-
+# first rough model: 
 model <- lmer(log10(spore_concentration) ~ treatment + (1 | colony_id), data = cfg)
 summary(model)
 anova(model)
