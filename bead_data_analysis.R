@@ -43,7 +43,7 @@ if (!exists("first_time_use_working_directory") || first_time_use_working_direct
 source("config_user_and_hd.R") # contains getUserOptions() that defines usr and hd and the clean() function
 source(paste0(SCRIPTDIR,"/vital_fc1/func_test_norm.R"))
 
-# # should now also work on windows and if not quickly define inputs manually:
+# should now also work on windows and if not quickly define inputs manually:
 # DATADIR <- "D:/DISK_B/vital/fc2"
 # SCRIPTDIR <- "D:/DISK_B/vital/vital_rscripts_git"
 
