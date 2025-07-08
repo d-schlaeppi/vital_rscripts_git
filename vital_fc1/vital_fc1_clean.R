@@ -192,6 +192,11 @@ if(TRUE){
     geom_jitter(width = 0.35, color = "black", alpha = 0.1) +
     labs(title = "Violin Plot") +
     scale_fill_manual(values = c("virus" = "#D04C5B", "control" = "#A1D99B")) +
+    geom_segment(aes(x = 1, xend = 2, y = 1.05 * max(feeding_duration_seconds_capped, na.rm = TRUE), 
+                     yend = 1.05 * max(feeding_duration_seconds_capped, na.rm = TRUE)),
+                 color = "black", size = 0.25) +
+    annotate("text", x = 1.5, y = 1.1 * max(dat_duration$feeding_duration_seconds_capped, na.rm = TRUE), 
+             label = "*** (glmer nbinom2)", color = "black", size = 3) +
     theme_bw() +
     theme(panel.grid.major = element_blank(),
           panel.grid.minor = element_blank())
@@ -560,6 +565,7 @@ mod <- lmer(log10(time_first_feeding) ~ food_source + (1|colony_id), data = firs
 Anova(mod)
 sim_res <- simulateResiduals(mod)
 plot(sim_res)
+test_norm(mod)
 
 # on average the virus food is feasted upon earlier than the control food source
 
@@ -748,8 +754,8 @@ start_time <- "shifted_discovery"
                 panel.grid.major = element_blank(),
                 panel.grid.minor = element_blank()))
   
+  
   #### 4.2.4 Plot exploitation rate over time per food source or food discovery time ####
-
   ### based on food type
   mean_exploitation_rate <- cumulative_explotation_food_source %>%
     group_by(time, food_source) %>%
@@ -881,7 +887,7 @@ start_time <- "shifted_discovery"
   # cumulative_explotation_over_time_differential$cumulated_exploitation_time_differential <- cumulative_explotation_over_time_differential$cumulated_exploitation_time_first_source_discovered - cumulative_explotation_over_time_differential$cumulated_exploitation_time_second_source_discovered
   # aggregate(exploitation_rate_differential~first_source_fed_on,function(x)cbind(mean(x),std.error(x)),data=cumulative_explotation_over_time_differential)
 
-  exploitation_delta %>%
+  data_delta %>%
     group_by(first_source_fed_on) %>%
     summarise(
       mean_exploitation_rate_diff = mean(delta_exploitation_rate, na.rm = TRUE),

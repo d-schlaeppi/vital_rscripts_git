@@ -1,9 +1,9 @@
 rm(list = setdiff(ls(), "first_time_use_working_directory"))
-rm(list = ls())
+#rm(list = ls())
 # CFG first look into qPCR data
 
 # load required libraries and functions:
-pacman::p_load(dplyr, ggplot2, readr, lme4, lmerTest)
+pacman::p_load(dplyr, ggplot2, readr, lme4, lmerTest, patchwork, car)
 
 # Set working directory
 if (!exists("first_time_use_working_directory") || first_time_use_working_directory == "") { # direct it to where you have config_user_and_hd.R (typically the script folder or github folder)
@@ -56,6 +56,10 @@ cfg <- cfg_subset %>%
   left_join(cfg_colony_metadata_sub, by = "colony_id") %>%
   rename(spore_concentration = `spore_concentration[ng/ul]`)%>% as.data.frame()
 
+cfg <- cfg %>%
+  mutate(spore_concentration = ifelse(is.na(spore_concentration), 0, spore_concentration),
+         high_exposure = spore_concentration > 4.32e-5)
+
 # Plots
 p1 <- ggplot(cfg, aes(x = treatment, y = spore_concentration)) +
   stat_summary(fun = mean, geom = "bar", fill = "steelblue", color = "black", width = 0.6) +
@@ -91,10 +95,147 @@ p3 <- ggplot(cfg, aes(x = treatment, y = log10(spore_concentration))) +
   plot_annotation(title = "Spore Concentration by Treatment (Multiple Visualizations)")
 
 # first rough model: 
-model <- lmer(log10(spore_concentration) ~ treatment + (1 | colony_id), data = cfg)
+mini <- 0.5*min(cfg$spore_concentration[cfg$spore_concentration > 0], na.rm = TRUE)
+model <- lmer(log10(spore_concentration+mini) ~ treatment + (1 | colony_id), data = cfg)
 summary(model)
 anova(model)
 
 
 
 
+#### high vs. low threshold ####
+# Define threshold from the paper
+threshold <- 4.32e-5 # based on nathalies input - ask for citation
+
+# Add exposure category
+cfg <- cfg %>%  mutate(exposure_level = if_else(spore_concentration > threshold, "high", "low"))
+# Count and proportion of high/low per treatment
+exposure_summary <- cfg %>%
+  group_by(treatment, exposure_level) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  group_by(treatment) %>%
+  mutate(proportion = count / sum(count))
+
+ggplot(exposure_summary, aes(x = treatment, y = proportion, fill = exposure_level)) +
+  geom_col(position = "fill") +
+  scale_y_continuous(labels = scales::percent_format()) +
+  scale_fill_manual(values = c("low" = "#CCEBC5", "high" = "#FBB4AE")) +
+  labs(
+    title = "Proportion of Ants by Exposure Level",
+    x = "Treatment",
+    y = "Proportion of Ants",
+    fill = "Exposure Level"
+  ) +
+  theme_bw() +
+  theme(panel.grid = element_blank())
+
+# Create contingency table
+exposure_table <- table(cfg$treatment, cfg$exposure_level)
+# Chi-square test
+chisq.test(exposure_table)
+# If expected frequencies are low, use Fisher's exact test
+fisher.test(exposure_table)
+cfg$exposure_binary <- if_else(cfg$exposure_level == "high", 1, 0)
+mod <- glm(exposure_binary ~ treatment, data = cfg, family = binomial)
+summary(mod)
+
+
+### binary variable
+cfg <- cfg %>% mutate(high_exposure = spore_concentration > threshold)
+colony_summary <- cfg %>%
+  group_by(colony_id, treatment) %>%
+  summarise(
+    n_total = n(),
+    n_high = sum(high_exposure),
+    prop_high = n_high / n_total,
+    .groups = "drop"
+  )
+
+ggplot(colony_summary, aes(x = treatment, y = prop_high, fill = treatment)) +
+  geom_boxplot(width = 0.6, outlier.shape = NA) +
+  geom_jitter(width = 0.15, alpha = 0.7, color = "black") +
+  scale_fill_manual(values = c("control" = "#CCEBC5", "flupy" = "#FBB4AE")) +
+  labs(
+    title = "Proportion of High Exposure Ants per Colony",
+    x = "Treatment",
+    y = "Proportion > Threshold"
+  ) +
+  theme_bw() +
+  theme(panel.grid = element_blank(), legend.position = "none")
+
+
+mod <- glmer(high_exposure ~ treatment + (1 | colony_id), data = cfg, family = binomial)
+summary(mod)
+Anova(mod)
+
+
+# transform ng/ug to actual spore count?
+# test out a couple of different thresholds-
+
+
+thresholds <- c(0.1 * 4.32e-5, 4.32e-5, 10 * 4.32e-5)
+
+# Loop through each threshold
+for (threshold in thresholds) { #threshold <- thresholds[1]
+  message("Running analysis for threshold: ", threshold)
+  # Add exposure category
+  cfg <- cfg %>% mutate(exposure_level = if_else(spore_concentration > threshold, "high", "low"))
+  
+  # Count and proportion of high/low per treatment
+  exposure_summary <- cfg %>%
+    group_by(treatment, exposure_level) %>%
+    summarise(count = n(), .groups = "drop") %>%
+    group_by(treatment) %>%
+    mutate(proportion = count / sum(count))
+  
+  print(ggplot(exposure_summary, aes(x = treatment, y = proportion, fill = exposure_level)) +
+          geom_col(position = "fill") +
+          scale_y_continuous(labels = scales::percent_format()) +
+          scale_fill_manual(values = c("low" = "#CCEBC5", "high" = "#FBB4AE")) +
+          labs(
+            title = paste("Proportion of Ants by Exposure Level (threshold =", format(threshold, scientific = TRUE), ")"),
+            x = "Treatment",
+            y = "Proportion of Ants",
+            fill = "Exposure Level"
+          ) +
+          theme_bw() +
+          theme(panel.grid = element_blank()))
+  
+  # Statistical tests
+  exposure_table <- table(cfg$treatment, cfg$exposure_level)
+  print(chisq.test(exposure_table))
+  print(fisher.test(exposure_table))
+  
+  # Logistic regression
+  cfg$exposure_binary <- if_else(cfg$exposure_level == "high", 1, 0)
+  mod <- glm(exposure_binary ~ treatment, data = cfg, family = binomial)
+  print(summary(mod))
+  
+  # Summary per colony
+  cfg <- cfg %>% mutate(high_exposure = spore_concentration > threshold)
+  colony_summary <- cfg %>%
+    group_by(colony_id, treatment) %>%
+    summarise(
+      n_total = n(),
+      n_high = sum(high_exposure),
+      prop_high = n_high / n_total,
+      .groups = "drop"
+    )
+  
+  print(ggplot(colony_summary, aes(x = treatment, y = prop_high, fill = treatment)) +
+          geom_boxplot(width = 0.6, outlier.shape = NA) +
+          geom_jitter(width = 0.15, alpha = 0.7, color = "black") +
+          scale_fill_manual(values = c("control" = "#CCEBC5", "flupy" = "#FBB4AE")) +
+          labs(
+            title = paste("Proportion of High Exposure Ants per Colony (threshold =", format(threshold, scientific = TRUE), ")"),
+            x = "Treatment",
+            y = "Proportion > Threshold"
+          ) +
+          theme_bw() +
+          theme(panel.grid = element_blank(), legend.position = "none"))
+  
+  # Mixed-effects logistic regression
+  mod2 <- glmer(high_exposure ~ treatment + (1 | colony_id), data = cfg, family = binomial)
+  print(summary(mod2))
+  print(Anova(mod2))
+}
